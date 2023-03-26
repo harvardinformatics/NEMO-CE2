@@ -9,7 +9,7 @@ Test:
   variables:
     GIT_STRATEGY: clone
   stage: test
-  image: python3
+  image: python:3
   script:
     - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/NEMO/tests"
     - cd NEMO
