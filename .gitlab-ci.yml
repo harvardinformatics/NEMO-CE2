@@ -1,0 +1,42 @@
+stages:
+  - test
+  - build
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+Test:
+  variables:
+    GIT_STRATEGY: clone
+  stage: test
+  image: python3
+  script:
+    - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/NEMO/tests"
+    - cd NEMO
+    - python NEMO/manage.py test tests --settings=test_settings
+
+NEMO-CE dev build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login --username $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build --tag $CI_REGISTRY_IMAGE:dev .
+    - docker push $CI_REGISTRY_IMAGE:dev
+    - docker logout
+
+NEMO-CE Release:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login --username $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build --tag $CI_REGISTRY_IMAGE${CI_COMMIT_TAG:+:}${CI_COMMIT_TAG:-} --tag $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE${CI_COMMIT_TAG:+:}${CI_COMMIT_TAG:-}
+    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker logout
+  only:
+    - master
+    - tags

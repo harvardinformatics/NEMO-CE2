@@ -1,17 +1,17 @@
 from setuptools import find_namespace_packages, setup
 
 setup(
-	name='NEMO',
+	name='NEMO-CE',
 	version='4.4.1',
 	python_requires='>=3.8',
 	packages=find_namespace_packages(exclude=['NEMO.tests', 'NEMO.tests.*']),
 	include_package_data=True,
-	url='https://github.com/usnistgov/NEMO',
+	url='https://gitlab.com/nemo-community/nemo-ce',
 	license='Public domain',
-	author='Center for Nanoscale Science and Technology',
-	author_email='CNSTapplications@nist.gov',
-	description='NEMO is a laboratory logistics web application. Use it to schedule reservations, control tool access, track maintenance issues, and more.',
-	long_description='Find out more about NEMO on the GitHub project page https://github.com/usnistgov/NEMO',
+	author='Atlantis Labs, LLC',
+	author_email='nemo@atlantislabs.io',
+	description='NEMO Community Edition is a laboratory logistics web application based of NEMO. Use it to schedule reservations, control tool access, track maintenance issues, and more.',
+	long_description='Find out more about NEMO CE on the Gitlab project page https://gitlab.com/nemo-community/nemo-ce',
 	classifiers=[
 		'Development Status :: 5 - Production/Stable',
 		'Environment :: Web Environment',
