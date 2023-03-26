@@ -11,7 +11,7 @@ Test:
   stage: test
   image: python:3
   script:
-    - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/NEMO/tests"
+    - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/tests"
     - python -m pip install ./
     - python NEMO/manage.py test tests --settings=test_settings
 
