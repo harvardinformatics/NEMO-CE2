@@ -38,5 +38,4 @@ NEMO-CE Release:
     - docker push $CI_REGISTRY_IMAGE:latest
     - docker logout
   only:
-    - master
     - tags
