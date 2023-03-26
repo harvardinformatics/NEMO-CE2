@@ -12,7 +12,6 @@ Test:
   image: python:3
   script:
     - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/NEMO/tests"
-    - cd NEMO
     - python NEMO/manage.py test tests --settings=test_settings
 
 NEMO-CE dev build:
