@@ -2,6 +2,7 @@ import datetime
 from datetime import timedelta
 from importlib.metadata import PackageNotFoundError, version
 
+from NEMO.views.customization import CustomizationBase, ProjectsAccountsCustomization
 from django import template
 from django.shortcuts import resolve_url
 from django.template import Context, Template
@@ -11,8 +12,6 @@ from django.utils import timezone
 from django.utils.formats import localize_input
 from django.utils.html import escape, escapejs, format_html
 from django.utils.safestring import mark_safe
-
-from NEMO.views.customization import CustomizationBase, ProjectsAccountsCustomization
 
 register = template.Library()
 
@@ -139,7 +138,7 @@ def app_version() -> str:
 		return dist_version
 	else:
 		try:
-			dist_version = version("NEMO")
+			dist_version = version("NEMO-CE")
 		except PackageNotFoundError:
 			# package is not installed
 			dist_version = None

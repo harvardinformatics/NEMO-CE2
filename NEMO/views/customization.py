@@ -2,6 +2,11 @@ from abc import ABC
 from datetime import date, datetime
 from typing import Dict, Iterable
 
+from NEMO import init_admin_site
+from NEMO.decorators import administrator_required, customization
+from NEMO.exceptions import InvalidCustomizationException
+from NEMO.models import ConsumableCategory, Customization, Project, RecurringConsumableCharge
+from NEMO.utilities import date_input_format, datetime_input_format, quiet_int
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.files.storage import get_storage_class
@@ -14,12 +19,6 @@ from django.http import HttpResponseNotFound
 from django.shortcuts import redirect, render
 from django.template import Context, Template
 from django.views.decorators.http import require_GET, require_POST
-
-from NEMO import init_admin_site
-from NEMO.decorators import administrator_required, customization
-from NEMO.exceptions import InvalidCustomizationException
-from NEMO.models import ConsumableCategory, Customization, Project, RecurringConsumableCharge
-from NEMO.utilities import date_input_format, datetime_input_format, quiet_int
 
 
 class CustomizationBase(ABC):
@@ -144,7 +143,7 @@ class CustomizationBase(ABC):
 class ApplicationCustomization(CustomizationBase):
 	variables = {
 		"facility_name": "Facility",
-		"site_title": "NEMO",
+		"site_title": "NEMO-CE",
 		"self_log_in": "",
 		"self_log_out": "",
 		"calendar_login_logout": "",
