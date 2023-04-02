@@ -2,7 +2,7 @@ from setuptools import find_namespace_packages, setup
 
 setup(
 	name='NEMO-CE',
-	version='4.4.1',
+	version='1.0.0',
 	python_requires='>=3.8',
 	packages=find_namespace_packages(exclude=['NEMO.tests', 'NEMO.tests.*']),
 	include_package_data=True,
@@ -30,7 +30,7 @@ setup(
 		'django-filter==22.1',
 		'django-mptt==0.14.0',
 		'djangorestframework==3.14.0',
-		'drf-excel==2.2.0',
+		'drf-excel==2.3.0',
 		'drf-flex-fields==1.0.0',
 		'ldap3==2.9.1',
 		'Pillow==9.4.0',

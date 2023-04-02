@@ -13,7 +13,7 @@ Test:
   script:
     - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/tests"
     - python -m pip install ./
-    - python NEMO/manage.py test tests --settings=test_settings
+    - python manage.py test NEMO.tests --settings=test_settings
 
 NEMO-CE dev build:
   stage: build

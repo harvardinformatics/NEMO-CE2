@@ -144,7 +144,7 @@ class CustomizationBase(ABC):
 class ApplicationCustomization(CustomizationBase):
 	variables = {
 		"facility_name": "Facility",
-		"site_title": "NEMO",
+		"site_title": "NEMO-CE",
 		"self_log_in": "",
 		"self_log_out": "",
 		"calendar_login_logout": "",
