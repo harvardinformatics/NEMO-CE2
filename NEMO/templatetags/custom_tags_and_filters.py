@@ -144,7 +144,7 @@ def app_version() -> str:
 		return dist_version
 	else:
 		try:
-			dist_version = version("NEMO")
+			dist_version = version("NEMO-CE")
 		except PackageNotFoundError:
 			# package is not installed
 			dist_version = None
