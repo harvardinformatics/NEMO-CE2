@@ -1,6 +1,7 @@
 stages:
   - test
   - build
+  - deploy
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -39,3 +40,16 @@ NEMO-CE Release:
     - docker logout
   only:
     - tags
+
+
+NEMO-CE dev deploy:
+  stage: deploy
+  script:
+    - cd /opt/nemo
+    - docker pull registry.gitlab.com/nemo-community/nemo-ce:dev
+    - docker compose up -d nemodev
+  only:
+    - schedules
+  except:
+    - master
+  tags: [centos-srv1-shell]
