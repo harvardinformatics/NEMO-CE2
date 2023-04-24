@@ -45,9 +45,8 @@ NEMO-CE Release:
 NEMO-CE dev deploy:
   stage: deploy
   script:
-    - cd /opt/nemo
-    - docker pull registry.gitlab.com/nemo-community/nemo-ce:dev
-    - docker compose up -d nemodev
+    - sudo bash -c 'cd /opt/nemo/ && docker pull registry.gitlab.com/nemo-community/nemo-ce:dev'
+    - sudo bash -c 'cd /opt/nemo/ && docker compose up -d nemodev'
   only:
     - schedules
   except:
