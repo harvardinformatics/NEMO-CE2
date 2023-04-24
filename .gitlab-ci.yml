@@ -50,6 +50,6 @@ NEMO-CE dev deploy:
     - docker compose up -d nemodev
   only:
     - schedules
-  exclude:
+  except:
     - master
   tags: [centos-srv1-shell]
