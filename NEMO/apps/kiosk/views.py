@@ -17,6 +17,7 @@ from NEMO.views.calendar import (
 	cancel_the_reservation,
 	extract_configuration,
 	extract_reservation_questions,
+	extract_tool_accessories,
 	render_reservation_questions,
 	shorten_reservation,
 )
@@ -165,6 +166,11 @@ def reserve_tool(request):
 		explicit_policy_override=False,
 	)
 
+	selected_accessories = extract_tool_accessories(request)
+	if selected_accessories:
+		policy_problems.extend(policy.check_accessories_available_for_reservation(reservation, selected_accessories))
+		reservation._tool_accessories = selected_accessories
+
 	# If there was a problem in saving the reservation then return the error...
 	if policy_problems:
 		error_dictionary["message"] = policy_problems[0]
@@ -216,6 +222,7 @@ def tool_reservation(request, tool_id, user_id, back):
 	project = Project.objects.get(id=request.POST["project_id"])
 
 	dictionary = tool.get_configuration_information(user=customer, start=None)
+	dictionary["tool_accessories"] = tool.toolaccessory_set.all()
 	dictionary["tool"] = tool
 	dictionary["date"] = None
 	dictionary["project"] = project

@@ -1,0 +1,21 @@
+{% load custom_tags_and_filters %}
+<div class="modal-header">
+	<button type="button" class="close" data-dismiss="modal">&times;</button>
+	<h4 class="modal-title">Choose tool accessories</h4>
+</div>
+
+<div class="modal-body">
+	<input type="hidden" id="dialog_cancelled" value="true">
+	<form id="additional_event_parameters">
+		<input type="hidden" id="accessories_configured" name="accessories_configured" value="true">
+		{% include 'calendar/accessories_helper.html' %}
+	</form>
+</div>
+
+<div class="modal-footer">
+    {% button type="save" submit=False dismiss="modal" onclick="$('#dialog_cancelled').val(false);" value="Create this reservation" %}
+</div>
+
+<script>
+	$('[data-toggle~="tooltip"]').tooltip();
+</script>

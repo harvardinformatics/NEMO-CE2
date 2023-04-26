@@ -92,6 +92,7 @@ from NEMO.models import (
 	TemporaryPhysicalAccess,
 	TemporaryPhysicalAccessRequest,
 	Tool,
+	ToolAccessory,
 	ToolDocuments,
 	ToolQualificationGroup,
 	ToolUsageCounter,
@@ -297,6 +298,16 @@ class ToolAdmin(admin.ModelAdmin):
 
 @register(ToolQualificationGroup)
 class ToolQualificationGroup(admin.ModelAdmin):
+	list_display = ["name", "get_tools"]
+	filter_horizontal = ["tools"]
+
+	@admin.display(description="Tools", ordering="tools")
+	def get_tools(self, obj: ToolQualificationGroup):
+		return mark_safe("<br>".join([str(tool) for tool in obj.tools.all()]))
+
+
+@register(ToolAccessory)
+class ToolAccessoryAdmin(admin.ModelAdmin):
 	list_display = ["name", "get_tools"]
 	filter_horizontal = ["tools"]
 
@@ -544,6 +555,7 @@ class ReservationAdmin(admin.ModelAdmin):
 	readonly_fields = ("descendant",)
 	list_filter = ("cancelled", "missed", ("tool", admin.RelatedOnlyFieldListFilter), ("area", TreeRelatedFieldListFilter), ("user", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "start"
+	filter_horizontal = ["tool_accessories"]
 
 
 class ReservationQuestionsForm(forms.ModelForm):

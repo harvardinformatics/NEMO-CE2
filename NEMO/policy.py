@@ -32,6 +32,7 @@ from NEMO.models import (
     ScheduledOutage,
     StaffCharge,
     Tool,
+    ToolAccessory,
     User,
 )
 from NEMO.utilities import (
@@ -226,6 +227,9 @@ class NEMOPolicy:
         self.check_coincident_item_reservation_policy(
             cancelled_reservation, new_reservation, user_creating_reservation, policy_problems
         )
+
+        previous_accessories = cancelled_reservation.tool_accessories.all() if cancelled_reservation else []
+        policy_problems.extend(self.check_accessories_available_for_reservation(new_reservation, previous_accessories, cancelled_reservation))
 
         # Reservations that have been cancelled may not be changed.
         if new_reservation.cancelled:
@@ -759,6 +763,19 @@ class NEMOPolicy:
             return HttpResponseBadRequest("This reservation was missed and cannot be modified.")
 
         return HttpResponse()
+
+    def check_accessories_available_for_reservation(self, reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None) -> List[str]:
+        policy_problems = []
+        for accessory in accessories:
+            reservation_qs = accessory.reservation_set.filter(cancelled=False, missed=False, shortened=False)
+            reservation_qs = reservation_qs.exclude(start__lt=reservation.start, end__lte=reservation.start)
+            reservation_qs = reservation_qs.exclude(start__gte=reservation.end, end__gt=reservation.end)
+            if cancelled_reservation:
+                reservation_qs.exclude(id=cancelled_reservation.id)
+            reservation_using_accessory = reservation_qs.first()
+            if reservation_using_accessory:
+                policy_problems.append(f"Someone already reserved the {accessory.name} for the {reservation_using_accessory.tool.name}: {format_daterange(reservation_using_accessory.start, reservation_using_accessory.end)}")
+        return policy_problems
 
     def check_to_create_outage(self, outage: ScheduledOutage) -> Optional[str]:
         # Outages may not have a start time that is earlier than the end time.

@@ -39,6 +39,7 @@ from NEMO.models import (
 	ScheduledOutageCategory,
 	StaffCharge,
 	Tool,
+	ToolAccessory,
 	UsageEvent,
 	User,
 )
@@ -434,8 +435,22 @@ def create_item_reservation(request, current_user, start, end, item_type: Reserv
 				dictionary = {'error': str(e), 'reservation_questions': reservation_questions}
 				return render(request, 'calendar/reservation_questions.html', dictionary)
 
-	# Configuration rules only apply to tools
+	# Configuration & Accessory rules only apply to tools
 	if item_type == ReservationItemType.TOOL:
+		accessories_configured = (request.POST.get('accessories_configured') == "true")
+		tool_accessories = item.toolaccessory_set.all()
+		if tool_accessories and not accessories_configured:
+			return render(request, "calendar/accessories.html", {"tool_accessories": tool_accessories})
+
+		if tool_accessories and accessories_configured:
+			selected_accessories = extract_tool_accessories(request)
+			if selected_accessories:
+				policy_problems = policy.check_accessories_available_for_reservation(new_reservation, selected_accessories)
+				if policy_problems:
+					return render(request, 'calendar/policy_dialog.html', {'policy_problems': policy_problems, 'overridable': False, 'reservation_action': 'create'})
+				else:
+					new_reservation._tool_accessories = selected_accessories
+
 		configured = (request.POST.get('configured') == "true")
 		# If a reservation is requested and the tool does not require configuration...
 		if not item.is_configurable():
@@ -491,6 +506,13 @@ def reservation_success(request, reservation: Reservation):
 		return render(request, 'calendar/reservation_warning.html', dictionary, status=201) # send 201 code CREATED to indicate success but with more information to come
 	else:
 		return HttpResponse()
+
+
+def extract_tool_accessories(request) -> List[ToolAccessory]:
+	selected_accessories = request.POST.getlist("tool_accessories", [])
+	if selected_accessories:
+		return ToolAccessory.objects.in_bulk(selected_accessories).values()
+	return []
 
 
 def extract_configuration(request):

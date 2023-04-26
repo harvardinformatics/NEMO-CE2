@@ -13,6 +13,11 @@
 			For project {{ reservation.project }}<br>
 		{% endif %}
 		Created by {{ reservation.creator }} {% if reservation.user != reservation.creator %} on behalf of {{ reservation.user }}{% endif %} on {{ reservation.creation_time }}<br>
+		{% if reservation.tool_accessories.exists %}
+			<br>Selected accessories:<br>
+			{{ reservation.tool_accessories.all|join:", " }}
+			<br><br>
+		{% endif %}
 		{% if reservation.self_configuration %}
 			<strong>You have elected to configure this tool yourself.</strong><br>
 		{% else %}

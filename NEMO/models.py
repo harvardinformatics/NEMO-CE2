@@ -1428,6 +1428,17 @@ class Configuration(BaseModel):
 		return str(self.tool.name) + ': ' + str(self.name)
 
 
+class ToolAccessory(SerializationByNameModel):
+	name = models.CharField(max_length=200,	help_text="The name of this tool accessory", unique=True)
+	tools = models.ManyToManyField(Tool, blank=False, help_text="The tools that this accessory can be used with")
+
+	class Meta(SerializationByNameModel.Meta):
+		verbose_name_plural = "Tool accessories"
+
+	def __str__(self):
+		return self.name
+
+
 class TrainingSession(BaseModel, BillableItemMixin):
 	class Type(object):
 		INDIVIDUAL = 0
@@ -1738,6 +1749,7 @@ class Reservation(BaseModel, CalendarDisplayMixin, BillableItemMixin):
 	creator = models.ForeignKey(User, related_name="reservation_creator", on_delete=models.CASCADE)
 	creation_time = models.DateTimeField(default=timezone.now)
 	tool = models.ForeignKey(Tool, null=True, blank=True, on_delete=models.CASCADE)
+	tool_accessories = models.ManyToManyField(ToolAccessory, blank=True)
 	area = TreeForeignKey(Area, null=True, blank=True, on_delete=models.CASCADE)
 	project = models.ForeignKey(Project, null=True, blank=True, help_text="Indicates the intended project for this reservation. A missed reservation would be billed to this project.", on_delete=models.CASCADE)
 	start = models.DateTimeField('start')
@@ -1754,6 +1766,11 @@ class Reservation(BaseModel, CalendarDisplayMixin, BillableItemMixin):
 	title = models.TextField(default='', blank=True, max_length=200, help_text="Shows a custom title for this reservation on the calendar. Leave this field blank to display the reservation's user name as the title (which is the default behaviour).")
 	question_data = models.TextField(null=True, blank=True)
 	validated = models.BooleanField(default=False)
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		# Adding a private variable to deal with many to many tool accessories
+		self._tool_accessories = None
 
 	@property
 	def reservation_item(self) -> Union[Tool, Area]:
@@ -1791,6 +1808,11 @@ class Reservation(BaseModel, CalendarDisplayMixin, BillableItemMixin):
 	def has_not_started(self):
 		return False if self.start <= timezone.now() else True
 
+	def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+		super().save(force_insert, force_update, using, update_fields)
+		if self._tool_accessories is not None:
+			self.tool_accessories.set(self._tool_accessories)
+
 	def save_and_notify(self):
 		self.save()
 		from NEMO.views.calendar import send_user_cancelled_reservation_notification, send_user_created_reservation_notification
@@ -1803,6 +1825,7 @@ class Reservation(BaseModel, CalendarDisplayMixin, BillableItemMixin):
 		return loads(self.question_data) if self.question_data else None
 
 	def copy(self, new_start: datetime = None, new_end: datetime = None):
+		self._tool_accessories = self.tool_accessories.all()
 		new_reservation = deepcopy(self)
 		new_reservation.id = None
 		new_reservation.pk = None

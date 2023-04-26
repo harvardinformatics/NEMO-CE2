@@ -16,6 +16,7 @@ from NEMO.utilities import beginning_of_the_day, end_of_the_day, localize
 from NEMO.views.calendar import (
 	extract_configuration,
 	extract_reservation_questions,
+	extract_tool_accessories,
 	render_reservation_questions,
 )
 from NEMO.views.customization import CalendarCustomization
@@ -67,6 +68,7 @@ def new_reservation(request, item_type, item_id, date=None):
 	item = get_object_or_404(item_type.get_object_class(), id=item_id)
 	if item_type == ReservationItemType.TOOL:
 		dictionary = item.get_configuration_information(user=request.user, start=None)
+		dictionary["tool_accessories"] = item.toolaccessory_set.all()
 	else:
 		dictionary = {}
 	dictionary['item'] = item
@@ -110,6 +112,13 @@ def make_reservation(request):
 	else:
 		reservation.short_notice = False
 	policy_problems, overridable = policy.check_to_save_reservation(cancelled_reservation=None, new_reservation=reservation, user_creating_reservation=request.user, explicit_policy_override=False)
+
+	# Check for accessory policy
+	if item_type == ReservationItemType.TOOL:
+		selected_accessories = extract_tool_accessories(request)
+		if selected_accessories:
+			policy_problems.extend(policy.check_accessories_available_for_reservation(reservation, selected_accessories))
+			reservation._tool_accessories = selected_accessories
 
 	# If there was a problem in saving the reservation then return the error...
 	if policy_problems:
