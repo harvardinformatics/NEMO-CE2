@@ -44,7 +44,8 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
 )
-from NEMO.views.customization import ApplicationCustomization, EmailsCustomization, get_media_file_contents
+from NEMO.views.customization import ApplicationCustomization, EmailsCustomization, ToolCustomization, \
+    get_media_file_contents
 
 
 class NEMOPolicy:
@@ -188,14 +189,30 @@ class NEMOPolicy:
     def check_to_disable_tool(self, tool, operator, downtime) -> HttpResponse:
         """Check that the user is allowed to disable the tool."""
         current_usage_event = tool.get_current_usage_event()
+        has_post_usage_questions = bool(tool.post_usage_questions)
+        force_off = ToolCustomization.get("tool_control_ongoing_reservation_force_off")
+
+        ongoing_reservation = Reservation.objects.filter(tool=tool, user=operator, start__lte=timezone.now(),
+                                                         end__gte=timezone.now(), shortened=False,
+                                                         cancelled=False, missed=False).exists()
+
         if (
-            current_usage_event.operator != operator
-            and current_usage_event.user != operator
-            and not (operator.is_staff or operator.is_user_office)
+                current_usage_event.operator != operator
+                and current_usage_event.user != operator
+                and not (operator.is_staff or operator.is_user_office)
+                and not (ongoing_reservation and not has_post_usage_questions)
         ):
-            return HttpResponseBadRequest(
-                "You may not disable a tool while another user is using it unless you are a staff member."
-            )
+            if (
+                    not (ongoing_reservation and not has_post_usage_questions and force_off)
+            ):
+                return HttpResponseBadRequest(
+                    "You may not disable a tool while another user is using it unless you are a staff member or have an ongoing reservation."
+                )
+            elif not force_off:
+                return HttpResponseBadRequest(
+                    "You may not disable a tool while another user is using it unless you are a staff member."
+                )
+
         if downtime < timedelta():
             return HttpResponseBadRequest("Downtime cannot be negative.")
         if downtime > timedelta(minutes=120):
