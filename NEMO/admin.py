@@ -255,6 +255,7 @@ class ToolAdmin(admin.ModelAdmin):
 					"_grant_badge_reader_access_upon_qualification",
 					"_interlock",
 					"_allow_delayed_logoff",
+					"_reservation_required",
 				)
 			},
 		),
