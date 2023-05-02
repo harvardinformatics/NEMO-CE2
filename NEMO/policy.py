@@ -44,8 +44,12 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
 )
-from NEMO.views.customization import ApplicationCustomization, EmailsCustomization, ToolCustomization, \
-    get_media_file_contents
+from NEMO.views.customization import (
+    ApplicationCustomization,
+    EmailsCustomization,
+    ToolCustomization,
+    get_media_file_contents,
+)
 
 
 class NEMOPolicy:
