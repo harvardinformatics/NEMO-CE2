@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest
@@ -802,15 +802,10 @@ class NEMOPolicy:
 
     def check_accessories_available_for_reservation(self, reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None) -> List[str]:
         policy_problems = []
-        for accessory in accessories:
-            reservation_qs = accessory.reservation_set.filter(cancelled=False, missed=False, shortened=False)
-            reservation_qs = reservation_qs.exclude(start__lt=reservation.start, end__lte=reservation.start)
-            reservation_qs = reservation_qs.exclude(start__gte=reservation.end, end__gt=reservation.end)
-            if cancelled_reservation:
-                reservation_qs.exclude(id=cancelled_reservation.id)
-            reservation_using_accessory = reservation_qs.first()
-            if reservation_using_accessory:
-                policy_problems.append(f"Someone already reserved the {accessory.name} for the {reservation_using_accessory.tool.name}: {format_daterange(reservation_using_accessory.start, reservation_using_accessory.end)}")
+        conflicts = accessory_conflicts_for_reservation(reservation, accessories, cancelled_reservation)
+        for accessory_name, reservations in conflicts.items():
+            for reservation_using_accessory in reservations:
+                policy_problems.append(f"Someone already reserved the {accessory_name} for the {reservation_using_accessory.tool.name}: {format_daterange(reservation_using_accessory.start, reservation_using_accessory.end)}")
         return policy_problems
 
     def check_to_create_outage(self, outage: ScheduledOutage) -> Optional[str]:
@@ -973,6 +968,19 @@ def recursive_merge(intervals: List[tuple], start_index=0) -> List[tuple]:
             del intervals[i + 1]
             return recursive_merge(intervals.copy(), start_index=i)
     return intervals
+
+
+def accessory_conflicts_for_reservation(reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None) -> Dict[str, List[Reservation]]:
+    conflicts = {}
+    for accessory in accessories:
+        reservation_qs = accessory.reservation_set.filter(cancelled=False, missed=False, shortened=False)
+        reservation_qs = reservation_qs.exclude(start__lt=reservation.start, end__lte=reservation.start)
+        reservation_qs = reservation_qs.exclude(start__gte=reservation.end, end__gt=reservation.end)
+        if cancelled_reservation:
+            reservation_qs.exclude(id=cancelled_reservation.id)
+        if reservation_qs.exists():
+            conflicts[accessory.name] = list(reservation_qs.order_by("start"))
+    return conflicts
 
 
 policy_class: NEMOPolicy = get_class_from_settings("NEMO_POLICY_CLASS", "NEMO.policy.NEMOPolicy")

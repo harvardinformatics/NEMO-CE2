@@ -43,7 +43,7 @@ from NEMO.models import (
 	UsageEvent,
 	User,
 )
-from NEMO.policy import policy_class as policy
+from NEMO.policy import accessory_conflicts_for_reservation, policy_class as policy
 from NEMO.utilities import (
 	EmailCategory,
 	RecurrenceFrequency,
@@ -440,7 +440,8 @@ def create_item_reservation(request, current_user, start, end, item_type: Reserv
 		accessories_configured = (request.POST.get('accessories_configured') == "true")
 		tool_accessories = item.toolaccessory_set.all()
 		if tool_accessories and not accessories_configured:
-			return render(request, "calendar/accessories.html", {"tool_accessories": tool_accessories})
+			conflicts = accessory_conflicts_for_reservation(new_reservation, tool_accessories)
+			return render(request, "calendar/accessories.html", {"tool_accessories": tool_accessories, "conflicts": conflicts})
 
 		if tool_accessories and accessories_configured:
 			selected_accessories = extract_tool_accessories(request)
