@@ -1,0 +1,104 @@
+{% extends 'training_new/training_base.html' %}
+{% load custom_tags_and_filters %}
+{% block tab_content %}
+	<div class="pull-right" style="margin-bottom: 15px;">
+		{% url "create_training_request" as create_training_request_url %}
+		{% button type="add" value="New training request" onclick="new_get_request('"|concat:create_training_request_url|concat:"')" %}
+	</div>
+	<div class="table-responsive" style="border: none">
+		<table class="table table-borderless table-align-middle" style="{% if not training_requests %}margin-bottom: 0{% endif %}">
+			{% if training_invitations %}
+				<thead>
+					<tr>
+						<th colspan="6" style="font-size: 20px">Invitations</th>
+					</tr>
+					<tr>
+						<th>Tool</th>
+						<th>Created</th>
+						<th>Training date</th>
+						<th>Status</th>
+						<th>Trainer</th>
+						<th class="text-right">Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for training_invitation in training_invitations %}
+						<tr>
+							<td>{{ training_invitation.tool }}</td>
+							<td>{{ training_invitation.creation_time }}</td>
+							<td>
+								{{ training_invitation.training_event.start }}
+							</td>
+							<td>
+								{% if training_invitation.status == 1 or training_invitation.status == 2 %} {# 1 == SENT, 2 == REVIEWED #}
+									Received
+								{% else %}
+									{{ training_invitation.get_status_display }}
+								{% endif %}
+							</td>
+							<td>{{ training_invitation.trainer }}</td>
+							<td class="text-right">
+								{% url "decline_training_invitation" training_invitation.id as decline_invitation_url %}
+								{% if not user in training_invitation.training_event.users.all %}
+									{% url 'accept_training_invitation' training_invitation.id as accept_training_invitation_url %}
+									{% button size="small" type="save" value="Accept" icon="glyphicon-ok-sign" onclick="accept_training_invitation('"|concat:accept_training_invitation_url|concat:"');" %}
+									{% button type="delete" size="small" value="Decline" icon="glyphicon-ban-circle" onclick="confirm_action('"|concat:decline_invitation_url|concat:"', false, training_callback_success, 'declining', 'invitation', 'Decline')" data_toggle="modal" data_target="#confirm-actions" %}
+								{% else %}
+									{% button type="delete" size="small" value="Withdraw" onclick="confirm_action('"|concat:decline_invitation_url|concat:"', false, training_callback_success, 'declining', 'training', 'Withdraw')" data_toggle="modal" data_target="#confirm-actions" %}
+								{% endif %}
+							</td>
+						</tr>
+					{% endfor %}
+				</tbody>
+			{% endif %}
+			{% if training_requests %}
+				<thead>
+					<tr>
+						<th colspan="5" style="font-size: 20px">Requests</th>
+					</tr>
+					<tr>
+						<th>Tool</th>
+						<th>Created</th>
+						<th>Requested date(s)</th>
+						<th>Status</th>
+						<th class="text-right" colspan="2">Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+				{% for training_request in training_requests %}
+					<tr>
+						<td>{{ training_request.tool }}</td>
+						<td>{{ training_request.creation_time }}</td>
+						<td>
+							{% for date_time in training_request.trainingrequesttime_set.all %}
+								{{ date_time }}<br>
+							{% endfor %}
+						</td>
+						<td>{{ training_request.get_status_display }}</td>
+						<td class="text-right" colspan="2">
+							{% url "withdraw_training_request" training_request.id as withdraw_request_url %}
+							{% button size="small" type="delete" value="Withdraw" onclick="if(confirm('Are you sure you want to withdraw this request?')){window.location='"|concat:withdraw_request_url|concat:"'}" %}
+						</td>
+					</tr>
+				{% endfor %}
+				</tbody>
+			{% endif %}
+		</table>
+	</div>
+	{% if not training_invitations and not training_requests %}
+		<div class="pull-left form-control-static"><i>You do not have any pending requests at the moment.</i></div>
+	{% endif %}
+	<script>
+		function accept_training_invitation(url)
+		{
+			let failure_dialog = ajax_failure_callback("Unable to register for this training");
+			ajax_post(url, undefined, training_callback_success, failure_dialog);
+		}
+
+        {% for training_invitation in training_invitations %}
+            {% if training_invitation.status == 1 %} {# 1:SENT #}
+		ajax_get('{% url "review_training_invitation" training_invitation.id %}');
+            {% endif %}
+        {% endfor %}
+	</script>
+{% endblock %}

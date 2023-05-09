@@ -157,6 +157,7 @@ class EmailCategory(object):
 	ACCESS_REQUESTS = 9
 	SENSORS = 10
 	ADJUSTMENT_REQUESTS = 11
+	TRAINING = 12
 	Choices = (
 		(GENERAL, "General"),
 		(SYSTEM, "System"),
@@ -170,6 +171,7 @@ class EmailCategory(object):
 		(ACCESS_REQUESTS, "Access Requests"),
 		(SENSORS, "Sensors"),
 		(ADJUSTMENT_REQUESTS, "Adjustment Requests"),
+		(TRAINING, "Training"),
 	)
 
 
@@ -622,7 +624,7 @@ def get_full_url(location, request=None):
 	"""
 	# For lazy locations
 	location = str(location)
-	if request:
+	if request and not isinstance(request, EmptyHttpRequest):
 		return request.build_absolute_uri(location)
 	else:
 		domain = getattr(settings, "SERVER_DOMAIN", "https://{}".format(settings.ALLOWED_HOSTS[0]))
@@ -683,3 +685,17 @@ def get_class_from_settings(setting_name: str, default_value: str):
 	pkg, attr = setting_class.rsplit(".", 1)
 	ret = getattr(importlib.import_module(pkg), attr)
 	return ret()
+
+
+def is_trainer(user, tool = None) -> bool:
+	from NEMO.models import Tool
+	tool_qs = Tool.objects.filter(visible=True)
+	if tool:
+		tool_qs = tool_qs.filter(id=tool.id)
+	if tool_qs.filter(_primary_owner=user).exists():
+		return True
+	elif tool_qs.filter(_backup_owners__in=[user]).exists():
+		return True
+	elif tool_qs.filter(_superusers__in=[user]).exists():
+		return True
+	return False

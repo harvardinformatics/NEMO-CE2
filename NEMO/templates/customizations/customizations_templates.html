@@ -324,6 +324,69 @@
         <div class="customization-separation"></div>
     </div>
 
+	<div class="panel-body">
+        <h3 class="customization-section-title" id="training_invitation_received_email_id">Training invitation received email</h3>
+        <p>
+            This email is sent when users are invited to a training session.
+        </p>
+        <p>
+            The following context variables are provided when the email is rendered:
+        </p>
+        <ul>
+            <li><b>training_invitation</b> - the training invitation being sent</li>
+        </ul>
+        {% include 'customizations/customizations_upload.html' with element=training_invitation_received_email name='training invitation received email' key='templates' %}
+        <div class="customization-separation"></div>
+    </div>
+
+	<div class="panel-body">
+        <h3 class="customization-section-title" id="training_invitation_declined_email_id">Training invitation declined email</h3>
+        <p>
+            This email is sent when a user declines an invitation to a training session.
+        </p>
+        <p>
+            The following context variables are provided when the email is rendered:
+        </p>
+        <ul>
+            <li><b>training_invitation</b> - the training invitation being declined</li>
+            <li><b>reason</b> - the optional reason/message provided by the user</li>
+        </ul>
+        {% include 'customizations/customizations_upload.html' with element=training_invitation_declined_email name='training invitation declined email' key='templates' %}
+        <div class="customization-separation"></div>
+    </div>
+
+	<div class="panel-body">
+        <h3 class="customization-section-title" id="training_request_submitted_email_id">Training request submitted email</h3>
+        <p>
+            This email is sent to all trainers of a tool when a training request is submitted.
+        </p>
+        <p>
+            The following context variables are provided when the email is rendered:
+        </p>
+        <ul>
+            <li><b>training_request</b> - the training request being submitted</li>
+        </ul>
+        {% include 'customizations/customizations_upload.html' with element=training_request_submitted_email name='training request submitted email' key='templates' %}
+        <div class="customization-separation"></div>
+    </div>
+
+	<div class="panel-body">
+        <h3 class="customization-section-title" id="training_session_cancelled_email_id">Training session cancelled email</h3>
+        <p>
+            This email is sent to all attendees of a training session when it is cancelled.
+        </p>
+        <p>
+            The following context variables are provided when the email is rendered:
+        </p>
+        <ul>
+            <li><b>user</b> - the training attendee</li>
+            <li><b>training_session</b> - the training session being cancelled</li>
+            <li><b>reason</b> - the cancellation reason</li>
+        </ul>
+        {% include 'customizations/customizations_upload.html' with element=training_session_cancelled_email name='training session cancelled email' key='templates' %}
+        <div class="customization-separation"></div>
+    </div>
+
     <div class="panel-body">
         <h3 class="customization-section-title" id="unauthorized_tool_access_email_id">Unauthorized tool access email</h3>
         <p>

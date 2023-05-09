@@ -60,6 +60,7 @@ def base_context(request):
 		adjustment_request_allowed = False
 	try:
 		notification_counts = get_notification_counts(request.user)
+		notification_counts[Notification.Types.TRAINING_ALL] = notification_counts.get(Notification.Types.TRAINING_REQUEST, 0) + notification_counts.get(Notification.Types.TRAINING_INVITATION, 0)
 	except:
 		notification_counts = {}
 	try:
@@ -77,6 +78,14 @@ def base_context(request):
 	except:
 		adjustment_notification_count = 0
 	try:
+		training_request_notification_count = notification_counts.get(Notification.Types.TRAINING_REQUEST, 0)
+	except:
+		training_request_notification_count = 0
+	try:
+		training_invitation_notification_count = notification_counts.get(Notification.Types.TRAINING_INVITATION, 0)
+	except:
+		training_invitation_notification_count = 0
+	try:
 		safety_notification_count = notification_counts.get(Notification.Types.SAFETY, 0)
 	except:
 		safety_notification_count = 0
@@ -93,6 +102,7 @@ def base_context(request):
 		"recurring_charges_name": recurring_charges_name,
 		"site_title": site_title,
 		"device": getattr(request, "device", "desktop"),
+		"mobile_device": getattr(request, "device", "desktop") == "mobile",
 		"tools_exist": tools_exist,
 		"areas_exist": areas_exist,
 		"buddy_system_areas_exist": buddy_system_areas_exist,
@@ -102,6 +112,8 @@ def base_context(request):
 		"buddy_notification_count": buddy_notification_count,
 		"temporary_access_notification_count": temporary_access_notification_count,
 		"adjustment_notification_count": adjustment_notification_count,
+		"training_request_notification_count": training_request_notification_count,
+		"training_invitation_notification_count": training_invitation_notification_count,
 		"safety_notification_count": safety_notification_count,
 		"facility_managers_exist": facility_managers_exist,
 		"time_input_js_format": time_input_js_format,

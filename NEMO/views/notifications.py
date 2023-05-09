@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import List, Set
+from typing import Iterable, List, Set
 
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
@@ -10,6 +10,8 @@ from NEMO.models import (
 	Notification,
 	RequestMessage,
 	TemporaryPhysicalAccessRequest,
+	TrainingInvitation,
+	TrainingRequest,
 	User,
 )
 from NEMO.utilities import end_of_the_day
@@ -38,7 +40,7 @@ def get_notification_counts(user: User):
 	return counts
 
 
-def delete_notification(notification_type: Notification.Types, instance_id, users: List[User] = None):
+def delete_notification(notification_type: Notification.Types, instance_id, users: Iterable[User] = None):
 	notifications = Notification.objects.filter(notification_type=notification_type, object_id=instance_id)
 	if users:
 		notifications = notifications.filter(user__in=users)
@@ -132,3 +134,26 @@ def create_adjustment_request_notification(adjustment_request: AdjustmentRequest
 				object_id=adjustment_request.id,
 				defaults={"expiration": expiration}
 			)
+
+
+def create_training_request_notification(training_request: TrainingRequest):
+	expiration = timezone.now() + timedelta(days=30)
+	for trainer in training_request.tool.trainers():
+		Notification.objects.update_or_create(
+			user=trainer,
+			content_type=ContentType.objects.get_for_model(training_request),
+			object_id=training_request.id,
+			notification_type=Notification.Types.TRAINING_REQUEST,
+			defaults={"expiration": expiration}
+		)
+
+
+def create_training_invitation_notification(training_invitation: TrainingInvitation):
+	expiration = timezone.now() + timedelta(days=30)
+	Notification.objects.update_or_create(
+		user=training_invitation.user,
+		content_type=ContentType.objects.get_for_model(training_invitation),
+		object_id=training_invitation.id,
+		notification_type=Notification.Types.TRAINING_INVITATION,
+		defaults={"expiration": expiration}
+	)

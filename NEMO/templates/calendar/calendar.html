@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load custom_tags_and_filters %}
+{% load training_tags %}
 {% block title %}Calendar{% endblock %}
 {% block extrahead %}
 	{% load static %}
@@ -59,6 +60,9 @@
 <input type="hidden" id="impersonate" name="impersonate" value="">
 
 <script type="text/javascript">
+const training_button_text = "Schedule trainings";
+const training_button_text_done = "I've finished creating trainings";
+
 let logged_in = false;
 {% if user.in_area %}
 logged_in = "{{ user.area_access_record.area.name }}";
@@ -236,12 +240,16 @@ function create(start, end, jsEvent, view)
 		"item_id": item.data('item-id'),
 		"csrfmiddlewaretoken": "{{ csrf_token }}"
 	};
-	{# If the user is trying to create a scheduled outage, then put that in the event_properties. #}
+	{# If the user is trying to create a scheduled outage or training, then put that in the event_properties. #}
 	{# Otherwise, create a reservation (which is the normal case). #}
 	let url;
 	if($('.fc-scheduledOutage-button').html() === "I've finished creating scheduled outages")
 	{
 		url = "{% url 'create_outage' %}";
+	}
+    else if ($('.fc-scheduleTraining-button').html() === training_button_text_done)
+	{
+		url = "{% url 'create_training_event_calendar' %}";
 	}
 	else
 	{
@@ -288,6 +296,10 @@ function resize(event, delta, revertFunc, jsEvent, ui, view)
 	{
 		ajax_post("{% url 'resize_outage' %}", event_changes, undefined, [revertFunc, ajax_failure_callback("Outage resize failed")], refresh_calendar_and_sidebar);
 	}
+	else if(type === "Training")
+	{
+		ajax_post("{% url 'resize_training_event' %}", event_changes, undefined, [revertFunc, ajax_failure_callback("Training resize failed")], refresh_calendar_and_sidebar);
+	}
 }
 
 {# This function is called when the user clicks and drags an event in order to move their reservation. #}
@@ -317,6 +329,10 @@ function move(event, delta, revertFunc, jsEvent, ui, view)
 	else if(type === "Outage")
 	{
 		ajax_post("{% url 'move_outage' %}", event_changes, undefined, [revertFunc, ajax_failure_callback("Outage move failed")], refresh_calendar_and_sidebar);
+	}
+	else if(type === "Training")
+	{
+		ajax_post("{% url 'move_training_event' %}", event_changes, undefined, [revertFunc, ajax_failure_callback("Training move failed")], refresh_calendar_and_sidebar);
 	}
 }
 
@@ -352,6 +368,17 @@ function cancel_outage(url, outage_id)
 	ajax_post(url, undefined, outage_cancel_success_callback, [failure_dialog, refresh_calendar_and_sidebar]);
 }
 
+function cancel_training(url, training_id)
+{
+	let failure_dialog = ajax_failure_callback("Unable to cancel this training");
+	function training_cancel_success_callback()
+	{
+		$("#calendar").fullCalendar("removeEvents", training_id);
+		refresh_sidebar_icons();
+	}
+	ajax_post(url, undefined, training_cancel_success_callback, [failure_dialog, refresh_calendar_and_sidebar]);
+}
+
 function set_reservation_title(url, reservation_id, title)
 {
 	let failure_dialog = ajax_failure_callback("Unable to set reservation title");
@@ -376,7 +403,7 @@ function create_calendar()
 	{
 		"header":
 		{
-			left: "prev,next today{% if user.is_staff %} proxyReservation scheduledOutage{% endif %} login logout",
+			left: "prev,next today{% if user.is_staff %} proxyReservation scheduledOutage{% endif %}{% if "training"|customization:"training_module_enabled" == "enabled" and user|is_trainer %} scheduleTraining{% endif %} login logout",
 			center: "title",
 			right: "agendaDay,agendaWeek,month"
 		},
@@ -431,6 +458,10 @@ function create_calendar()
 				"text": "Schedule an outage",
 				"click": scheduled_outage
 			},
+			"scheduleTraining": {
+				"text": training_button_text,
+				"click": schedule_training
+			},
 			"login": {
 				"text": "Login",
 				"click": login_to_area
@@ -456,6 +487,7 @@ function reserve_for_someone_else()
 		$(proxy_reservation_button).blur().html("Reserve for someone else");
 		$("#impersonate").val('');
 		$($(".fc-scheduledOutage-button")[0]).show();
+		$($(".fc-scheduleTraining-button")[0]).show();
 	}
 }
 
@@ -505,17 +537,39 @@ function logout_of_area()
 
 function scheduled_outage()
 {
+    let schedule_training_button = $(".fc-scheduleTraining-button");
 	let scheduled_outage_button = $(".fc-scheduledOutage-button")[0];
 	let proxy_reservation_button = $(".fc-proxyReservation-button")[0];
 	if($(scheduled_outage_button).html() === "Schedule an outage")
 	{
 		$(proxy_reservation_button).hide();
+		$(schedule_training_button).hide();
 		$(scheduled_outage_button).blur().html("I've finished creating scheduled outages");
 	}
 	else
 	{
 		$(proxy_reservation_button).show();
+		$(schedule_training_button).show();
 		$(scheduled_outage_button).blur().html("Schedule an outage");
+	}
+}
+
+function schedule_training()
+{
+	let schedule_training_button = $(".fc-scheduleTraining-button");
+	let scheduled_outage_button = $(".fc-scheduledOutage-button");
+	let proxy_reservation_button = $(".fc-proxyReservation-button");
+	if($(schedule_training_button).html() === training_button_text)
+	{
+		$(proxy_reservation_button).hide();
+		$(scheduled_outage_button).hide();
+		$(schedule_training_button).blur().html(training_button_text_done);
+	}
+	else
+	{
+		$(proxy_reservation_button).show();
+		$(scheduled_outage_button).show();
+		$(schedule_training_button).blur().html(training_button_text);
 	}
 }
 
@@ -585,6 +639,7 @@ function change_calendar_event_type(calling_element)
 	let chosen_user_button = $("#chosen_user_button").show();
 	let proxy_reservation_button = $(".fc-proxyReservation-button")[0];
 	let scheduled_outage_button = $(".fc-scheduledOutage-button")[0];
+	let schedule_training_button = $(".fc-scheduleTraining-button");
 	if(event_type === "reservations")
 	{
 		user_search.hide();
@@ -595,6 +650,7 @@ function change_calendar_event_type(calling_element)
 		item_tree.show();
 		$(proxy_reservation_button).show();
 		$(scheduled_outage_button).show();
+		$(schedule_training_button).show();
 		update_event_sources();
 	}
 	else if(event_type === "{{ facility_name|lower }} usage")
@@ -607,6 +663,7 @@ function change_calendar_event_type(calling_element)
 		item_tree.show();
 		$(proxy_reservation_button).hide();
 		$(scheduled_outage_button).hide();
+		$(schedule_training_button).hide();
 		update_event_sources();
 	}
 	else if(event_type === "specific user")
@@ -619,6 +676,7 @@ function change_calendar_event_type(calling_element)
 		item_tree.hide();
 		$(proxy_reservation_button).hide();
 		$(scheduled_outage_button).hide();
+		$(schedule_training_button).hide();
 		clear_specific_user();
 	}
 }

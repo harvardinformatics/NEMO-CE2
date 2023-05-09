@@ -23,7 +23,8 @@
 	function proxy_reservation(jquery_event, search_selection)
 	{
 		$($(".fc-scheduledOutage-button")[0]).hide();
-		var proxy_reservation_button = $(".fc-proxyReservation-button")[0];
+		$($(".fc-scheduleTraining-button")[0]).hide();
+		let proxy_reservation_button = $(".fc-proxyReservation-button")[0];
 		$(proxy_reservation_button).html('Reserving as ' + search_selection.name);
 		$("#impersonate").val(search_selection.id);
 		$("#dialog").modal('hide');

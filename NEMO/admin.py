@@ -9,11 +9,13 @@ from django.contrib.admin.decorators import display
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.admin import GenericStackedInline
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.db.models.fields.files import FieldFile
 from django.forms import BaseInlineFormSet
 from django.template.defaultfilters import linebreaksbr, urlencode
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 from mptt.admin import DraggableMPTTAdmin, MPTTAdminForm, TreeRelatedFieldListFilter
 
 from NEMO.actions import (
@@ -26,7 +28,7 @@ from NEMO.actions import (
 	synchronize_with_tool_usage,
 	unlock_selected_interlocks,
 )
-from NEMO.forms import BuddyRequestForm, RecurringConsumableChargeForm, UserPreferencesForm
+from NEMO.forms import BuddyRequestForm, RecurringConsumableChargeForm, TrainingRequestForm, UserPreferencesForm
 from NEMO.models import (
 	Account,
 	AccountType,
@@ -95,8 +97,15 @@ from NEMO.models import (
 	ToolAccessory,
 	ToolDocuments,
 	ToolQualificationGroup,
+	ToolTrainingDetail,
 	ToolUsageCounter,
+	TrainingEvent,
+	TrainingHistory,
+	TrainingInvitation,
+	TrainingRequest,
+	TrainingRequestTime,
 	TrainingSession,
+	TrainingTechnique,
 	UsageEvent,
 	User,
 	UserDocuments,
@@ -107,7 +116,7 @@ from NEMO.models import (
 	record_remote_many_to_many_changes_and_save,
 )
 from NEMO.utilities import admin_get_item, format_daterange
-from NEMO.views.customization import ProjectsAccountsCustomization
+from NEMO.views.customization import ProjectsAccountsCustomization, TrainingCustomization
 from NEMO.widgets.dynamic_form import DynamicForm, PostUsageFloatFieldQuestion, PostUsageNumberFieldQuestion
 
 
@@ -1540,6 +1549,123 @@ class OnboardingPhaseAdmin(admin.ModelAdmin):
 	list_display = ("name", "display_order")
 
 
+class ToolTrainingDetailAdminForm(forms.ModelForm):
+	class Meta:
+		model = ToolTrainingDetail
+		fields = "__all__"
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields["user_availability_allowed"].initial = TrainingCustomization.get_bool("training_request_default_availability_allowed")
+
+
+@register(ToolTrainingDetail)
+class ToolTrainingDetailAdmin(admin.ModelAdmin):
+	list_display = ("tool", "duration", "get_techniques")
+	filter_horizontal = ["techniques"]
+	form = ToolTrainingDetailAdminForm
+
+	@admin.display(description="Techniques")
+	def get_techniques(self, details: ToolTrainingDetail):
+		return mark_safe("<br>".join(str(tech) for tech in details.techniques.all()))
+
+
+class TrainingRequestTimeInline(admin.TabularInline):
+	model = TrainingRequestTime
+	extra = 2
+
+
+@register(TrainingRequest)
+class TrainingRequestAdmin(admin.ModelAdmin):
+	inlines = [TrainingRequestTimeInline]
+	list_display = ["user", "trainer", "tool", "get_status", "get_request_times"]
+	list_filter = ["status", ("tool", admin.RelatedOnlyFieldListFilter)]
+	date_hierarchy = "creation_time"
+	form = TrainingRequestForm
+
+	@admin.display(description="Status", ordering="status")
+	def get_status(self, training_request: TrainingRequest):
+		return training_request.get_status_display()
+
+	@admin.display(description="Times", ordering="training_request_time")
+	def get_request_times(self, training_request: TrainingRequest) -> str:
+		return mark_safe(
+			"<br>".join(
+				[
+					format_daterange(
+						ct.start_time,
+						ct.end_time,
+						dt_format="SHORT_DATETIME_FORMAT",
+						d_format="SHORT_DATE_FORMAT",
+						date_separator=" ",
+						time_separator=" - ",
+					)
+					for ct in TrainingRequestTime.objects.filter(training_request=training_request)
+				]
+			)
+		)
+
+
+@register(TrainingInvitation)
+class TrainingInvitationAdmin(admin.ModelAdmin):
+	list_display = ["training_event", "user", "trainer", "tool", "get_status", "start", "end"]
+	list_filter = ["status", ("training_event__tool", admin.RelatedOnlyFieldListFilter)]
+	date_hierarchy = "creation_time"
+
+	@admin.display(description="Status", ordering="status")
+	def get_status(self, training_request: TrainingRequest):
+		return training_request.get_status_display()
+
+
+@register(TrainingEvent)
+class TrainingEventAdmin(admin.ModelAdmin):
+	list_display = ["tool", "start", "end", "trainer", "technique", "get_capacity", "cancelled"]
+	list_filter = ["cancelled", ("trainer", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter)]
+	date_hierarchy = "start"
+	filter_horizontal = ["users"]
+
+	@admin.display(description="Capacity")
+	def get_capacity(self, training_event: TrainingEvent):
+		return f"{training_event.users.count()}/{training_event.capacity}"
+
+
+class TrainingTargetUserFilter(admin.SimpleListFilter):
+	title = _("target user")
+
+	# Parameter for the filter that will be used in the URL query.
+	parameter_name = "target_user"
+
+	def lookups(self, request, model_admin):
+		qs = model_admin.get_queryset(request).distinct()
+		pks = set()
+		pks.update(qs.values_list("training_request__user__pk", flat=True))
+		pks.update(qs.values_list("training_invitation__user__pk", flat=True))
+		pks.update(qs.values_list("training_invitation__pk", flat=True))
+		pks.update(qs.values_list("training_event__users__pk", flat=True))
+		return [(x.pk, str(x)) for x in User.objects.filter(pk__in=pks)]
+
+	def queryset(self, request, queryset):
+		if not self.value():
+			return queryset
+		return queryset.filter(Q(training_request__user__pk=self.value())|Q(training_invitation__user__pk=self.value())|Q(training_event__users__in=[self.value()]))
+
+
+@register(TrainingHistory)
+class TrainingHistoryAdmin(admin.ModelAdmin):
+	list_display = ["time", "user", "status", "get_target_users", "get_training_item"]
+	list_filter = [("user", admin.RelatedOnlyFieldListFilter), TrainingTargetUserFilter, "status"]
+	date_hierarchy = "time"
+
+	@admin.display(description="Targeted users")
+	def get_target_users(self, training_history: TrainingHistory):
+		return mark_safe("<br>".join(str(user) for user in training_history.target_users()))
+
+	@admin.display(description="Training item")
+	def get_training_item(self, training_history: TrainingHistory):
+		item = training_history.training_item
+		return admin_get_item(ContentType.objects.get_for_model(item), item.id)
+
+
 @register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
 	list_display = ["id", "category", "sender", "to", "subject", "when", "ok"]
@@ -1587,3 +1713,4 @@ admin.site.register(ProjectDiscipline)
 admin.site.register(AccountType)
 admin.site.register(ResourceCategory)
 admin.site.register(Permission)
+admin.site.register(TrainingTechnique)

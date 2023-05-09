@@ -18,6 +18,7 @@ from NEMO.models import (
 	ActivityHistory,
 	Area,
 	AreaAccessRecord,
+	EmailNotificationType,
 	PhysicalAccessLevel,
 	Project,
 	Reservation,
@@ -30,7 +31,7 @@ from NEMO.models import (
 	record_active_state,
 	record_local_many_to_many_changes,
 )
-from NEMO.utilities import queryset_search_filter
+from NEMO.utilities import is_trainer, queryset_search_filter
 from NEMO.views.customization import ApplicationCustomization, StatusDashboardCustomization, UserCustomization
 from NEMO.views.pagination import SortedPaginator
 from NEMO.views.status_dashboard import show_staff_status
@@ -389,6 +390,8 @@ def user_preferences(request):
 	staff_view_options = StatusDashboardCustomization.get("dashboard_staff_status_staff_view")
 	user_view = user_view_options if not user.is_staff else staff_view_options if not user.is_facility_manager else ''
 	form = UserPreferencesForm(data=request.POST or None, instance=user.preferences)
+	if not is_trainer(user):
+		form.fields["email_send_training_emails"].choices = EmailNotificationType.on_choices()
 	if not show_staff_status(request) or user_view == 'day':
 		form.fields["staff_status_view"].disabled = True
 	if request.method == 'POST':

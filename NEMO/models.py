@@ -10,7 +10,7 @@ from html import escape
 from json import loads
 from logging import getLogger
 from re import match
-from typing import List, Optional, Set, Union
+from typing import Iterable, List, Optional, Set, Union
 
 from dateutil import rrule
 from django.conf import settings
@@ -54,6 +54,7 @@ from NEMO.utilities import (
 	get_tool_document_filename,
 	get_tool_image_filename,
 	get_user_document_filename,
+	is_trainer,
 	render_email_template,
 	send_mail,
 )
@@ -227,6 +228,7 @@ class UserPreferences(BaseModel):
 	email_send_task_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Task updates")
 	email_send_access_expiration_emails = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Access expiration reminders")
 	email_send_tool_qualification_expiration_emails = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Tool qualification expiration reminders")
+	email_send_training_emails = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.Choices, help_text="Training emails")
 	email_send_usage_reminders = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.Choices, help_text="Usage reminders")
 	email_send_reservation_reminders = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.Choices, help_text="Reservation reminders")
 	email_send_reservation_ending_reminders = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.Choices, help_text="Reservation ending reminders")
@@ -698,6 +700,11 @@ class User(BaseModel, PermissionsMixin):
 			email_url = reverse('get_email_form_for_user', kwargs={'user_id': self.id})
 			content = escape(f'<h4 style="margin-top:0; text-align: center">{self.get_name()}</h4>Email: <a href="{email_url}" target="_blank">{self.email}</a><br>')
 			return f'<a href="javascript:;" data-title="{content}" data-placement="bottom" class="contact-info-tooltip info-tooltip-container"><span class="glyphicon glyphicon-send small-icon"></span>{self.get_name()}</a>'
+
+	def managed_users(self) -> List[User]:
+		bulk_managed_users = User.objects.in_bulk(self.managed_projects.values_list("user", flat=True).distinct())
+		bulk_managed_users.pop(self.id, None)
+		return list(bulk_managed_users.values())
 
 	@classmethod
 	def get_email_field_name(cls):
@@ -1267,6 +1274,9 @@ class Tool(SerializationByNameModel):
 	def get_tool_info_html(self):
 		content = escape(loader.render_to_string("snippets/tool_info.html", {"tool": self}))
 		return f'<a href="javascript:;" data-title="{content}" data-tooltip-id="tooltip-tool-{self.id}" data-placement="bottom" class="tool-info-tooltip info-tooltip-container"><span class="glyphicon glyphicon-send small-icon"></span>{self.name_or_child_in_use_name()}</a>'
+
+	def trainers(self) -> QuerySet:
+		return User.objects.filter(Q(primary_tool_owner__in=[self])|Q(backup_for_tools__in=[self])|Q(superuser_for_tools__in=[self]))
 
 	def clean(self):
 		errors = {}
@@ -2678,6 +2688,9 @@ class Notification(BaseModel):
 		ADJUSTMENT_REQUEST = 'adjustmentrequest'
 		ADJUSTMENT_REQUEST_REPLY = 'adjustmentrequestmessage'
 		TEMPORARY_ACCESS_REQUEST = 'temporaryphysicalaccessrequest'
+		TRAINING_REQUEST = 'trainingrequest'
+		TRAINING_INVITATION = 'traininginvitation'
+		TRAINING_ALL = 'trainingall'
 		Choices = (
 			(NEWS, 'News creation and updates - notifies all users'),
 			(SAFETY, 'New safety issues - notifies staff only'),
@@ -2685,7 +2698,10 @@ class Notification(BaseModel):
 			(BUDDY_REQUEST_REPLY, 'New buddy request reply - notifies request creator and users who have replied'),
 			(ADJUSTMENT_REQUEST, 'New adjustment request - notifies facility managers only'),
 			(ADJUSTMENT_REQUEST_REPLY, 'New adjustment request reply - notifies request creator and users who have replied'),
-			(TEMPORARY_ACCESS_REQUEST, 'New access request - notifies other users on request and reviewers')
+			(TEMPORARY_ACCESS_REQUEST, 'New access request - notifies other users on request and reviewers'),
+			(TRAINING_REQUEST, 'New training request - notifies trainers only'),
+			(TRAINING_INVITATION, 'New training invitation - notifies invited users'),
+			(TRAINING_ALL, 'All training notifications')
 		)
 
 	user = models.ForeignKey(User, related_name='notifications', on_delete=models.CASCADE)
@@ -3110,6 +3126,363 @@ def auto_delete_file_on_chemical_change(sender, instance: Chemical, **kwargs):
 				os.remove(old_file.path)
 
 
+class TrainingRequestStatus(models.IntegerChoices):
+	SENT = 1, _("Sent")
+	REVIEWED = 2, _("Reviewed")
+	INVITED = 3, _("Invited")
+	ACCEPTED = 4, _("Accepted")
+	DECLINED = 5, _("Declined")
+	EXPIRED = 6, _("Expired")
+	WITHDRAWN = 7, _("Withdrawn")
+	FULFILLED = 8, _("Fulfilled")
+	CANCELLED = 9, _("Cancelled")
+
+
+class TrainingTechnique(SerializationByNameModel):
+	name = models.CharField(max_length=200, unique=True, help_text="The unique name for this item")
+
+	class Meta:
+		ordering = ["name"]
+
+	def __str__(self):
+		return str(self.name)
+
+
+class ToolTrainingDetail(BaseModel):
+	tool = models.OneToOneField(Tool, on_delete=models.CASCADE)
+	techniques = models.ManyToManyField(TrainingTechnique, blank=True, help_text="The techniques available for training on this tool")
+	duration = models.PositiveIntegerField(null=True, blank=True, help_text="The training duration for this tool in minutes")
+	capacity = models.PositiveIntegerField(null=True, blank=True, help_text="The maximum number of attendees when training for this tool")
+	user_availability_allowed = models.BooleanField(default=False, help_text="Check this box to allow users to submit their availability when requesting training")
+
+	def __str__(self):
+		return f"{self.tool.name} training details"
+
+
+class TrainingRequest(BaseModel):
+	creation_time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the request was created.")
+	creator = models.ForeignKey(User, related_name="training_requests_created", on_delete=models.CASCADE)
+	user = models.ForeignKey(User, related_name="training_requests_user", on_delete=models.CASCADE)
+	tool = models.ForeignKey(Tool, on_delete=models.CASCADE)
+	message = models.TextField(null=True, blank=True, help_text="message to the trainer(s)")
+	status = models.IntegerField(choices=TrainingRequestStatus.choices, default=TrainingRequestStatus.SENT)
+	technique = models.ForeignKey(TrainingTechnique, null=True, blank=True, on_delete=models.SET_NULL)
+	trainer = models.ForeignKey(User, null=True, blank=True, related_name="training_requests_trainer", on_delete=models.CASCADE)
+
+	def replace_times(self, requested_times: List[TrainingRequestTime]):
+		TrainingRequestTime.objects.filter(training_request=self).delete()
+		for requested_time in requested_times:
+			requested_time.training_request = self
+			requested_time.save()
+
+	def save_status(self, new_status: TrainingRequestStatus, user, reason=None):
+		self.status = new_status
+		self.save()
+		create_training_history(training_request=self, status=new_status.label, user=user, details=reason)
+
+	def withdraw(self, user: User):
+		if self.status in [TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.INVITED]:
+			self.save_status(TrainingRequestStatus.WITHDRAWN, user)
+			from NEMO.views.notifications import delete_notification
+			delete_notification(Notification.Types.TRAINING_REQUEST, self.id)
+
+	def review(self, user: User):
+		if self.status == TrainingRequestStatus.SENT:
+			self.save_status(TrainingRequestStatus.REVIEWED, user)
+
+	def decline(self, user: User, reason):
+		self.save_status(TrainingRequestStatus.DECLINED, user, reason)
+		from NEMO.views.notifications import delete_notification
+		delete_notification(Notification.Types.TRAINING_REQUEST, self.id)
+
+	def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+		new = not self.id
+		super().save(force_insert, force_update, using, update_fields)
+		if new:
+			from NEMO.views.notifications import create_training_request_notification
+			create_training_request_notification(self)
+			create_training_history(user=self.creator, status=TrainingRequestStatus.SENT.label, training_request=self)
+
+	def clean(self):
+		pending_status = [TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.INVITED, TrainingRequestStatus.ACCEPTED]
+		if not self.id and self.user_id and self.tool_id:
+			if TrainingRequest.objects.filter(tool_id=self.tool_id, user_id=self.user_id, status__in=pending_status).exists():
+				raise ValidationError({NON_FIELD_ERRORS: "You already have a pending or accepted training request for this tool"})
+
+	def __str__(self):
+		return f"{self.tool.name} training request from {self.user}"
+
+	class Meta:
+		ordering = ["-creation_time"]
+
+
+class TrainingRequestTime(BaseModel):
+	training_request = models.ForeignKey(TrainingRequest, on_delete=models.CASCADE)
+	start_time = models.DateTimeField(help_text="The start date and time of the closure")
+	end_time = models.DateTimeField(help_text="The end date and time of the closure")
+
+	def clean(self):
+		if self.end_time and self.end_time < timezone.now():
+			raise ValidationError({"end_time": "Your availability cannot be in the past"})
+		if self.start_time and self.end_time and self.end_time <= self.start_time:
+			raise ValidationError({"end_time": "The end time must be later than the start time"})
+
+	def __str__(self):
+		return format_daterange(self.start_time, self.end_time)
+
+	class Meta:
+		ordering = ["start_time"]
+
+
+class TrainingEvent(BaseModel):
+	creation_time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the training was created.")
+	creator = models.ForeignKey(User, related_name="training_events_created", on_delete=models.CASCADE)
+	start = models.DateTimeField()
+	end = models.DateTimeField()
+	tool = models.ForeignKey(Tool, on_delete=models.CASCADE)
+	technique = models.ForeignKey(TrainingTechnique, null=True, blank=True, on_delete=models.SET_NULL)
+	trainer = models.ForeignKey(User, related_name="training_events_trainer", on_delete=models.CASCADE)
+	message = models.TextField(null=True, blank=True, help_text="The message to the trainee(s)")
+	users = models.ManyToManyField(User, blank=True)
+	capacity = models.PositiveIntegerField()
+	cancelled = models.BooleanField(default=False)
+	cancellation_time = models.DateTimeField(null=True, blank=True)
+	cancelled_by = models.ForeignKey(User, related_name="training_events_cancelled", null=True, blank=True, on_delete=models.SET_NULL)
+	cancellation_reason = models.CharField(null=True, blank=True, max_length=200)
+
+	@property
+	def duration(self):
+		return int((self.end - self.start).total_seconds()//60) if self.start and self.end else None
+
+	def pending_invitations(self, user: User = None):
+		pending_invites = self.traininginvitation_set.filter(
+			status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.INVITED]
+		)
+		if user:
+			pending_invites = pending_invites.filter(user=user)
+		return pending_invites
+
+	def current_capacity(self) -> int:
+		return self.users.count()
+
+	def at_capacity(self) -> bool:
+		return self.current_capacity() >= self.capacity
+
+	def clean(self):
+		errors = {}
+		# Add start and trainer errors to general errors since those fields are not present in the forms
+		if self.start and self.start < timezone.now():
+			errors[NON_FIELD_ERRORS] = _("You cannot create training sessions in the past")
+		if self.tool_id and self.trainer_id:
+			if not is_trainer(self.trainer, self.tool):
+				errors[NON_FIELD_ERRORS] = _("You are not allowed to train on this tool")
+			if self.technique_id and self.technique_id not in ToolTrainingDetail.objects.filter(
+					tool=self.tool
+			).values_list("techniques", flat=True):
+				errors["technique"] = _("This technique is not available for the selected tool")
+		if errors:
+			raise ValidationError(errors)
+
+	@transaction.atomic
+	def cancel(self, user: User, reason: Optional[str] = None, request=None):
+		self.cancelled = True
+		self.cancelled_by = user
+		self.cancellation_time = timezone.now()
+		self.cancellation_reason = reason
+		self.save()
+		create_training_history(training_event=self, status=TrainingRequestStatus.CANCELLED.label, user=user, details=reason)
+		# Cancel all pending or accepted invitations to this event and notifications
+		invitations = TrainingInvitation.objects.filter(training_event=self.id)
+		Notification.objects.filter(notification_type=Notification.Types.TRAINING_INVITATION, object_id__in=invitations).delete()
+		for training_invitation in invitations.filter(status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.ACCEPTED]):
+			training_invitation.save_status(TrainingRequestStatus.CANCELLED, user, "The associated training was cancelled")
+		# Turn accepted and invited training requests for this tool back to pending and recreate notifications
+		reset_training_request_to_pending(self.tool, user)
+		from NEMO.views.training_new import send_email_training_session_cancelled
+		send_email_training_session_cancelled(self, request)
+
+	def invite_users(self, creator: User, users: Iterable[User], request=None):
+		for user in users:
+			# Change training requests status to Invited
+			training_requests = TrainingRequest.objects.filter(user=user, tool=self.tool, status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED])
+			training_request_ids = list(training_requests.values_list("id", flat=True))
+			for training_request in training_requests:
+				training_request.save_status(TrainingRequestStatus.INVITED, creator)
+			# Then create and save new invitation
+			invitation = TrainingInvitation.objects.filter(training_event_id=self.id, user=user).first()
+			if not invitation:
+				invitation = TrainingInvitation()
+				invitation.training_event_id = self.id
+				invitation.creator = creator
+				invitation.user_id = user.id
+				invitation.full_clean()
+				invitation.save()
+			# Saving status explicitly here for history
+			invitation.save_status(TrainingRequestStatus.SENT, creator)
+			# Create invitation notifications and remove request notifications
+			from NEMO.views.notifications import create_training_invitation_notification
+			create_training_invitation_notification(invitation)
+			Notification.objects.filter(notification_type=Notification.Types.TRAINING_REQUEST, object_id__in=training_request_ids).delete()
+			# Send the invitation email
+			from NEMO.views.training_new import send_email_training_invitation_received
+			send_email_training_invitation_received(invitation, request)
+
+	def uninvite_users(self, user, users: Iterable[User]):
+		from NEMO.views.notifications import delete_notification
+		for training_invitation in TrainingInvitation.objects.filter(training_event_id=self.id, user__in=users):
+			training_invitation.save_status(TrainingRequestStatus.WITHDRAWN, user)
+			delete_notification(Notification.Types.TRAINING_INVITATION, training_invitation.id)
+		# Turn accepted and invited training requests for this tool back to pending and recreate notifications
+		if users:
+			reset_training_request_to_pending(self.tool, user, users)
+
+	def __str__(self):
+		return f"{self.tool.name} training by {self.trainer} on {format_datetime(self.start)}"
+
+	class Meta:
+		ordering = ["-creation_time"]
+
+
+class TrainingInvitation(BaseModel):
+	training_event = models.ForeignKey(TrainingEvent, on_delete=models.CASCADE)
+	creation_time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the request was created.")
+	creator = models.ForeignKey(User, related_name="training_invitations_created", on_delete=models.CASCADE)
+	user = models.ForeignKey(User, related_name="training_invitations_user", on_delete=models.CASCADE)
+	status = models.IntegerField(choices=TrainingRequestStatus.choices, default=TrainingRequestStatus.SENT)
+
+	@property
+	def tool(self) -> Tool:
+		return self.training_event.tool
+
+	@property
+	def message(self) -> str:
+		return self.training_event.message
+
+	@property
+	def technique(self) -> TrainingTechnique:
+		return self.training_event.technique
+
+	@property
+	def trainer(self) -> User:
+		return self.training_event.trainer
+
+	@property
+	def start(self):
+		return self.training_event.start
+
+	@property
+	def end(self):
+		return self.training_event.end
+
+	@property
+	def duration(self):
+		return self.training_event.duration
+
+	def save_status(self, new_status, user, reason=None):
+		self.status = new_status
+		self.save()
+		create_training_history(training_invitation=self, status=new_status.label, user=user, details=reason)
+
+	def accept_invitation(self, user: User):
+		if self.status in [TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.INVITED]:
+			self.save_status(TrainingRequestStatus.ACCEPTED, user)
+			self.training_event.users.add(self.user)
+			# Turn pending, reviewed and invited training requests for this tool to accepted
+			from NEMO.views.notifications import delete_notification
+			for training_request in TrainingRequest.objects.filter(user=self.user, tool=self.tool, status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.INVITED]):
+				training_request.save_status(TrainingRequestStatus.ACCEPTED, user)
+				delete_notification(Notification.Types.TRAINING_REQUEST, training_request.id)
+			# Remove training invitation notification
+			delete_notification(Notification.Types.TRAINING_INVITATION, self.id)
+
+	def decline_invitation(self, user: User, reason=None, request=None):
+		if self.status in [TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.ACCEPTED, TrainingRequestStatus.INVITED]:
+			self.save_status(TrainingRequestStatus.DECLINED, user, reason)
+			self.training_event.users.remove(self.user)
+			# Turn accepted/reviewed/invited training request for this tool/user back to pending and resend notification
+			reset_training_request_to_pending(self.tool, user, [user])
+			# Remove training invitation notification
+			from NEMO.views.notifications import delete_notification
+			delete_notification(Notification.Types.TRAINING_INVITATION, self.id)
+			# Send email to trainer
+			from NEMO.views.training_new import send_email_training_invitation_declined
+			send_email_training_invitation_declined(self, reason, request)
+
+	def review_invitation(self, user: User):
+		if self.status == TrainingRequestStatus.SENT:
+			self.save_status(TrainingRequestStatus.REVIEWED, user)
+
+	def clean(self):
+		errors = {}
+		if self.training_event_id:
+			if self.training_event.at_capacity():
+				errors["training_event"] = _("This training is full")
+			if self.user_id:
+				if self.user in self.training_event.users.all():
+					errors["user"] = _("This user is already attending this event")
+		if errors:
+			raise ValidationError(errors)
+
+	def __str__(self):
+		return f"{self.tool} training invitation sent to {self.user}"
+
+	class Meta:
+		unique_together = ["training_event", "user"]
+		ordering = ["-creation_time"]
+
+
+class TrainingHistory(BaseModel):
+	training_request = models.ForeignKey(TrainingRequest, null=True, blank=True, on_delete=models.CASCADE)
+	training_invitation = models.ForeignKey(TrainingInvitation, null=True, blank=True, on_delete=models.CASCADE)
+	training_event = models.ForeignKey(TrainingEvent, null=True, blank=True, on_delete=models.CASCADE)
+	status = models.CharField(max_length=200, help_text="The new training item status")
+	time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the training item status was changed")
+	user = models.ForeignKey(User, help_text="The user who changed the training item status", on_delete=models.CASCADE)
+	details = models.CharField(null=True, blank=True, max_length=200, help_text="The details/reason of this change")
+
+	@property
+	def training_item(self) -> Union[TrainingRequest, TrainingInvitation, TrainingEvent]:
+		return self.training_request or self.training_invitation or self.training_event
+
+	@property
+	def training_item_type(self) -> str:
+		return "Request" if self.training_request else "Invitation" if self.training_invitation else "Training session" if self.training_event else ""
+
+	@property
+	def tool(self) -> Tool:
+		return self.training_invitation.training_event.tool if self.training_invitation else self.training_item.tool
+
+	@property
+	def dates(self) -> List[datetime]:
+		return [self.training_event.start] if self.training_event else self.training_request.trainingrequesttime_set.all() if self.training_request else []
+
+	def target_users(self) -> List[User]:
+		if self.training_request or self.training_invitation:
+			return [self.training_item.user]
+		elif self.training_event:
+			return [self.training_event.users]
+		return []
+
+	class Meta:
+		verbose_name_plural = "Training histories"
+		ordering = ["-time"]
+		get_latest_by = "time"
+
+
+def reset_training_request_to_pending(tool: Tool, actor: User, filter_by_users: Iterable[User]=None):
+	from NEMO.views.notifications import create_training_request_notification
+	training_requests = TrainingRequest.objects.filter(tool=tool, status__in=[TrainingRequestStatus.ACCEPTED, TrainingRequestStatus.INVITED])
+	if filter_by_users:
+		training_requests = training_requests.filter(user__in=filter_by_users)
+	for training_request in training_requests:
+		training_request.save_status(TrainingRequestStatus.SENT, actor)
+		create_training_request_notification(training_request)
+
+
+def create_training_history(user, details=None, status=None, training_event=None, training_invitation=None, training_request=None):
+	TrainingHistory.objects.create(training_event=training_event, training_invitation=training_invitation, training_request=training_request, user=user, details=details, status=status)
+
+
 class EmailLog(BaseModel):
 	category = models.IntegerField(choices=EmailCategory.Choices, default=EmailCategory.GENERAL)
 	when = models.DateTimeField(null=False, auto_now_add=True)
@@ -3121,7 +3494,7 @@ class EmailLog(BaseModel):
 	attachments = models.TextField(null=True)
 
 	class Meta:
-		ordering = ['-when']
+		ordering = ["-when"]
 
 
 def record_remote_many_to_many_changes_and_save(request, obj, form, change, many_to_many_field, save_function_pointer):
