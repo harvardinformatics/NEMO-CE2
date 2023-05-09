@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Union
 
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.utils import timezone
@@ -33,6 +34,8 @@ from NEMO.models import (
     StaffCharge,
     Tool,
     ToolAccessory,
+    TrainingEvent,
+    TrainingInvitation,
     User,
 )
 from NEMO.utilities import (
@@ -957,6 +960,40 @@ class NEMOPolicy:
             if max_count > prev_count:
                 max_time = time[0]
         return max_count, max_time
+
+    def check_to_create_training(self, training: TrainingEvent) -> List[str]:
+        policy_problems = []
+        coincident_trainings = TrainingEvent.objects.filter(tool=training.tool, cancelled=False).exclude(id=training.id)
+        coincident_trainings = coincident_trainings.exclude(start__lt=training.start, end__lte=training.start)
+        coincident_trainings = coincident_trainings.exclude(start__gte=training.end, end__gt=training.end)
+        if coincident_trainings.exists():
+            policy_problems.append(
+                "Your training coincides with another training that already exists. Please choose a different time."
+            )
+        coincident_reservations = Reservation.objects.filter(tool=training.tool, cancelled=False, missed=False, shortened=False)
+        coincident_reservations = coincident_reservations.exclude(start__lt=training.start, end__lte=training.start)
+        coincident_reservations = coincident_reservations.exclude(start__gte=training.end, end__gt=training.end)
+        if coincident_reservations.exists():
+            policy_problems.append(
+                "Your training coincides with a reservation that already exists. Please choose a different time."
+            )
+        coincident_outages = ScheduledOutage.objects.filter(Q(tool=training.tool) | Q(resource__fully_dependent_tools__in=[training.tool]))
+        coincident_outages = coincident_outages.exclude(start__lt=training.start, end__lte=training.start)
+        coincident_outages = coincident_outages.exclude(start__gte=training.end, end__gt=training.end)
+        if coincident_outages.exists():
+            policy_problems.append(
+                "Your training coincides with a scheduled outage. Please choose a different time."
+            )
+        return policy_problems
+
+    def check_to_register_for_training(self, training_invite: TrainingInvitation) -> Optional[List[str]]:
+        policy_problems = []
+        try:
+            training_invite.full_clean()
+        except ValidationError as e:
+            for error_message in e.messages:
+                policy_problems.append(error_message)
+        return policy_problems
 
 
 def recursive_merge(intervals: List[tuple], start_index=0) -> List[tuple]:

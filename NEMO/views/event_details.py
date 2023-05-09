@@ -3,7 +3,7 @@ from django.http import HttpResponseNotFound
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET
 
-from NEMO.models import AreaAccessRecord, Reservation, ScheduledOutage, UsageEvent
+from NEMO.models import AreaAccessRecord, Reservation, ScheduledOutage, TrainingEvent, UsageEvent
 from NEMO.utilities import format_datetime
 
 
@@ -50,4 +50,20 @@ def area_access_details(request, event_id):
 	event = get_object_or_404(AreaAccessRecord, id=event_id)
 	return render(
 		request, "event_details/area_access_details.html", {"event": event, "popup_view": request.GET.get("popup_view")}
+	)
+
+
+@login_required
+@require_GET
+def training_event_details(request, training_id):
+	training_event = get_object_or_404(TrainingEvent, id=training_id)
+	if training_event.cancelled:
+		error_message = "This training was cancelled by {0} at {1}.".format(
+			training_event.cancelled_by, format_datetime(training_event.cancellation_time)
+		)
+		return HttpResponseNotFound(error_message)
+	return render(
+		request,
+		"event_details/training_event_details.html",
+		{"training": training_event, "popup_view": request.GET.get("popup_view")},
 	)

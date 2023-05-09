@@ -7,6 +7,8 @@ from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import user_passes_test
 from django.utils.text import slugify
 
+from NEMO.utilities import is_trainer
+
 
 def disable_session_expiry_refresh(f):
 	"""
@@ -101,6 +103,7 @@ accounting_or_user_office_or_manager_required = permission_decorator(lambda u: u
 user_office_or_manager_required = permission_decorator(lambda u: u.is_active and (u.is_user_office or u.is_facility_manager or u.is_superuser))
 any_staff_required = permission_decorator(lambda u: u.is_active and (u.is_any_part_of_staff))
 accounting_or_manager_required = permission_decorator(lambda u: u.is_active and (u.is_accounting_officer or u.is_facility_manager or u.is_superuser))
+any_staff_or_trainer = permission_decorator(lambda u: u.is_active and (u.is_any_part_of_staff or is_trainer(u)))
 
 
 # Use this decorator annotation to replace another existing function. The first parameter of

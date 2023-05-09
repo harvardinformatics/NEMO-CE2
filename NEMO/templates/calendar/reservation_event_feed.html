@@ -1,3 +1,4 @@
+{% load training_tags %}
 [
 	{% for x in events %}
 	{
@@ -28,7 +29,7 @@
 		"start": "{{ x.start|date:"c" }}",
 		"end": "{{ x.get_visual_end|date:"c" }}",
 		"details_url": "{% url 'reservation_details' x.id %}"
-	}{% if not forloop.last %},{% elif outages %},{% endif %}
+	}{% if not forloop.last %},{% elif outages or trainings %},{% endif %}
 	{% endfor %}
 	{% for x in outages %}
 	{
@@ -39,6 +40,21 @@
 		"start": "{{ x.start|date:"c" }}",
 		"end": "{{ x.end|date:"c" }}",
 		"details_url": "{% url 'outage_details' x.id %}"
+	}{% if not forloop.last %},{% elif trainings %},{% endif %}
+	{% endfor %}
+	{% for training in trainings %}
+	{
+		{% if personal_schedule %}
+			"title": "{{ training.tool.name }} training by {{ training.trainer.get_name }}",
+		{% else %}
+			"title": "Training by {{ training.trainer.get_name }}",
+		{% endif %}
+		"id": "Training {{ training.id }}",
+		"color": "#BF00FFFF",
+		"start": "{{ training.start|date:"c" }}",
+		"end": "{{ training.end|date:"c" }}",
+		{% if user.is_staff or user|is_trainer:training.tool %}"editable": true,{% endif %}
+		"details_url": "{% url 'training_event_details' training.id %}"
 	}{% if not forloop.last %},{% endif %}
 	{% endfor %}
 ]

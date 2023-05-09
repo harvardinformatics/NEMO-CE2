@@ -26,6 +26,9 @@ NEMO-CE dev build:
     - docker build --tag $CI_REGISTRY_IMAGE:dev .
     - docker push $CI_REGISTRY_IMAGE:dev
     - docker logout
+  only:
+    - schedules
+    - master
 
 NEMO-CE Release:
   stage: build

@@ -403,6 +403,20 @@ class RemoteWorkCustomization(CustomizationBase):
 	}
 
 
+@customization(key="training", title="Training")
+class TrainingCustomization(CustomizationBase):
+	variables = {
+		"training_module_enabled": "enabled",
+		"training_request_default_availability_allowed": "",
+		"training_event_default_duration": "",
+		"training_event_default_capacity": "",
+	}
+
+	def validate(self, name, value):
+		if name in ["training_event_default_duration", "training_event_default_capacity"] and value:
+			validate_integer(value)
+
+
 @customization(key="templates", title="File & email templates")
 class TemplatesCustomization(CustomizationBase):
 	files = [
@@ -429,6 +443,10 @@ class TemplatesCustomization(CustomizationBase):
 		("staff_charge_reminder_email", ".html"),
 		("task_status_notification", ".html"),
 		("tool_qualification_expiration_email", ".html"),
+		("training_invitation_declined_email", ".html"),
+		("training_invitation_received_email", ".html"),
+		("training_request_submitted_email", ".html"),
+		("training_session_cancelled_email", ".html"),
 		("unauthorized_tool_access_email", ".html"),
 		("usage_reminder_email", ".html"),
 		("user_access_expiration_reminder_email", ".html"),

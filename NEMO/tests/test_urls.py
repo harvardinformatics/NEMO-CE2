@@ -124,6 +124,22 @@ urls_to_skip = [
 	"delete_adjustment_request",
 	"adjustment_request_reply",
 ]
+# Skip new training URLs
+urls_to_skip += [
+	"create_training_event_calendar",
+	"create_training_event",
+	"resize_training_event",
+	"move_training_event",
+	"training_event_details",
+	"withdraw_training_request",
+	"accept_training_invitation",
+	"decline_training_invitation",
+	"review_training_invitation",
+	"cancel_training_event",
+	"register_for_training",
+	"review_training_request",
+	"decline_training_request",
+]
 
 
 class URLsTestCase(TestCase):
@@ -344,7 +360,7 @@ def login_as_relevant_user(test_case: TestCase, annotations: List[str]):
 		login_as_user_with_permissions(test_case.client, ["add_areaaccessrecord", "change_areaaccessrecord"])
 	elif "login_required" in annotations:
 		login_as_user(test_case.client)
-	elif "staff_member_required" in annotations or "staff_member_or_tool_superuser_required" in annotations or "staff_member_or_user_office_required" in annotations:
+	elif "staff_member_required" in annotations or "staff_member_or_tool_superuser_required" in annotations or "staff_member_or_user_office_required" in annotations or "any_staff_or_trainer" in annotations:
 		login_as_staff(test_case.client)
 	elif "administrator_required" in annotations:
 		staff = login_as_staff(test_case.client)

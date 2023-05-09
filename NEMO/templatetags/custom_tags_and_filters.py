@@ -15,6 +15,7 @@ from django.utils.safestring import mark_safe
 
 from NEMO.mixins import BillableItemMixin
 from NEMO.models import User
+from NEMO.utilities import get_full_url
 from NEMO.views.customization import CustomizationBase, ProjectsAccountsCustomization
 
 register = template.Library()
@@ -227,5 +228,11 @@ def button(value, type="default", size="", icon=None, onclick=None, dismiss="", 
 		"btn_type": None if url else "submit" if submit else "button",
 		"btn_url": resolve_url(url) if url else None,
 		"btn_dismiss": dismiss,
-		"kwargs": kwargs,  # pass the rest of the kwargs directly to the button to be used as attributes
+		"kwargs": {key.replace("_","-"): value for key, value in kwargs.items()},  # pass the rest of the kwargs directly to the button to be used as attributes
 	}
+
+
+@register.simple_tag(takes_context=True)
+def absolute_url(context, view_name, *args, **kwargs):
+	url = reverse(view_name, args=args, kwargs=kwargs)
+	return get_full_url(url, request=context['request'])
