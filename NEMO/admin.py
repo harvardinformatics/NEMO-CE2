@@ -230,8 +230,13 @@ class UserQualificationInline(admin.TabularInline):
 	extra = 0
 
 	def __init__(self, *args, **kwargs):
-		if not QualificationLevel.objects.exists():
-			self.exclude = ["qualification_level"]
+		# Inline init method is checked by django admin at start
+		# So we cannot have lookups done at this time
+		try:
+			if not QualificationLevel.objects.exists():
+				self.exclude = ["qualification_level"]
+		except:
+			pass
 		super().__init__(*args, **kwargs)
 	
 	def get_formset(self, request, obj=None, **kwargs):
