@@ -24,6 +24,8 @@ from NEMO.models import (
 	ConfigurationHistory,
 	EmailNotificationType,
 	Project,
+	Qualification,
+	QualificationLevel,
 	Reservation,
 	StaffCharge,
 	Task,
@@ -88,6 +90,8 @@ def tool_status(request, tool_id):
 	""" Gets the current status of the tool (that is, whether it is currently in use or not). """
 	from NEMO.rates import rate_class
 	tool = get_object_or_404(Tool, id=tool_id, visible=True)
+	qualification_levels = QualificationLevel.objects.all()
+	qualifications = Qualification.objects.filter(tool=tool)
 
 	dictionary = {
 		"tool": tool,
@@ -98,6 +102,9 @@ def tool_status(request, tool_id):
 		"task_statuses": TaskStatus.objects.all(),
 		"post_usage_questions": DynamicForm(tool.post_usage_questions).render("tool_usage_group_question", tool_id),
 		"configs": get_tool_full_config_history(tool),
+		"qualification_levels": qualification_levels,
+		"qualifications": qualifications,
+
 	}
 
 	try:

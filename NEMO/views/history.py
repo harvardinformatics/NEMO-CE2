@@ -29,7 +29,7 @@ def history(request, item_type, item_id):
 	ownership = MembershipHistory.objects.filter(child_object_id=item_id, child_content_type__id__exact=content_type.id)
 	# Iterate over all activity history and membership history for this object.
 	action_list = BasicDisplayTable()
-	action_list.headers = [("date", "Date & time"), ("authorizer", "User"), ("message", "Action")]
+	action_list.headers = [("date", "Date & time"), ("authorizer", "User"), ("message", "Action"), ("details", "Details")]
 	for a in activity:
 		message = capfirst(content_type.name) + " "
 		if a.action == ActivityHistory.Action.ACTIVATED:
@@ -44,7 +44,7 @@ def history(request, item_type, item_id):
 		else:
 			message += "removed from"
 		message += " this " + content_type.name + "."
-		action_list.add_row({"date": m.date, "authorizer": str(m.authorizer), "message": message})
+		action_list.add_row({"date": m.date, "authorizer": str(m.authorizer), "message": message, "details": m.details})
 	for o in ownership:
 		message = "This " + content_type.name + " "
 		if o.action:
@@ -52,7 +52,7 @@ def history(request, item_type, item_id):
 		else:
 			message += "no longer"
 		message += " belongs to " + o.parent_content_type.name + ' "' + o.get_parent_content_object() + '".'
-		action_list.add_row({"date": o.date, "authorizer": str(o.authorizer), "message": message})
+		action_list.add_row({"date": o.date, "authorizer": str(o.authorizer), "message": message, "details": o.details})
 	if apps.is_installed("auditlog"):
 		from auditlog.models import LogEntry
 
@@ -74,7 +74,8 @@ def history(request, item_type, item_id):
 		filename = f"{item_type}_history_{name}_{export_format_datetime()}.csv"
 		response["Content-Disposition"] = f'attachment; filename="{filename}"'
 		return response
-	return render(request, "history.html", {"action_list": action_list, "name": str(item)})
+	has_details = any(row["details"] for row in action_list.rows)
+	return render(request, "history.html", {"action_list": action_list, "name": str(item), "has_details": has_details})
 
 
 def audit_log_message(logentry, separator: str = "\n"):

@@ -4,12 +4,24 @@ from django.test import TestCase
 from django.urls import reverse
 
 from NEMO.admin import InterlockCardAdminForm, ToolAdminForm
-from NEMO.models import Account, Area, Door, Interlock, InterlockCardCategory, PhysicalAccessLevel, Project, Tool, User
+from NEMO.models import (
+	Account,
+	Area,
+	Door,
+	Interlock,
+	InterlockCardCategory,
+	PhysicalAccessLevel,
+	Project,
+	QualificationLevel,
+	Tool,
+	User,
+)
 from NEMO.tests.test_utilities import login_as, login_as_access_user, login_as_user
 
 tool: Optional[Tool] = None
 alternate_tool: Optional[Tool] = None
 area_door: Optional[Door] = None
+qualification_level: Optional[QualificationLevel] = None
 
 
 class ToolTestCase(TestCase):
@@ -114,7 +126,7 @@ class ToolTestCase(TestCase):
 		)
 		user.projects.add(project)
 		# user needs to be qualified to use the tool
-		user.qualifications.add(tool)
+		user.add_qualification(tool, qualification_level)
 		user.physical_access_levels.add(PhysicalAccessLevel.objects.get(name="cleanroom access"))
 		user.badge_number = 11
 		user.training_required = False

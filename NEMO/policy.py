@@ -28,6 +28,7 @@ from NEMO.models import (
     Consumable,
     PhysicalAccessLevel,
     Project,
+    Qualification,
     Reservation,
     ReservationItemType,
     ScheduledOutage,
@@ -79,8 +80,16 @@ class NEMOPolicy:
 
         # The user must be qualified to use the tool itself, or the parent tool in case of alternate tool.
         tool_to_check_qualifications = tool.parent_tool if tool.is_child_tool() else tool
-        if tool_to_check_qualifications not in operator.qualifications.all() and not operator.is_staff:
-            return HttpResponseBadRequest("You are not qualified to use this tool.")
+        if not operator.is_staff:
+            qualification = Qualification.objects.filter(user=operator, tool=tool_to_check_qualifications).first()
+            if not qualification:
+                return HttpResponseBadRequest("You are not qualified to use this tool.")
+            elif qualification.qualification_level and not qualification.qualification_level.qualify_user:
+                return HttpResponseBadRequest("You do not have the qualification level required to operate this tool.")
+            elif qualification.qualification_level and not qualification.qualification_level.is_allowed():
+                return HttpResponseBadRequest(
+                    f"You do not have the qualification level required to operate this tool at this time. Allowed times are {qualification.qualification_level.allowed_times_display()}"
+                )
 
         # Only staff members can operate a tool on behalf of another user.
         if (user and operator.pk != user.pk) and not operator.is_staff:
@@ -380,15 +389,41 @@ class NEMOPolicy:
         # The user must be qualified on the tool in question in order to create, move, or resize a reservation.
         # Staff may break this rule.
         # An explicit policy override allows this rule to be broken.
-        if new_reservation.tool and new_reservation.tool not in user.qualifications.all():
-            if user == user_creating_reservation:
-                policy_problems.append(
-                    "You are not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
-                )
-            else:
-                policy_problems.append(
-                    f"{str(user)} is not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
-                )
+        if new_reservation.tool:
+            # Retrieve the user's qualification for the tool if any
+            qualification = Qualification.objects.filter(user=user, tool=new_reservation.tool).first()
+
+            # If the user is not qualified, add a policy problem
+            if not qualification:
+                if user == user_creating_reservation:
+                    policy_problems.append(
+                        "You are not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
+                    )
+                else:
+                    policy_problems.append(
+                        f"{str(user)} is not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
+                    )
+            elif qualification.qualification_level and not qualification.qualification_level.qualify_user:
+                if user == user_creating_reservation:
+                    policy_problems.append(
+                        "You do not have the qualification level required to operate this tool."
+                    )
+                else:
+                    policy_problems.append(
+                        f"{str(user)} does not have the qualification level required to operate this tool."
+                    )
+            elif qualification.qualification_level:
+                times_to_check = get_times_to_check(new_reservation.start, new_reservation.end)
+                if not all([qualification.qualification_level.is_allowed_at(check_time) for check_time in
+                            times_to_check]):
+                    if user == user_creating_reservation:
+                        policy_problems.append(
+                            f"You do not have the qualification level required to operate this tool at some point during the reservation window. Allowed times are {qualification.qualification_level.allowed_times_display()}"
+                        )
+                    else:
+                        policy_problems.append(
+                            f"{str(user)} does not have the qualification level required to operate this tool at some point during the reservation window. Allowed times are {qualification.qualification_level.allowed_times_display()}"
+                        )
 
         # The user must be authorized on the area in question at the start and end times of the reservation
         # in order to create, move, or resize a reservation.
@@ -1018,6 +1053,19 @@ def accessory_conflicts_for_reservation(reservation: Reservation, accessories: L
         if reservation_qs.exists():
             conflicts[accessory.name] = list(reservation_qs.order_by("start"))
     return conflicts
+
+
+# Splitting times when reservation window is on multiple days, so we can check the policy for each day times
+def get_times_to_check(start: datetime, end: datetime) -> List[datetime]:
+    if start.day != end.day:
+        return [
+            start,
+            start.replace(hour=23, minute=59, second=59, microsecond=999999),
+            end.replace(hour=0, minute=0, second=0, microsecond=0),
+            end,
+        ]
+    else:
+        return [start, end]
 
 
 policy_class: NEMOPolicy = get_class_from_settings("NEMO_POLICY_CLASS", "NEMO.policy.NEMOPolicy")

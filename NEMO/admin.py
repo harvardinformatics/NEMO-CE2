@@ -68,6 +68,8 @@ from NEMO.models import (
 	Project,
 	ProjectDiscipline,
 	ProjectDocuments,
+	Qualification,
+	QualificationLevel,
 	RecurringConsumableCharge,
 	RequestMessage,
 	Reservation,
@@ -139,12 +141,6 @@ class ToolAdminForm(forms.ModelForm):
 		js = ("admin/tool/tool.js", "admin/questions_preview/questions_preview.js")
 		css = {"": ("admin/questions_preview/questions_preview.css",)}
 
-	qualified_users = forms.ModelMultipleChoiceField(
-		queryset=User.objects.all(),
-		required=False,
-		widget=FilteredSelectMultiple(verbose_name="Users", is_stacked=False),
-	)
-
 	required_resources = forms.ModelMultipleChoiceField(
 		queryset=Resource.objects.all(),
 		required=False,
@@ -167,7 +163,6 @@ class ToolAdminForm(forms.ModelForm):
 		self.fields["_interlock"].queryset = Interlock.objects.filter(
 			Q(id=self.instance._interlock_id) | Q(tool__isnull=True, door__isnull=True))
 		if self.instance.pk:
-			self.fields["qualified_users"].initial = self.instance.user_set.all()
 			self.fields["required_resources"].initial = self.instance.required_resource_set.all()
 			self.fields["nonrequired_resources"].initial = self.instance.nonrequired_resource_set.all()
 
@@ -190,9 +185,65 @@ class ToolDocumentsInline(admin.TabularInline):
 	extra = 1
 
 
+class UserQualificationInlineFormset(BaseInlineFormSet):
+	def add_fields(self, form, index):
+		""" This will disable user and tool fields on update only """
+		super().add_fields(form, index)
+		if form.initial:
+			form.fields['user'].disabled = True
+			form.fields['tool'].disabled = True
+
+	# Override save, update and delete to use qualify method
+	def save_existing(self, form, instance, commit=True):
+		if not commit:
+			return super().save_existing(form, instance, commit)
+		else:
+			return self.qualify(form)
+
+	def save_new(self, form, commit=True):
+		if not commit:
+			return super().save_new(form, False)
+		else:
+			return self.qualify(form)
+
+	def qualify(self, form):
+		from NEMO.views.qualifications import qualify
+		# This user was set in the inline
+		request_user = self.user
+		tool = form.instance.tool
+		user = form.instance.user
+		qualification_level_id = form.instance.qualification_level_id
+		qualify(request_user, tool, user, qualification_level_id)
+		return Qualification.objects.filter(user=user, tool=tool, qualification_level_id=qualification_level_id).latest()
+
+	def delete_existing(self, obj, commit=True):
+		if commit:
+			from NEMO.views.qualifications import disqualify
+			disqualify(self.user, obj.tool, obj.user)
+
+
+class UserQualificationInline(admin.TabularInline):
+	model = Qualification
+	autocomplete_fields = ["user", "tool"]
+	readonly_fields = ["qualified_on"]
+	formset = UserQualificationInlineFormset
+	extra = 0
+
+	def __init__(self, *args, **kwargs):
+		if not QualificationLevel.objects.exists():
+			self.exclude = ["qualification_level"]
+		super().__init__(*args, **kwargs)
+	
+	def get_formset(self, request, obj=None, **kwargs):
+		""" Override to set the request user """
+		formset = super().get_formset(request, obj, **kwargs)
+		formset.user = request.user
+		return formset
+
+
 @register(Tool)
 class ToolAdmin(admin.ModelAdmin):
-	inlines = [ToolDocumentsInline]
+	inlines = [UserQualificationInline, ToolDocumentsInline]
 	list_display = (
 		"name_display",
 		"_category",
@@ -217,7 +268,6 @@ class ToolAdmin(admin.ModelAdmin):
 					"name",
 					"parent_tool",
 					"_category",
-					"qualified_users",
 					"_post_usage_questions",
 					"_post_usage_preview",
 				)
@@ -297,9 +347,6 @@ class ToolAdmin(admin.ModelAdmin):
 		if obj.parent_tool:
 			super(ToolAdmin, self).save_model(request, obj, form, change)
 		else:
-			record_remote_many_to_many_changes_and_save(
-				request, obj, form, change, "qualified_users", super(ToolAdmin, self).save_model
-			)
 			if "required_resources" in form.changed_data:
 				obj.required_resource_set.set(form.cleaned_data["required_resources"])
 			if "nonrequired_resources" in form.changed_data:
@@ -851,6 +898,7 @@ class MembershipHistoryAdmin(admin.ModelAdmin):
 		"get_child",
 		"date",
 		"authorizer",
+		"details",
 	)
 	list_filter = (("parent_content_type", admin.RelatedOnlyFieldListFilter), ("child_content_type", admin.RelatedOnlyFieldListFilter),)
 	date_hierarchy = "date"
@@ -881,13 +929,6 @@ class UserAdminForm(forms.ModelForm):
 		model = User
 		fields = "__all__"
 
-	tool_qualifications = forms.ModelMultipleChoiceField(
-		label="Qualifications",
-		queryset=Tool.objects.filter(parent_tool__isnull=True),
-		required=False,
-		widget=FilteredSelectMultiple(verbose_name="tools", is_stacked=False),
-	)
-
 	backup_owner_on_tools = forms.ModelMultipleChoiceField(
 		queryset=Tool.objects.filter(parent_tool__isnull=True),
 		required=False,
@@ -903,7 +944,6 @@ class UserAdminForm(forms.ModelForm):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		if self.instance.pk:
-			self.fields["tool_qualifications"].initial = self.instance.qualifications.all()
 			self.fields["backup_owner_on_tools"].initial = self.instance.backup_for_tools.all()
 			self.fields["superuser_on_tools"].initial = self.instance.superuser_for_tools.all()
 
@@ -916,7 +956,7 @@ class UserDocumentsInline(admin.TabularInline):
 @register(User)
 class UserAdmin(admin.ModelAdmin):
 	form = UserAdminForm
-	inlines = [UserDocumentsInline]
+	inlines = [UserQualificationInline, UserDocumentsInline]
 	filter_horizontal = (
 		"groups",
 		"user_permissions",
@@ -966,7 +1006,6 @@ class UserAdmin(admin.ModelAdmin):
 			"Facility information",
 			{
 				"fields": (
-					"tool_qualifications",
 					"backup_owner_on_tools",
 					"superuser_on_tools",
 					"projects",
@@ -1020,11 +1059,8 @@ class UserAdmin(admin.ModelAdmin):
 		""" Audit project membership and qualifications when a user is saved. """
 		super(UserAdmin, self).save_model(request, obj, form, change)
 		record_local_many_to_many_changes(request, obj, form, "projects")
-		record_local_many_to_many_changes(request, obj, form, "qualifications", "tool_qualifications")
 		record_local_many_to_many_changes(request, obj, form, "physical_access_levels")
 		record_active_state(request, obj, form, "is_active", not change)
-		if "tool_qualifications" in form.changed_data:
-			obj.qualifications.set(form.cleaned_data["tool_qualifications"])
 		if "backup_owner_on_tools" in form.changed_data:
 			obj.backup_for_tools.set(form.cleaned_data["backup_owner_on_tools"])
 		if "superuser_on_tools" in form.changed_data:
@@ -1688,6 +1724,47 @@ class EmailLogAdmin(admin.ModelAdmin):
 
 	def has_change_permission(self, request, obj=None):
 		return False
+
+
+@register(Qualification)
+class QualificationAdmin(admin.ModelAdmin):
+	list_display = (
+		"user",
+		"tool",
+		"qualification_level",
+		"qualified_on",
+	)
+	readonly_fields = ["qualified_on"]
+	date_hierarchy = "qualified_on"
+	list_filter = [("qualification_level", admin.RelatedOnlyFieldListFilter), ("user", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter)]
+
+	def get_readonly_fields(self, request, obj=None):
+		""" Override to make fields readonly when editing """
+		if obj and obj.pk:
+			return self.readonly_fields + ["user", "tool"]
+		else:
+			return self.readonly_fields
+
+	# Override save and delete to use qualify method
+	def save_model(self, request, obj, form, change):
+		from NEMO.views.qualifications import qualify
+		qualify(request.user, obj.tool, obj.user, obj.qualification_level_id)
+
+	def delete_model(self, request, obj: Qualification):
+		from NEMO.views.qualifications import disqualify
+		disqualify(request.user, obj.tool, obj.user)
+
+
+@register(QualificationLevel)
+class QualificationLevelAdmin(admin.ModelAdmin):
+	list_display = (
+		"name",
+		"qualify_user",
+		"qualify_schedule",
+		"schedule_start_time",
+		"schedule_end_time",
+		"qualify_weekends",
+	)
 
 
 def iframe_content(content, extra_style="padding-bottom: 75%") -> str:

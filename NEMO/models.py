@@ -628,6 +628,13 @@ class User(BaseModel, PermissionsMixin):
 	def get_name(self):
 		return self.first_name + ' ' + self.last_name
 
+	def add_qualification(self, tool: Tool, qualification_level: QualificationLevel = None):
+		Qualification.objects.update_or_create(user=self, tool=tool, defaults={"qualification_level": qualification_level})
+
+	def remove_qualifications(self, tools: Iterable[Tool]):
+		for qualification in Qualification.objects.filter(user=self, tool__in=tools):
+			qualification.delete()
+
 	def accessible_access_levels(self):
 		if not self.is_staff and not self.is_user_office:
 			return self.physical_access_levels.all()
@@ -1384,14 +1391,99 @@ class ToolQualificationGroup(SerializationByNameModel):
 		return self.name
 
 
+class QualificationLevel(SerializationByNameModel):
+	name = models.CharField(max_length=255, unique=True)
+	qualify_user = models.BooleanField(
+		default=False,
+		help_text="Indicates that this qualification level will qualify the user to use the tool.",
+	)
+	qualify_schedule = models.BooleanField(
+		default=False, help_text="Indicates that the qualification only applies to a certain time range."
+	)
+	schedule_start_time = models.TimeField(null=True, blank=True, help_text="The qualification start time")
+	schedule_end_time = models.TimeField(null=True, blank=True, help_text="The qualification end time")
+	qualify_weekends = models.BooleanField(
+		default=False,
+		help_text="Check this box if the times should apply to weekend days. Default is False, meaning the user won't be qualified on weekends regardless of times.",
+	)
+
+	def is_allowed_at(self, time):
+		return self.is_allowed(time)
+
+	def is_allowed(self, time: datetime = None):
+		if time is not None:
+			requested_time = timezone.localtime(time)
+		else:
+			requested_time = timezone.localtime(timezone.now())
+		saturday = 6
+		sunday = 7
+		# Not qualified -> not allowed
+		if not self.qualify_user:
+			return False
+		# Qualified without schedule -> allowed
+		if not self.qualify_schedule:
+			return True
+		# Qualified with schedule that doesn't apply to weekends and time is weekend -> not allowed
+		if (
+				not self.qualify_weekends
+				and requested_time.isoweekday() == saturday
+				or requested_time.isoweekday() == sunday
+		):
+			return False
+		# Qualified with schedule and either weekday or weekend day but schedule applies to weekends
+		else:
+			current_time = requested_time.time()
+			if self.schedule_start_time <= self.schedule_end_time:
+				""" Range is something like 6am-6pm """
+				if self.schedule_start_time <= current_time <= self.schedule_end_time:
+					return True
+			else:
+				""" Range is something like 6pm-6am """
+				if self.schedule_start_time <= current_time or current_time <= self.schedule_end_time:
+					return True
+		return False
+
+	def allowed_times_display(self):
+		return f"from {self.schedule_start_time.strftime('%I:%M %p')} to {self.schedule_end_time.strftime('%I:%M %p')} ({'including weekends' if self.qualify_weekends else 'weekdays only'})"
+
+	def clean(self):
+		if self.qualify_schedule and not self.qualify_user:
+			raise ValidationError(
+				{"qualify_user": "You cannot have a qualifying schedule without checking qualify user"}
+			)
+		if self.qualify_weekends and not self.qualify_schedule:
+			raise ValidationError({"qualify_schedule": "You cannot set qualifying weekends without having a schedule"})
+		if (self.schedule_start_time or self.schedule_end_time) and not self.qualify_schedule:
+			raise ValidationError({"qualify_schedule": "You cannot set schedule times without having a schedule"})
+		if self.qualify_schedule and (not self.schedule_start_time or not self.schedule_end_time):
+			errors = {}
+			if not self.schedule_start_time:
+				errors["schedule_start_time"] = "Please enter a start time"
+			if not self.schedule_end_time:
+				errors["schedule_end_time"] = "Please enter an end time"
+			if errors:
+				raise ValidationError(errors)
+
+	def __str__(self):
+		return self.name
+
+
 class Qualification(BaseModel):
 	user = models.ForeignKey(User, on_delete=models.CASCADE)
 	tool = models.ForeignKey(Tool, on_delete=models.CASCADE)
+	qualification_level = models.ForeignKey(QualificationLevel, blank=True, null=True, on_delete=models.CASCADE)
 	qualified_on = models.DateField(default=datetime.date.today)
+
+	def clean(self):
+		# Forcing qualification level to be set if we have at least one
+		if QualificationLevel.objects.exists() and not self.qualification_level_id:
+			raise ValidationError({"qualification_level": _("This field is required")})
 
 	class Meta:
 		# For db consistency and compatibility with previous queries
 		db_table = "NEMO_user_qualifications"
+		ordering = ["-qualified_on"]
+		get_latest_by = "qualified_on"
 
 
 class Configuration(BaseModel):
@@ -2491,6 +2583,7 @@ class MembershipHistory(BaseModel):
 	date = models.DateTimeField(default=timezone.now, help_text="The time at which the membership status was changed.")
 	authorizer = models.ForeignKey(User, help_text="The staff member who changed the membership status of the account, project, or user in question.", on_delete=models.CASCADE)
 	action = models.BooleanField(choices=Action.Choices, default=None)
+	details = models.CharField(null=True, blank=True, max_length=200, help_text="Additional details")
 
 	class Meta:
 		ordering = ['-date']

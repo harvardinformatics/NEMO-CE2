@@ -17,6 +17,7 @@
 				<th>Date & time</th>
 				<th>User</th>
 				<th>Action</th>
+				{% if has_details %}<th>Details</th>{% endif %}
 			</tr>
 			</thead>
 			<tbody>
@@ -25,6 +26,7 @@
 					<td class="text-nowrap">{{ row.date }}</td>
 					<td>{{ row.authorizer }}</td>
 					<td>{{ row.message|linebreaksbr }}</td>
+					{% if has_details %}<td>{{ row.details|default_if_none:"" }}</td>{% endif %}
 				</tr>
 			{% endfor %}
 			</tbody>

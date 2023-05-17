@@ -36,8 +36,10 @@
 		let current_entry_number = 1;
 		function add_participant()
 		{
+			let selected_ql = $('select[name="qualify__0"]').val(); // Get the selected option value
+
 			let failure_dialog = ajax_failure_callback("Cannot add new entry", "The web browser was not able to communicate with the server.");
-			ajax_get("{% url 'training_entry' %}", { "entry_number": current_entry_number }, add_entry_success_callback, failure_dialog);
+			ajax_get("{% url 'training_entry' %}", { "entry_number": current_entry_number, "qualification_level": selected_ql }, add_entry_success_callback, failure_dialog);
 			function add_entry_success_callback(response, status, xml_http_request)
 			{
 				$("#training_entries tr:last").before(response);

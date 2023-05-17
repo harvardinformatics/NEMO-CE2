@@ -1,9 +1,6 @@
 from logging import getLogger
 from re import search
-from urllib.parse import urljoin
 
-import requests
-from django.conf import settings
 from django.db.models import Count
 from django.http import HttpResponseBadRequest
 from django.shortcuts import render
@@ -12,9 +9,17 @@ from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import staff_member_or_tool_superuser_required
 from NEMO.exceptions import ProjectChargeException
-from NEMO.models import MembershipHistory, Project, Tool, ToolQualificationGroup, TrainingSession, User
+from NEMO.models import (
+	Project,
+	QualificationLevel,
+	Tool,
+	ToolQualificationGroup,
+	TrainingSession,
+	User,
+)
 from NEMO.policy import policy_class as policy
-from NEMO.views.users import get_identity_service
+from NEMO.utilities import quiet_int
+from NEMO.views.qualifications import qualify
 
 training_logger = getLogger(__name__)
 
@@ -31,14 +36,14 @@ def training(request):
 		tools = tools.filter(_superusers__in=[user])
 		# Superusers can only use groups if they are superusers for all those
 		tool_groups = tool_groups.annotate(num_tools=Count("tools")).filter(tools__in=tools).filter(num_tools=len(tools))
-	return render(request, 'training/training.html', {'users': users, 'tools': list(tools), 'tool_groups': list(tool_groups), 'charge_types': TrainingSession.Type.Choices})
+	return render(request, 'training/training.html', {'users': users, 'tools': list(tools), 'tool_groups': list(tool_groups), 'charge_types': TrainingSession.Type.Choices, 'qualification_levels': QualificationLevel.objects.all()})
 
 
 @staff_member_or_tool_superuser_required
 @require_GET
 def training_entry(request):
 	entry_number = int(request.GET['entry_number'])
-	return render(request, 'training/training_entry.html', {'entry_number': entry_number, 'charge_types': TrainingSession.Type.Choices})
+	return render(request, 'training/training_entry.html', {'entry_number': entry_number, 'charge_types': TrainingSession.Type.Choices, 'qualification_levels': QualificationLevel.objects.all()})
 
 
 def is_valid_field(field):
@@ -76,7 +81,10 @@ def charge_training(request):
 				if attribute == "charge_type":
 					charges[index].type = int(value)
 				if attribute == "qualify":
-					charges[index].qualified = (value == "on")
+					qualification_level_id = quiet_int(value, None)
+					setattr(charges[index], "qualification_level_id", qualification_level_id)
+					charges[index].qualified = bool(value == "on" or qualification_level_id)
+
 		for c in charges.values():
 			c.full_clean()
 			policy.check_billing_to_project(c.project, c.trainee, c.tool)
@@ -95,7 +103,7 @@ def charge_training(request):
 		for c in charges.values():
 			if c.qualified:
 				for tool in c.qualify_tools:
-					qualify(c.trainer, c.trainee, tool)
+					qualify(c.trainer, tool, c.trainee, c.qualification_level_id)
 			c.save()
 		dictionary = {
 			'title': 'Success!',
@@ -103,38 +111,6 @@ def charge_training(request):
 			'redirect': reverse('landing'),
 		}
 		return render(request, 'display_success_and_redirect.html', dictionary)
-
-
-def qualify(authorizer, user, tool):
-	if tool in user.qualifications.all():
-		return
-	user.qualifications.add(tool)
-	entry = MembershipHistory()
-	entry.authorizer = authorizer
-	entry.parent_content_object = tool
-	entry.child_content_object = user
-	entry.action = entry.Action.ADDED
-	entry.save()
-
-	if tool.grant_physical_access_level_upon_qualification:
-		if tool.grant_physical_access_level_upon_qualification not in user.accessible_access_levels().all():
-			user.physical_access_levels.add(tool.grant_physical_access_level_upon_qualification)
-			entry = MembershipHistory()
-			entry.authorizer = authorizer
-			entry.parent_content_object = tool.grant_physical_access_level_upon_qualification
-			entry.child_content_object = user
-			entry.action = entry.Action.ADDED
-			entry.save()
-
-	if get_identity_service().get('available', False):
-		if tool.grant_badge_reader_access_upon_qualification:
-			parameters = {
-				'username': user.username,
-				'domain': user.domain,
-				'requested_area': tool.grant_badge_reader_access_upon_qualification,
-			}
-			timeout = settings.IDENTITY_SERVICE.get('timeout', 3)
-			requests.put(urljoin(settings.IDENTITY_SERVICE['url'], '/add/'), data=parameters, timeout=timeout)
 
 
 def to_int_or_negative(value: str):

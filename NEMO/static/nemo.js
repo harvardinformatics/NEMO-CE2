@@ -482,7 +482,7 @@ function add_to_list(list_selector, on_click, id, text, removal_title, input_nam
 	let addition = '<div id="' + div_id + '">';
 	if (!readonly)
 	{
-		addition += '<a href="javascript:' + on_click + '(' + id + ')" class="grey hover-black" title="' + removal_title + '">' +
+		addition += '<a href="javascript:' + on_click + '(\'' + id + '\')" class="grey hover-black" title="' + removal_title + '">' +
 		'<span class="glyphicon glyphicon-remove-circle"></span>' +
 		'</a> ';
 	}
