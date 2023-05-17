@@ -56,7 +56,7 @@
 									</td>
 									<td>{{ training_history.status }}</td>
 									<td>
-										{% if training_history.user == user %}Me{% else %}{{ training_history.user }}{% endif %}
+										{% if training_history.user == user %}Me{% else %}{{ training_history.user|default_if_none:SYSTEM_USER_DISPLAY }}{% endif %}
 										{% if training_history.details %}<span title="{{ training_history.details }}" data-toggle="tooltip"><i class="primary-highlight glyphicon glyphicon-info-sign"></i></span>{% endif %}
 									</td>
 								</tr>

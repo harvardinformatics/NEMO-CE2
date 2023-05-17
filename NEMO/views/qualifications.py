@@ -9,7 +9,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import staff_member_required
-from NEMO.models import MembershipHistory, Qualification, QualificationLevel, Tool, ToolQualificationGroup, User
+from NEMO.models import (
+	MembershipHistory,
+	Qualification,
+	QualificationLevel,
+	Tool,
+	ToolQualificationGroup,
+	User,
+	create_training_history,
+)
 from NEMO.views.users import get_identity_service
 
 
@@ -66,7 +74,7 @@ def modify_qualifications(request):
 		return HttpResponse()
 
 
-def record_qualification(request_user: User, action: str, tools: Iterable[Tool], users: Iterable[User], qualification_level_id = None):
+def record_qualification(request_user: User, action: str, tools: Iterable[Tool], users: Iterable[User], qualification_level_id = None, disqualify_details = None):
 	for user in users:
 		original_qualifications = set(Qualification.objects.filter(user=user))
 		if action == "qualify":
@@ -123,6 +131,7 @@ def record_qualification(request_user: User, action: str, tools: Iterable[Tool],
 			if qualification.qualification_level:
 				entry.details = qualification.qualification_level.name
 			entry.save()
+			create_training_history(request_user, qualification=entry, details=entry.details, status="Qualified")
 		# Updated level in qualification
 		for qualification in current_qualifications.union(original_qualifications):
 			for other_qualification in original_qualifications:
@@ -135,6 +144,7 @@ def record_qualification(request_user: User, action: str, tools: Iterable[Tool],
 					if qualification.qualification_level:
 						entry.details = qualification.qualification_level.name
 					entry.save()
+					create_training_history(request_user, qualification=entry, details=entry.details, status="Qualified")
 		# Removed qualifications
 		removed_qualifications = original_qualifications - current_qualifications
 		for qualification in removed_qualifications:
@@ -143,15 +153,18 @@ def record_qualification(request_user: User, action: str, tools: Iterable[Tool],
 			entry.parent_content_object = qualification.tool
 			entry.child_content_object = user
 			entry.action = entry.Action.REMOVED
+			if disqualify_details:
+				entry.details = disqualify_details
 			entry.save()
+			create_training_history(request_user, qualification=entry, details=entry.details, status="Disqualified")
 
 
 def qualify(request_user: User, tool: Tool, user: User, qualification_level_id = None):
 	record_qualification(request_user, "qualify", [tool], [user], qualification_level_id)
 
 
-def disqualify(request_user: User, tool: Tool, user: User):
-	record_qualification(request_user, "disqualify", [tool], [user])
+def disqualify(request_user: User, tool: Tool, user: User, details = None):
+	record_qualification(request_user, "disqualify", [tool], [user], disqualify_details=details)
 
 
 @staff_member_required

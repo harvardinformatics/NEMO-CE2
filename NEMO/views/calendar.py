@@ -76,6 +76,7 @@ from NEMO.views.customization import (
 	UserCustomization,
 	get_media_file_contents,
 )
+from NEMO.views.qualifications import disqualify
 from NEMO.views.training_new import suggested_users_to_invite
 from NEMO.widgets.dynamic_form import DynamicForm, render_group_questions
 
@@ -1373,7 +1374,7 @@ def do_manage_tool_qualifications(request=None):
 					expiration_date: date = qualification.qualified_on + timedelta(days=qualification_expiration_never_used) if qualification_expiration_never_used else None
 				if expiration_date:
 					if expiration_date <= date.today():
-						qualification.delete()
+						disqualify(request.user if request else None, qualification.tool, qualification.user, "Qualification expired")
 						send_tool_qualification_expiring_email(qualification, last_tool_use, expiration_date, request=request)
 					if qualification_reminder_days:
 						for remaining_days in [int(days) for days in qualification_reminder_days.split(",")]:

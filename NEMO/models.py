@@ -2581,7 +2581,7 @@ class MembershipHistory(BaseModel):
 	child_content_object = GenericForeignKey('child_content_type', 'child_object_id')
 
 	date = models.DateTimeField(default=timezone.now, help_text="The time at which the membership status was changed.")
-	authorizer = models.ForeignKey(User, help_text="The staff member who changed the membership status of the account, project, or user in question.", on_delete=models.CASCADE)
+	authorizer = models.ForeignKey(User, null=True, blank=True, help_text="The staff member who changed the membership status of the account, project, or user in question.", on_delete=models.CASCADE)
 	action = models.BooleanField(choices=Action.Choices, default=None)
 	details = models.CharField(null=True, blank=True, max_length=200, help_text="Additional details")
 
@@ -3544,22 +3544,23 @@ class TrainingHistory(BaseModel):
 	training_request = models.ForeignKey(TrainingRequest, null=True, blank=True, on_delete=models.CASCADE)
 	training_invitation = models.ForeignKey(TrainingInvitation, null=True, blank=True, on_delete=models.CASCADE)
 	training_event = models.ForeignKey(TrainingEvent, null=True, blank=True, on_delete=models.CASCADE)
+	qualification = models.ForeignKey(MembershipHistory, null=True, blank=True, on_delete=models.CASCADE)
 	status = models.CharField(max_length=200, help_text="The new training item status")
 	time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the training item status was changed")
-	user = models.ForeignKey(User, help_text="The user who changed the training item status", on_delete=models.CASCADE)
+	user = models.ForeignKey(User, null=True, blank=True, help_text="The user who changed the training item status", on_delete=models.CASCADE)
 	details = models.CharField(null=True, blank=True, max_length=200, help_text="The details/reason of this change")
 
 	@property
-	def training_item(self) -> Union[TrainingRequest, TrainingInvitation, TrainingEvent]:
-		return self.training_request or self.training_invitation or self.training_event
+	def training_item(self) -> Union[TrainingRequest, TrainingInvitation, TrainingEvent, MembershipHistory]:
+		return self.training_request or self.training_invitation or self.training_event or self.qualification
 
 	@property
 	def training_item_type(self) -> str:
-		return "Request" if self.training_request else "Invitation" if self.training_invitation else "Training session" if self.training_event else ""
+		return "Request" if self.training_request else "Invitation" if self.training_invitation else "Training session" if self.training_event else "Qualification" if self.qualification else ""
 
 	@property
 	def tool(self) -> Tool:
-		return self.training_invitation.training_event.tool if self.training_invitation else self.training_item.tool
+		return self.training_invitation.training_event.tool if self.training_invitation else self.qualification.parent_content_object if self.qualification else self.training_item.tool
 
 	@property
 	def dates(self) -> List[datetime]:
@@ -3570,6 +3571,8 @@ class TrainingHistory(BaseModel):
 			return [self.training_item.user]
 		elif self.training_event:
 			return [self.training_event.users]
+		elif self.qualification:
+			return [self.qualification.child_content_object]
 		return []
 
 	class Meta:
@@ -3588,8 +3591,8 @@ def reset_training_request_to_pending(tool: Tool, actor: User, filter_by_users: 
 		create_training_request_notification(training_request)
 
 
-def create_training_history(user, details=None, status=None, training_event=None, training_invitation=None, training_request=None):
-	TrainingHistory.objects.create(training_event=training_event, training_invitation=training_invitation, training_request=training_request, user=user, details=details, status=status)
+def create_training_history(user, details=None, status=None, training_event=None, training_invitation=None, training_request=None, qualification=None):
+	TrainingHistory.objects.create(training_event=training_event, training_invitation=training_invitation, training_request=training_request, qualification=qualification, user=user, details=details, status=status)
 
 
 class EmailLog(BaseModel):

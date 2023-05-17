@@ -4,6 +4,7 @@ from datetime import timedelta
 from typing import Any, List, Set, Tuple
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db import transaction
 from django.db.models import Case, CharField, F, Q, Value, When
@@ -42,6 +43,7 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
 )
+from NEMO.views.constants import SYSTEM_USER_DISPLAY
 from NEMO.views.customization import TrainingCustomization, get_media_file_contents
 from NEMO.views.notifications import delete_notification
 from NEMO.views.pagination import SortedPaginator
@@ -165,6 +167,9 @@ def history(request):
     user_filter |= Q(training_event__users__in=[user])
     # 5. training sessions the user is trainer for
     user_filter |= Q(training_event__trainer=user)
+    # 6. qualifications for the user
+    user_type = ContentType.objects.get_for_model(user)
+    user_filter |= Q(qualification__child_content_type=user_type) & Q(qualification__child_object_id=user.id)
     training_histories = TrainingHistory.objects.filter(user_filter)
 
     # Annotate with useful attributes
@@ -173,6 +178,7 @@ def history(request):
             When(training_request__isnull=False, then=Value("Request")),
             When(training_invitation__isnull=False, then=Value("Invitation")),
             When(training_event__isnull=False, then=Value("Training session")),
+            When(qualification__isnull=False, then=Value("Qualification")),
             default=Value(""),
             output_field=CharField(),
         )
@@ -182,6 +188,7 @@ def history(request):
             When(training_request__isnull=False, then=F("training_request__tool")),
             When(training_invitation__isnull=False, then=F("training_invitation__training_event__tool")),
             When(training_event__isnull=False, then=F("training_event__tool")),
+            When(qualification__isnull=False, then=F("qualification__parent_object_id")),
             default=Value(""),
             output_field=CharField(),
         )
@@ -194,7 +201,12 @@ def history(request):
     return render(
         request,
         "training_new/training_history.html",
-        {"page": page, "managed_users": managed_users, "selected_user": user},
+        {
+            "page": page,
+            "managed_users": managed_users,
+            "selected_user": user,
+            "SYSTEM_USER_DISPLAY": SYSTEM_USER_DISPLAY,
+        },
     )
 
 
