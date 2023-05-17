@@ -2,7 +2,7 @@
 {% load custom_tags_and_filters %}
 {% block tab_content %}
 	{% if training_events or past_training_events %}
-		<div class="table-responsive" style="border: none">
+		<div class="table-responsive" style="border: none; width: 100%">
 			<table class="table table-borderless table-align-middle" style="margin-bottom: 0">
 				{% if training_events %}
 					{% include "training_new/training_events/manage_training_events_table.html" with training_title="Upcoming training sessions" %}

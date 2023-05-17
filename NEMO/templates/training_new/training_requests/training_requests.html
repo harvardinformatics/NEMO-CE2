@@ -5,7 +5,7 @@
 		{% url "create_training_request" as create_training_request_url %}
 		{% button type="add" value="New training request" onclick="new_get_request('"|concat:create_training_request_url|concat:"')" %}
 	</div>
-	<div class="table-responsive" style="border: none">
+	<div class="table-responsive" style="border: none; width: 100%">
 		<table class="table table-borderless table-align-middle" style="{% if not training_requests %}margin-bottom: 0{% endif %}">
 			{% if training_invitations %}
 				<thead>
