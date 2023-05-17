@@ -61,7 +61,8 @@
 						<th>Created</th>
 						<th>Requested date(s)</th>
 						<th>Status</th>
-						<th class="text-right" colspan="2">Actions</th>
+						<th>Project</th>
+						<th class="text-right">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -75,7 +76,8 @@
 							{% endfor %}
 						</td>
 						<td>{{ training_request.get_status_display }}</td>
-						<td class="text-right" colspan="2">
+						<td>{{ training_request.project }}</td>
+						<td class="text-right">
 							{% url "withdraw_training_request" training_request.id as withdraw_request_url %}
 							{% button size="small" type="delete" value="Withdraw" onclick="if(confirm('Are you sure you want to withdraw this request?')){window.location='"|concat:withdraw_request_url|concat:"'}" %}
 						</td>

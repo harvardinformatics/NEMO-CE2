@@ -3272,6 +3272,7 @@ class TrainingRequest(BaseModel):
 	creator = models.ForeignKey(User, related_name="training_requests_created", on_delete=models.CASCADE)
 	user = models.ForeignKey(User, related_name="training_requests_user", on_delete=models.CASCADE)
 	tool = models.ForeignKey(Tool, on_delete=models.CASCADE)
+	project = models.ForeignKey(Project, on_delete=models.CASCADE)
 	message = models.TextField(null=True, blank=True, help_text="message to the trainer(s)")
 	status = models.IntegerField(choices=TrainingRequestStatus.choices, default=TrainingRequestStatus.SENT)
 	technique = models.ForeignKey(TrainingTechnique, null=True, blank=True, on_delete=models.SET_NULL)
