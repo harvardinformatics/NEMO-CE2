@@ -44,6 +44,18 @@ NEMO-CE Release:
   only:
     - tags
 
+NEMO-CE PyPI Release:
+  variables:
+    GIT_STRATEGY: clone
+  image: python:3
+  stage: build
+  script:
+    - sed -i "s/^VERSION =.*/VERSION = '$(git describe --tags)'/" setup.py
+    - pip install --upgrade pip setuptools wheel twine keyring
+    - python setup.py sdist bdist_wheel
+    - twine upload --user $PYPI_USER --password $PYPI_PASSWORD ./dist/NEMO_CE*
+  only:
+    - tags
 
 NEMO-CE dev deploy:
   stage: deploy
