@@ -21,5 +21,16 @@
 			{% endfor %}
 		</select>
 	</td>
-	<td style="vertical-align: middle"><input type="checkbox" name="qualify__{{ entry_number }}" checked></td>
+    <td style="vertical-align: middle">
+        {% if not qualification_levels %}
+            <input type="checkbox" name="qualify__{{ entry_number }}" checked>
+        {% else %}
+            <select class="form-control" name="qualify__{{ entry_number }}" required>
+                <option disabled selected value="">&nbsp;</option>
+                {% for ql in qualification_levels %}
+                    <option value="{{ ql.id }}">{{ ql.name }}</option>
+                {% endfor %}
+            </select>
+        {% endif %}
+    </td>
 </tr>

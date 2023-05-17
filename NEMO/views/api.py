@@ -20,6 +20,7 @@ from NEMO.models import (
 	Project,
 	ProjectDiscipline,
 	Qualification,
+	QualificationLevel,
 	Reservation,
 	Resource,
 	ScheduledOutage,
@@ -44,6 +45,7 @@ from NEMO.serializers import (
 	PermissionSerializer,
 	ProjectDisciplineSerializer,
 	ProjectSerializer,
+	QualificationLevelSerializer,
 	QualificationSerializer,
 	ReservationSerializer,
 	ResourceSerializer,
@@ -66,6 +68,7 @@ from NEMO.views.api_billing import (
 	get_training_sessions_for_billing,
 	get_usage_events_for_billing,
 )
+from NEMO.views.qualifications import disqualify, qualify
 
 
 class SingleInstanceHTMLFormBrowsableAPIRenderer(BrowsableAPIRenderer):
@@ -186,6 +189,12 @@ class ToolViewSet(ModelViewSet):
 	}
 
 
+class QualificationLevelViewSet(ModelViewSet):
+	filename = "qualification_levels"
+	queryset = QualificationLevel.objects.all()
+	serializer_class = QualificationLevelSerializer
+
+
 class QualificationViewSet(ModelViewSet):
 	filename = "qualifications"
 	queryset = Qualification.objects.all()
@@ -196,6 +205,46 @@ class QualificationViewSet(ModelViewSet):
 		"tool": ["exact", "in"],
 		"qualified_on": ["exact", "month", "year", "day", "gte", "gt", "lte", "lt"],
 	}
+
+	def get_serializer(self, *args, **kwargs):
+		""" Don't allow update on user or tool (POST ok) """
+		serializer = super().get_serializer(*args, **kwargs)
+		if self.request.method == 'PUT' or self.request.method == "PATCH":
+			serializer.fields["user"].read_only = True
+			serializer.fields["tool"].read_only = True
+		# Remove qualification levels if we don't have any
+		if not QualificationLevel.objects.exists() and getattr(serializer, "fields", None) and "qualification_level" in serializer.fields:
+			del serializer.fields["qualification_level"]
+		return serializer
+
+	# Override create and update to set the user
+	def create(self, request, *args, **kwargs):
+		self.request_user = request.user
+		return super().create(request, *args, **kwargs)
+
+	def update(self, request, *args, **kwargs):
+		self.request_user = request.user
+		return super().update(request, *args, **kwargs)
+
+	# Override create, update and destroy to use qualify/disqualify methods
+	def perform_create(self, serializer):
+		self.qualify(serializer)
+
+	def perform_update(self, serializer):
+		self.qualify(serializer)
+
+	def qualify(self, serializer):
+		datas = serializer.data if getattr(serializer, "many", False) else [serializer.data]
+		for data in datas:
+			tool = Tool.objects.get(pk=data["tool"])
+			user = User.objects.get(pk=data["user"])
+			qualification_level_id = data.get("qualification_level", None)
+			qualify(self.request_user, tool, user, qualification_level_id)
+
+	def destroy(self, request, *args, **kwargs):
+		instance: Qualification = self.get_object()
+		disqualify(request.user, instance.tool, instance.user)
+		return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AreaViewSet(ModelViewSet):

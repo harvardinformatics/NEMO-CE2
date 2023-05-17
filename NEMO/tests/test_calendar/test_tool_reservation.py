@@ -27,7 +27,7 @@ class ReservationTestCase(TestCase):
 		project = Project.objects.create(name="project1", account=account)
 		staff = User.objects.create(username="staff", first_name="Staff", last_name="Member", is_staff=True)
 		consumer = User.objects.create(username="jsmith", first_name="John", last_name="Smith", training_required=False)
-		consumer.qualifications.add(tool)
+		consumer.add_qualification(tool)
 		consumer.projects.add(project)
 		consumer.save()
 
@@ -80,7 +80,7 @@ class ReservationTestCase(TestCase):
 			"You are not qualified to use this tool. Creating, moving, and resizing reservations is forbidden.",
 		)
 
-		user.qualifications.add(tool)
+		user.add_qualification(tool)
 		login_as(self.client, user)
 		response = self.client.post(reverse("create_reservation"), data, follow=True)
 		self.assertEqual(response.status_code, 200)

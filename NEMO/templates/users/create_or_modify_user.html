@@ -188,14 +188,31 @@
 		</div>
 		<div class="form-group">
 			<label class="control-label col-sm-2" for="add_a_tool_qualification">Tool qualifications</label>
-			{% if not readonly %}<div class="col-sm-4">
-				<input id="add_a_tool_qualification" type="text" autocomplete="off" class="form-control" placeholder="Add a qualification">
-			</div>
+			{% if not readonly %}
+				{% if qualification_levels %}
+					<div class="col-sm-4">
+						<select id="qualification_level" class="form-control" aria-label="Select a qualification level">
+							<option value="">Select a qualification level</option>
+							{% for ql in qualification_levels %}
+								<option value="{{ ql.id }}">{{ ql.name }}</option>
+							{% endfor %}
+						</select>
+					</div>
+				{% endif %}
+				<div class="{% if qualification_levels %}col-sm-4{% else %}col-sm-4{% endif %}">
+					<input id="add_a_tool_qualification" type="text" autocomplete="off" class="form-control" placeholder="Select a tool and add a qualification" {% if qualification_levels %}disabled{% endif %}>
+				</div>
 		</div>
 		<div class="form-group">
-            {% endif %}
-			<div id="qualification-list" class="{% if not readonly %}col-sm-offset-2{% endif %} col-sm-4" {% if readonly %}style="padding-top: 7px"{% endif %}>
-				This user is not qualified to use any tools.
+			{% endif %}
+			<div id="qualification-list" class="{% if not readonly %}col-sm-offset-2{% endif %} col-sm-4" {% if readonly %}style="padding-top: 7px" {% endif %}>
+				{% if qualifications %}
+					{% for qualification in qualifications %}
+						<p>{{ qualification.tool.name }}{% if qualification.qualification_level %} ({ qualification.qualification_level.name }}){% endif %}</p>
+					{% endfor %}
+				{% else %}
+					<p>This user is not qualified to use any tools.</p>
+				{% endif %}
 			</div>
 		</div>
 		{% if area_access_levels or externally_managed_physical_access_levels %}
@@ -381,7 +398,7 @@
 			if(dataset_name === 'projects')
 				add_project(search_selection.name, search_selection.id);
 			else if(dataset_name === 'tools')
-				add_tool_qualification(search_selection.name, search_selection.id);
+				add_tool_qualification(search_selection.name, search_selection.id, true);
 		}
 		function add_project(project_name, project_id)
 		{
@@ -391,9 +408,26 @@
 		{
 			remove_from_list("#project-list", "#projects_" + project_id, "This user has no assigned projects.");
 		}
-		function add_tool_qualification(tool_name, tool_id)
+		function add_tool_qualification(tool_name, tool_id, search)
 		{
-			add_to_list("#qualification-list", "remove_tool_qualification", tool_id, tool_name, "Disqualify this user from using the " + tool_name, "qualifications", {{ readonly|yesno:"true,false" }});
+            let is_search = search || false
+			let ql_select = $('#qualification_level');
+			let ql_name = ql_select.find('option:selected').text(); // Get the selected qualification level name from the dropdown
+			let qualification_text = tool_name;
+            if (is_search) { qualification_text += ' - {% now 'SHORT_DATE_FORMAT' %}'}
+			let qualification = tool_id;
+			let level_id = ql_select.val()
+			// Check if a valid qualification level is selected (not the placeholder)
+			if (Boolean(level_id)) {
+                qualification += '_' + level_id;
+				qualification_text += ' - ' + ql_name;
+			}
+
+			$('#add_a_tool_qualification').val(''); // Reset the value of the input field
+			ql_select.val(''); // Reset the value of the dropdown box
+            {% if qualification_levels %}$('#add_a_tool_qualification').attr('disabled', 'disabled'); // Disable the input field {% endif %}
+
+			add_to_list("#qualification-list", "remove_tool_qualification", qualification, qualification_text, "Disqualify this user from using the " + tool_name, "qualifications", {{ readonly|yesno:"true,false" }});
 		}
 		function remove_tool_qualification(tool_id)
 		{
@@ -411,12 +445,19 @@
 			$("#access_expiration").datetimepicker({format: '{{ date_input_js_format }}'});
 			$('#add_a_project').autocomplete('projects', on_search_selection, {% json_search_base_with_extra_fields projects 'application_identifier' %});
 			$('#add_a_tool_qualification').autocomplete('tools', on_search_selection, {{ tools|json_search_base }});
+			$('#qualification_level').change(function () {
+        		if ($(this).val() !== '') {
+            		$('#add_a_tool_qualification').removeAttr('disabled');
+        		} else {
+            		$('#add_a_tool_qualification').attr('disabled', 'disabled');
+        		}
+    		});
 			{% if form.instance.id %} {# Only look for projects and qualifications if this is an existing user (and not a new user). #}
                 {% for project in form.instance.projects.all %}
 					add_project('{{ project.name }}', {{ project.id }});
 				{% endfor %}
-				{% for tool in form.instance.qualifications.all %}
-					add_tool_qualification('{{ tool.name }}', {{ tool.id }});
+				{% for qualification in qualifications %}
+					add_tool_qualification('{{ qualification.tool.name }} - {{ qualification.qualified_on|date:'SHORT_DATE_FORMAT' }}{% if qualification.qualification_level %} - {{ qualification.qualification_level }}{% endif %}', '{{ qualification.tool_id }}{% if qualification.qualification_level %}_{{ qualification.qualification_level_id }}{% endif %}');
 				{% endfor %}
 			{% endif %}
             if ({{ readonly|yesno:"true,false" }})

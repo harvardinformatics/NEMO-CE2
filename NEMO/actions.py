@@ -3,7 +3,7 @@ from django.db.models import Max
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
-from NEMO.models import Area, Interlock, Tool, User
+from NEMO.models import Area, Interlock, Qualification, Tool, User
 from NEMO.views.access_requests import access_csv_export
 from NEMO.views.adjustment_requests import adjustments_csv_export
 
@@ -94,7 +94,8 @@ def duplicate_tool_configuration(model_admin, request, queryset):
 				tool.backup_owners.set(old_backup_users)
 				tool.superusers.set(old_superusers)
 				for user in old_qualified_users:
-					user.qualifications.add(tool)
+					qualification_level = Qualification.objects.get(user=user, tool=tool).qualification_level
+					user.add_qualification(tool, qualification_level)
 				messages.success(
 					request,
 					mark_safe(
