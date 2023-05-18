@@ -1,0 +1,32 @@
+{# This template is shared by both the desktop and mobile versions of NEMO. #}
+{# It is included from templates/calendar/accessories.html for the desktop version #}
+{# and from templates/mobile/new_reservation.html from the mobile version. #}
+{# from templates/kiosk/tool_reservation.html from the kiosk version. #}
+{# If you modify this template then please check that all other versions work. #}
+{% load custom_tags_and_filters %}
+{% load tz %}
+<div class="form-group">
+	<label for="tool_accessories">Optional accessories:</label>
+	{% for accessory in tool_accessories %}
+		<div class="checkbox">
+			<label>
+				<input type="checkbox" value="{{ accessory.id }}" name="tool_accessories" {% if accessory.id in selected_accessories %} checked{% endif %} {% if accessory.name in conflicts.keys %}disabled{% endif %}>{{ accessory.name }}
+				{% if accessory.name in conflicts %}
+					<span class="grey">(Unavailable
+					{% for reservation_using_accessory in conflicts|get_item:accessory.name %}
+						{% if reservation_using_accessory.start|localtime|date == reservation_using_accessory.end|localtime|date %}
+							on {{ reservation_using_accessory.start|localtime|date }} from
+							{{ reservation_using_accessory.start|time }} to {{ reservation_using_accessory.end|time }}
+						{% else %}
+							from {{ reservation_using_accessory.start }} to {{ reservation_using_accessory.end }}
+						{% endif %}
+						{% if not forloop.last %}
+							and
+						{% endif %}
+					{% endfor %}
+					)</span>
+				{% endif %}
+			</label>
+		</div>
+	{% endfor %}
+</div>

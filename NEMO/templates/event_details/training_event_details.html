@@ -1,0 +1,99 @@
+{% extends popup_view|yesno:"base/popup.html,base.html" %}
+{% load custom_tags_and_filters %}
+{% load training_tags %}
+{% block title %}Training event details{% endblock %}
+{% block content %}
+    {% if not popup_view %}
+        <h1>Training event details</h1>
+    {% endif %}
+	<table class="table table-striped">
+		<tr>
+			<th>Tool</th>
+			<td>{{ training.tool }}</td>
+		</tr>
+		{% if training.technique %}
+			<tr>
+				<th>Technique</th>
+				<td>{{ training.technique.name }}</td>
+			</tr>
+		{% endif %}
+		<tr>
+			<th>Trainer</th>
+			<td>{{ training.trainer }}</td>
+		</tr>
+		<tr>
+			<th>Created by</th>
+			<td>{{ training.creator }}</td>
+		</tr>
+		<tr>
+			<th>Created on</th>
+			<td>{{ training.creation_time }}</td>
+		</tr>
+		<tr>
+			<th>Start</th>
+			<td>{{ training.start }}</td>
+		</tr>
+		<tr>
+			<th>End</th>
+			<td>{{ training.end }}</td>
+		</tr>
+		<tr>
+			<th>Duration</th>
+			<td>{{ training.duration }} minutes</td>
+		</tr>
+		<tr>
+			<th>Attendees</th>
+			<td>{{ training.current_capacity }}/{{ training.capacity }}</td>
+		</tr>
+		<tr>
+			<th>Identifier</th>
+			<td>{{ training.id }}</td>
+		</tr>
+		{% if training.message %}
+			<tr>
+				<th>Details</th>
+				<td>{{ training.message|linebreaksbr }}</td>
+			</tr>
+		{% endif %}
+	</table>
+
+    {% if user.is_staff or user|is_trainer:training.tool or user not in training.users.all and user != training.trainer and training.current_capacity < training.capacity %}
+        <div class="modal-footer" style="padding-bottom: 0; padding-right: 0">
+    		{% if training|training_event_invitations:request.user %}
+				{% for invite in training|training_event_invitations:request.user %}
+					{% url "decline_training_invitation" training_invitation.id as decline_invitation_url %}
+					{% button type="delete" value="Decline" icon="glyphicon-ban-circle" onclick="confirm_action('"|concat:decline_invitation_url|concat:"', false, callback_success, 'declining', 'invitation', 'Decline')" data_toggle="modal" data_target="#confirm-actions" %}
+					{% url 'accept_training_invitation' invite.id as accept_training_invitation_url %}
+					{% button type="save" value="Accept training invitation" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_for_training('"|concat:accept_training_invitation_url|concat:"');" %}
+				{% endfor %}
+			{% elif user not in training.users.all and user != training.trainer and training.current_capacity < training.capacity %}
+				{% url 'register_for_training' training.id as register_for_training_url %}
+				{% button type="save" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_for_training('"|concat:register_for_training_url|concat:"');" %}
+    		{% endif %}
+			{% if user.is_staff or user|is_trainer:training.tool %}
+				{% url 'cancel_training_event' training.id as cancel_training_url %}
+				{% with reason_required=training_event.users.exists|yesno:"true,false" %}
+					{% button type="delete" value="Cancel this training" onclick="confirm_action('"|concat:cancel_training_url|concat:"', "|concat:reason_required|concat:", callback_success, 'cancelling', 'training', 'Confirm cancellation');" data_toggle="modal" data_target="#confirm-actions" %}
+				{% endwith %}
+			{% endif %}
+        </div>
+    {% endif %}
+	{% include 'snippets/confirm_action_modal.html' %}
+	<script type="text/javascript">
+		function callback_success(){
+			// if on a standalone page, reload the browser window to display the results of the change to the reservation
+            {% if not popup_view %}
+				location.reload();
+			{% else %}
+				$('#dialog').modal('hide');
+				refresh_calendar_and_sidebar();
+			{% endif %}
+		}
+
+		function register_for_training(url)
+		{
+			let failure_dialog = ajax_failure_callback("Unable to register for this training");
+			ajax_post(url, undefined, callback_success, [failure_dialog, callback_success]);
+		}
+	</script>
+{% endblock %}

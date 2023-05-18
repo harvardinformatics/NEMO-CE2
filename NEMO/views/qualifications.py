@@ -1,3 +1,4 @@
+from typing import Iterable
 from urllib.parse import urljoin
 
 import requests
@@ -8,7 +9,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import staff_member_required
-from NEMO.models import MembershipHistory, Tool, ToolQualificationGroup, User
+from NEMO.models import (
+	MembershipHistory,
+	Qualification,
+	QualificationLevel,
+	Tool,
+	ToolQualificationGroup,
+	User,
+	create_training_history,
+)
 from NEMO.views.users import get_identity_service
 
 
@@ -19,8 +28,10 @@ def qualifications(request):
 	users = User.objects.filter(is_active=True)
 	tools = Tool.objects.filter(visible=True)
 	tool_groups = ToolQualificationGroup.objects.all()
+	qualification_levels = QualificationLevel.objects.all()
+
 	return render(
-		request, "qualifications.html", {"users": users, "tools": list(tools), "tool_groups": list(tool_groups)}
+		request, "qualifications.html", {"users": users, "tools": list(tools), "tool_groups": list(tool_groups), "qualification_levels": list(qualification_levels)}
 	)
 
 
@@ -53,16 +64,32 @@ def modify_qualifications(request):
 	if tools == {}:
 		return HttpResponseBadRequest("You must specify at least one tool.")
 
-	for user in users.values():
-		original_qualifications = set(user.qualifications.all())
+	qualification_level_id = request.POST.get("qualification_level")
+	record_qualification(request.user, action, tools.values(), users.values(), qualification_level_id)
+
+	if request.POST.get("redirect") == "true":
+		messages.success(request, "Tool qualifications were successfully modified")
+		return redirect("qualifications")
+	else:
+		return HttpResponse()
+
+
+def record_qualification(request_user: User, action: str, tools: Iterable[Tool], users: Iterable[User], qualification_level_id = None, disqualify_details = None):
+	for user in users:
+		original_qualifications = set(Qualification.objects.filter(user=user))
 		if action == "qualify":
-			user.qualifications.add(*tools)
+			if qualification_level_id is not None:
+				qualification_level = QualificationLevel.objects.get(id=qualification_level_id)
+			else:
+				qualification_level = None
+			for t in tools:
+				user.add_qualification(t, qualification_level)
 			original_physical_access_levels = set(user.physical_access_levels.all())
 			physical_access_level_automatic_enrollment = list(
 				set(
 					[
 						t.grant_physical_access_level_upon_qualification
-						for t in tools.values()
+						for t in tools
 						if t.grant_physical_access_level_upon_qualification
 					]
 				)
@@ -72,7 +99,7 @@ def modify_qualifications(request):
 			added_physical_access_levels = set(current_physical_access_levels) - set(original_physical_access_levels)
 			for access_level in added_physical_access_levels:
 				entry = MembershipHistory()
-				entry.authorizer = request.user
+				entry.authorizer = request_user
 				entry.parent_content_object = access_level
 				entry.child_content_object = user
 				entry.action = entry.Action.ADDED
@@ -91,31 +118,53 @@ def modify_qualifications(request):
 							urljoin(settings.IDENTITY_SERVICE["url"], "/add/"), data=parameters, timeout=timeout
 						)
 		elif action == "disqualify":
-			user.qualifications.remove(*tools)
-		current_qualifications = set(user.qualifications.all())
+			user.remove_qualifications(tools)
+		current_qualifications = set(Qualification.objects.filter(user=user))
 		# Record the qualification changes for each tool:
-		added_qualifications = set(current_qualifications) - set(original_qualifications)
-		for tool in added_qualifications:
+		added_qualifications = current_qualifications - original_qualifications
+		for qualification in added_qualifications:
 			entry = MembershipHistory()
-			entry.authorizer = request.user
-			entry.parent_content_object = tool
+			entry.authorizer = request_user
+			entry.parent_content_object = qualification.tool
 			entry.child_content_object = user
 			entry.action = entry.Action.ADDED
+			if qualification.qualification_level:
+				entry.details = qualification.qualification_level.name
 			entry.save()
-		removed_qualifications = set(original_qualifications) - set(current_qualifications)
-		for tool in removed_qualifications:
+			create_training_history(request_user, qualification=entry, details=entry.details, status="Qualified")
+		# Updated level in qualification
+		for qualification in current_qualifications.union(original_qualifications):
+			for other_qualification in original_qualifications:
+				if qualification.id == other_qualification.id and qualification.qualification_level_id != other_qualification.qualification_level_id:
+					entry = MembershipHistory()
+					entry.authorizer = request_user
+					entry.parent_content_object = qualification.tool
+					entry.child_content_object = user
+					entry.action = entry.Action.ADDED
+					if qualification.qualification_level:
+						entry.details = qualification.qualification_level.name
+					entry.save()
+					create_training_history(request_user, qualification=entry, details=entry.details, status="Qualified")
+		# Removed qualifications
+		removed_qualifications = original_qualifications - current_qualifications
+		for qualification in removed_qualifications:
 			entry = MembershipHistory()
-			entry.authorizer = request.user
-			entry.parent_content_object = tool
+			entry.authorizer = request_user
+			entry.parent_content_object = qualification.tool
 			entry.child_content_object = user
 			entry.action = entry.Action.REMOVED
+			if disqualify_details:
+				entry.details = disqualify_details
 			entry.save()
+			create_training_history(request_user, qualification=entry, details=entry.details, status="Disqualified")
 
-	if request.POST.get("redirect") == "true":
-		messages.success(request, "Tool qualifications were successfully modified")
-		return redirect("qualifications")
-	else:
-		return HttpResponse()
+
+def qualify(request_user: User, tool: Tool, user: User, qualification_level_id = None):
+	record_qualification(request_user, "qualify", [tool], [user], qualification_level_id)
+
+
+def disqualify(request_user: User, tool: Tool, user: User, details = None):
+	record_qualification(request_user, "disqualify", [tool], [user], disqualify_details=details)
 
 
 @staff_member_required
@@ -123,5 +172,6 @@ def modify_qualifications(request):
 def get_qualified_users(request):
 	tool = get_object_or_404(Tool, id=request.GET.get("tool_id"))
 	users = User.objects.filter(is_active=True)
-	dictionary = {"tool": tool, "users": users, "expanded": True}
+	qualifications_by_tool = Qualification.objects.filter(tool=tool)
+	dictionary = {"tool": tool, "users": users, "qualification_levels": QualificationLevel.objects.all(), "qualifications": qualifications_by_tool, "expanded": True}
 	return render(request, "tool_control/qualified_users.html", dictionary)

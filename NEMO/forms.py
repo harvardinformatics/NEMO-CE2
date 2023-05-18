@@ -35,6 +35,9 @@ from NEMO.models import (
 	TaskCategory,
 	TaskImages,
 	TemporaryPhysicalAccessRequest,
+	TrainingEvent,
+	TrainingRequest,
+	TrainingRequestTime,
 	User,
 	UserPreferences,
 )
@@ -57,6 +60,7 @@ class UserForm(ModelForm):
 			"last_login",
 			"managed_projects",
 			"preferences",
+			"qualifications",
 		]
 
 
@@ -419,6 +423,32 @@ class StaffAbsenceForm(ModelForm):
 	class Meta:
 		model = StaffAbsence
 		fields = "__all__"
+
+
+class TrainingRequestForm(ModelForm):
+	class Meta:
+		model = TrainingRequest
+		exclude = ["creator", "user", "status"]
+
+
+class TrainingRequestTimeForm(ModelForm):
+	class Meta:
+		model = TrainingRequestTime
+		exclude = ["training_request"]
+
+
+class CalendarTrainingEventForm(ModelForm):
+	duration = IntegerField(min_value=15)
+	class Meta:
+		model = TrainingEvent
+		# Start and end will be provided by the calendar function
+		exclude = ["creator", "tool", "trainer", "start", "end", "users"]
+
+
+class TrainingEventForm(CalendarTrainingEventForm):
+	class Meta:
+		model = TrainingEvent
+		exclude = ["creator", "trainer", "end", "users"]
 
 
 def nice_errors(obj, non_field_msg="General form errors") -> ErrorDict:

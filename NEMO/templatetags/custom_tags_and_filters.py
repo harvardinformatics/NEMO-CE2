@@ -15,6 +15,7 @@ from django.utils.safestring import mark_safe
 
 from NEMO.mixins import BillableItemMixin
 from NEMO.models import User
+from NEMO.utilities import get_full_url
 from NEMO.views.customization import CustomizationBase, ProjectsAccountsCustomization
 
 register = template.Library()
@@ -110,7 +111,7 @@ def res_question_tbody(dictionary):
 	rows = []
 	for i, (index, d) in enumerate(dictionary.items()):
 		data_cells_html = "".join(
-			[format_html("<td>{}</td>", ", ".join(d[h]) if isinstance(d[h], list) else d[h]) for h in headers]
+			[format_html("<td>{}</td>", ", ".join(d[h]) if isinstance(d.get(h), list) else d.get(h, "")) for h in headers]
 		)
 		row_html = format_html("<tr><th>{}</th>{}</tr>", i + 1, mark_safe(data_cells_html))
 		rows.append(row_html)
@@ -144,7 +145,7 @@ def app_version() -> str:
 		return dist_version
 	else:
 		try:
-			dist_version = version("NEMO")
+			dist_version = version("NEMO-CE")
 		except PackageNotFoundError:
 			# package is not installed
 			dist_version = None
@@ -173,6 +174,19 @@ def app_installed(app_name):
 def content_type(obj):
 	if obj:
 		return ContentType.objects.get_for_model(obj)
+
+
+@register.simple_tag(takes_context=True)
+def admin_edit_url(context, obj):
+	user = context["request"].user
+	try:
+		obj_type = content_type(obj)
+		permission = user.has_perm(f"{obj_type.app_label}.change_{obj_type.model}")
+		if permission:
+			url = reverse(f"admin:{obj_type.app_label}_{obj_type.model}_change", args=[obj.id])
+			return url
+	except:
+		pass
 
 
 @register.filter
@@ -227,5 +241,11 @@ def button(value, type="default", size="", icon=None, onclick=None, dismiss="", 
 		"btn_type": None if url else "submit" if submit else "button",
 		"btn_url": resolve_url(url) if url else None,
 		"btn_dismiss": dismiss,
-		"kwargs": kwargs,  # pass the rest of the kwargs directly to the button to be used as attributes
+		"kwargs": {key.replace("_","-"): value for key, value in kwargs.items()},  # pass the rest of the kwargs directly to the button to be used as attributes
 	}
+
+
+@register.simple_tag(takes_context=True)
+def absolute_url(context, view_name, *args, **kwargs):
+	url = reverse(view_name, args=args, kwargs=kwargs)
+	return get_full_url(url, request=context['request'])

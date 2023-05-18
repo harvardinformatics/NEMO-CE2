@@ -1,0 +1,55 @@
+{% extends 'training_new/training_base.html' %}
+{% load custom_tags_and_filters %}
+{% block tab_content %}
+	<div class="pull-right" style="margin-bottom: 15px;">
+		{% url "create_training_event" as create_training_event_url %}
+		{% button type="add" value="New training session" onclick="new_get_request('"|concat:create_training_event_url|concat:"')" %}
+	</div>
+	{% if training_requests %}
+		<div class="table-responsive" style="border: none; width: 100%">
+			<table class="table table-borderless table-align-middle" style="margin-bottom: 0">
+				<tr>
+					<th>User</th>
+					<th>Tool</th>
+					<th>Created</th>
+					<th>Availability</th>
+					<th>Status</th>
+					<th class="text-right">Actions</th>
+				</tr>
+				{% for training_request in training_requests %}
+					<tr>
+						<td>{{ training_request.user }}</td>
+						<td>{{ training_request.tool }}</td>
+						<td>{{ training_request.creation_time }}</td>
+						<td>
+							{% for date_time in training_request.trainingrequesttime_set.all %}
+								{% url 'create_training_event_for_time' date_time.id as create_training_event_url %}
+								{{ date_time }} <span class="success-highlight glyphicon glyphicon-plus-sign" title="Schedule training" onclick="new_get_request('{% url 'create_training_event_for_time' date_time.id %}')"></span><br>
+							{% endfor %}
+						</td>
+						<td>
+							{% if training_request.status == 1 %} {# 1 == SENT #}
+								Received
+							{% else %}
+								{{ training_request.get_status_display }}
+							{% endif %}
+						</td>
+						<td class="text-right">
+							{% url 'decline_training_request' training_request.id as decline_training_request_url %}
+							{% button type="delete" size="small" value="Reject" icon="glyphicon-ban-circle" onclick="confirm_action('"|concat:decline_training_request_url|concat:"', true, training_callback_success, 'rejecting', 'request', 'Reject this request')" data_toggle="modal" data_target="#confirm-actions" %}
+						</td>
+					</tr>
+				{% endfor %}
+			</table>
+		</div>
+	{% else %}
+		<div class="pull-left form-control-static"><i>You do not have any requests.</i></div>
+	{% endif %}
+	<script>
+        {% for training_request in training_requests %}
+            {% if training_request.status == 1 %} {# 1:SENT #}
+		ajax_get('{% url "review_training_request" training_request.id %}');
+            {% endif %}
+        {% endfor %}
+	</script>
+{% endblock %}

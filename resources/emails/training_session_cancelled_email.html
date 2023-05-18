@@ -1,0 +1,41 @@
+{% load custom_tags_and_filters %}
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body>
+        <!--[if mso]><table width="600" align="center"><tr><td><![endif]-->
+        <table align="center" style="width:100%; max-width:600px; font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
+            <tr>
+                <td align="center" style="color: white; background: #d9534f; padding: 50px 0;" bgcolor="#d9534f">
+                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">
+                        TRAINING SESSION CANCELLED
+                    </h1>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">
+                    <p>Dear {{ user.first_name }},</p>
+                    <p>This email is to inform you that {{ training_session.trainer }} cancelled the {{ training_session.tool }} training originally scheduled for {{ training_session.start }}.
+					{% if reason %}
+                        <br><u>Reason</u>:
+                        <br>{{ reason }}
+                    {% endif %}
+					</p>
+                </td>
+            </tr>
+			<tr>
+                <td style="padding: 10px;">
+					<p>If you had originally submitted a training request, it has been automatically re-sent to the trainers.
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">
+                    Visit the <a href="{% absolute_url 'training_requests' %}">Training requests</a> to see the status of your current requests.<br/>
+                </td>
+            </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+    </body>
+</html>

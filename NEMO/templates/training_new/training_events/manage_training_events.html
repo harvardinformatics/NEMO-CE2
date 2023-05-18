@@ -1,0 +1,18 @@
+{% extends 'training_new/training_base.html' %}
+{% load custom_tags_and_filters %}
+{% block tab_content %}
+	{% if training_events or past_training_events %}
+		<div class="table-responsive" style="border: none; width: 100%">
+			<table class="table table-borderless table-align-middle" style="margin-bottom: 0">
+				{% if training_events %}
+					{% include "training_new/training_events/manage_training_events_table.html" with training_title="Upcoming training sessions" %}
+				{% endif %}
+				{% if past_training_events %}
+					{% include "training_new/training_events/manage_training_events_table.html" with training_events=past_training_events training_title="Past training sessions" hide_actions=True %}
+				{% endif %}
+			</table>
+		</div>
+	{% else %}
+		<p>You don't have any training sessions</p>
+	{% endif %}
+{% endblock %}

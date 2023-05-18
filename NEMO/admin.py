@@ -9,11 +9,13 @@ from django.contrib.admin.decorators import display
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.admin import GenericStackedInline
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.db.models.fields.files import FieldFile
 from django.forms import BaseInlineFormSet
 from django.template.defaultfilters import linebreaksbr, urlencode
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 from mptt.admin import DraggableMPTTAdmin, MPTTAdminForm, TreeRelatedFieldListFilter
 
 from NEMO.actions import (
@@ -26,7 +28,7 @@ from NEMO.actions import (
 	synchronize_with_tool_usage,
 	unlock_selected_interlocks,
 )
-from NEMO.forms import BuddyRequestForm, RecurringConsumableChargeForm, UserPreferencesForm
+from NEMO.forms import BuddyRequestForm, RecurringConsumableChargeForm, TrainingRequestForm, UserPreferencesForm
 from NEMO.models import (
 	Account,
 	AccountType,
@@ -66,6 +68,8 @@ from NEMO.models import (
 	Project,
 	ProjectDiscipline,
 	ProjectDocuments,
+	Qualification,
+	QualificationLevel,
 	RecurringConsumableCharge,
 	RequestMessage,
 	Reservation,
@@ -92,10 +96,18 @@ from NEMO.models import (
 	TemporaryPhysicalAccess,
 	TemporaryPhysicalAccessRequest,
 	Tool,
+	ToolAccessory,
 	ToolDocuments,
 	ToolQualificationGroup,
+	ToolTrainingDetail,
 	ToolUsageCounter,
+	TrainingEvent,
+	TrainingHistory,
+	TrainingInvitation,
+	TrainingRequest,
+	TrainingRequestTime,
 	TrainingSession,
+	TrainingTechnique,
 	UsageEvent,
 	User,
 	UserDocuments,
@@ -106,7 +118,7 @@ from NEMO.models import (
 	record_remote_many_to_many_changes_and_save,
 )
 from NEMO.utilities import admin_get_item, format_daterange
-from NEMO.views.customization import ProjectsAccountsCustomization
+from NEMO.views.customization import ProjectsAccountsCustomization, TrainingCustomization
 from NEMO.widgets.dynamic_form import DynamicForm, PostUsageFloatFieldQuestion, PostUsageNumberFieldQuestion
 
 
@@ -129,12 +141,6 @@ class ToolAdminForm(forms.ModelForm):
 		js = ("admin/tool/tool.js", "admin/questions_preview/questions_preview.js")
 		css = {"": ("admin/questions_preview/questions_preview.css",)}
 
-	qualified_users = forms.ModelMultipleChoiceField(
-		queryset=User.objects.all(),
-		required=False,
-		widget=FilteredSelectMultiple(verbose_name="Users", is_stacked=False),
-	)
-
 	required_resources = forms.ModelMultipleChoiceField(
 		queryset=Resource.objects.all(),
 		required=False,
@@ -153,8 +159,10 @@ class ToolAdminForm(forms.ModelForm):
 
 	def __init__(self, *args, **kwargs):
 		super(ToolAdminForm, self).__init__(*args, **kwargs)
+		# Limit interlock selection to ones not already linked (make sure to include current one)
+		self.fields["_interlock"].queryset = Interlock.objects.filter(
+			Q(id=self.instance._interlock_id) | Q(tool__isnull=True, door__isnull=True))
 		if self.instance.pk:
-			self.fields["qualified_users"].initial = self.instance.user_set.all()
 			self.fields["required_resources"].initial = self.instance.required_resource_set.all()
 			self.fields["nonrequired_resources"].initial = self.instance.nonrequired_resource_set.all()
 
@@ -177,9 +185,70 @@ class ToolDocumentsInline(admin.TabularInline):
 	extra = 1
 
 
+class UserQualificationInlineFormset(BaseInlineFormSet):
+	def add_fields(self, form, index):
+		""" This will disable user and tool fields on update only """
+		super().add_fields(form, index)
+		if form.initial:
+			form.fields['user'].disabled = True
+			form.fields['tool'].disabled = True
+
+	# Override save, update and delete to use qualify method
+	def save_existing(self, form, instance, commit=True):
+		if not commit:
+			return super().save_existing(form, instance, commit)
+		else:
+			return self.qualify(form)
+
+	def save_new(self, form, commit=True):
+		if not commit:
+			return super().save_new(form, False)
+		else:
+			return self.qualify(form)
+
+	def qualify(self, form):
+		from NEMO.views.qualifications import qualify
+		# This user was set in the inline
+		request_user = self.user
+		tool = form.instance.tool
+		user = form.instance.user
+		qualification_level_id = form.instance.qualification_level_id
+		qualify(request_user, tool, user, qualification_level_id)
+		return Qualification.objects.filter(user=user, tool=tool, qualification_level_id=qualification_level_id).latest()
+
+	def delete_existing(self, obj, commit=True):
+		if commit:
+			from NEMO.views.qualifications import disqualify
+			disqualify(self.user, obj.tool, obj.user)
+
+
+class UserQualificationInline(admin.TabularInline):
+	model = Qualification
+	autocomplete_fields = ["user", "tool"]
+	readonly_fields = ["qualified_on"]
+	formset = UserQualificationInlineFormset
+	extra = 0
+
+	def __init__(self, *args, **kwargs):
+		# Inline init method is checked by django admin at start
+		# So we cannot have lookups done at this time
+		try:
+			if not QualificationLevel.objects.exists():
+				self.exclude = ["qualification_level"]
+		except:
+			pass
+		super().__init__(*args, **kwargs)
+	
+	def get_formset(self, request, obj=None, **kwargs):
+		""" Override to set the request user """
+		formset = super().get_formset(request, obj, **kwargs)
+		formset.user = request.user
+		return formset
+
+
 @register(Tool)
 class ToolAdmin(admin.ModelAdmin):
-	inlines = [ToolDocumentsInline]
+	inlines = [UserQualificationInline, ToolDocumentsInline]
 	list_display = (
 		"name_display",
 		"_category",
@@ -204,7 +273,6 @@ class ToolAdmin(admin.ModelAdmin):
 					"name",
 					"parent_tool",
 					"_category",
-					"qualified_users",
 					"_post_usage_questions",
 					"_post_usage_preview",
 				)
@@ -251,6 +319,7 @@ class ToolAdmin(admin.ModelAdmin):
 					"_grant_badge_reader_access_upon_qualification",
 					"_interlock",
 					"_allow_delayed_logoff",
+					"_reservation_required",
 				)
 			},
 		),
@@ -274,9 +343,6 @@ class ToolAdmin(admin.ModelAdmin):
 		""" We only want non children tool to be eligible as parents """
 		if db_field.name == "parent_tool":
 			kwargs["queryset"] = Tool.objects.filter(parent_tool__isnull=True)
-		# Limit interlock selection to ones not already linked
-		if db_field.name == "_interlock":
-			kwargs["queryset"] = Interlock.objects.filter(tool__isnull=True, door__isnull=True)
 		return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 	def save_model(self, request, obj, form, change):
@@ -286,9 +352,6 @@ class ToolAdmin(admin.ModelAdmin):
 		if obj.parent_tool:
 			super(ToolAdmin, self).save_model(request, obj, form, change)
 		else:
-			record_remote_many_to_many_changes_and_save(
-				request, obj, form, change, "qualified_users", super(ToolAdmin, self).save_model
-			)
 			if "required_resources" in form.changed_data:
 				obj.required_resource_set.set(form.cleaned_data["required_resources"])
 			if "nonrequired_resources" in form.changed_data:
@@ -297,6 +360,16 @@ class ToolAdmin(admin.ModelAdmin):
 
 @register(ToolQualificationGroup)
 class ToolQualificationGroup(admin.ModelAdmin):
+	list_display = ["name", "get_tools"]
+	filter_horizontal = ["tools"]
+
+	@admin.display(description="Tools", ordering="tools")
+	def get_tools(self, obj: ToolQualificationGroup):
+		return mark_safe("<br>".join([str(tool) for tool in obj.tools.all()]))
+
+
+@register(ToolAccessory)
+class ToolAccessoryAdmin(admin.ModelAdmin):
 	list_display = ["name", "get_tools"]
 	filter_horizontal = ["tools"]
 
@@ -544,6 +617,7 @@ class ReservationAdmin(admin.ModelAdmin):
 	readonly_fields = ("descendant",)
 	list_filter = ("cancelled", "missed", ("tool", admin.RelatedOnlyFieldListFilter), ("area", TreeRelatedFieldListFilter), ("user", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "start"
+	filter_horizontal = ["tool_accessories"]
 
 
 class ReservationQuestionsForm(forms.ModelForm):
@@ -829,6 +903,7 @@ class MembershipHistoryAdmin(admin.ModelAdmin):
 		"get_child",
 		"date",
 		"authorizer",
+		"details",
 	)
 	list_filter = (("parent_content_type", admin.RelatedOnlyFieldListFilter), ("child_content_type", admin.RelatedOnlyFieldListFilter),)
 	date_hierarchy = "date"
@@ -859,13 +934,6 @@ class UserAdminForm(forms.ModelForm):
 		model = User
 		fields = "__all__"
 
-	tool_qualifications = forms.ModelMultipleChoiceField(
-		label="Qualifications",
-		queryset=Tool.objects.filter(parent_tool__isnull=True),
-		required=False,
-		widget=FilteredSelectMultiple(verbose_name="tools", is_stacked=False),
-	)
-
 	backup_owner_on_tools = forms.ModelMultipleChoiceField(
 		queryset=Tool.objects.filter(parent_tool__isnull=True),
 		required=False,
@@ -881,7 +949,6 @@ class UserAdminForm(forms.ModelForm):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		if self.instance.pk:
-			self.fields["tool_qualifications"].initial = self.instance.qualifications.all()
 			self.fields["backup_owner_on_tools"].initial = self.instance.backup_for_tools.all()
 			self.fields["superuser_on_tools"].initial = self.instance.superuser_for_tools.all()
 
@@ -894,7 +961,7 @@ class UserDocumentsInline(admin.TabularInline):
 @register(User)
 class UserAdmin(admin.ModelAdmin):
 	form = UserAdminForm
-	inlines = [UserDocumentsInline]
+	inlines = [UserQualificationInline, UserDocumentsInline]
 	filter_horizontal = (
 		"groups",
 		"user_permissions",
@@ -944,7 +1011,6 @@ class UserAdmin(admin.ModelAdmin):
 			"Facility information",
 			{
 				"fields": (
-					"tool_qualifications",
 					"backup_owner_on_tools",
 					"superuser_on_tools",
 					"projects",
@@ -998,11 +1064,8 @@ class UserAdmin(admin.ModelAdmin):
 		""" Audit project membership and qualifications when a user is saved. """
 		super(UserAdmin, self).save_model(request, obj, form, change)
 		record_local_many_to_many_changes(request, obj, form, "projects")
-		record_local_many_to_many_changes(request, obj, form, "qualifications", "tool_qualifications")
 		record_local_many_to_many_changes(request, obj, form, "physical_access_levels")
 		record_active_state(request, obj, form, "is_active", not change)
-		if "tool_qualifications" in form.changed_data:
-			obj.qualifications.set(form.cleaned_data["tool_qualifications"])
 		if "backup_owner_on_tools" in form.changed_data:
 			obj.backup_for_tools.set(form.cleaned_data["backup_owner_on_tools"])
 		if "superuser_on_tools" in form.changed_data:
@@ -1055,15 +1118,18 @@ class SafetyItemAdmin(admin.ModelAdmin):
 		return SafetyItemDocuments.objects.filter(safety_item=obj).count()
 
 
+class DoorAdminForm(forms.ModelForm):
+	def __init__(self, *args, **kwargs):
+		super(DoorAdminForm, self).__init__(*args, **kwargs)
+		# Limit interlock selection to ones not already linked (and exclude current one)
+		self.fields["interlock"].queryset = Interlock.objects.filter(
+			Q(id=self.instance.interlock_id) | Q(tool__isnull=True, door__isnull=True))
+
+
 @register(Door)
 class DoorAdmin(admin.ModelAdmin):
 	list_display = ("name", "area", "interlock", "get_absolute_url", "id")
-
-	def formfield_for_foreignkey(self, db_field, request, **kwargs):
-		# Limit interlock selection to ones not already linked
-		if db_field.name == "interlock":
-			kwargs["queryset"] = Interlock.objects.filter(tool__isnull=True, door__isnull=True)
-		return super().formfield_for_foreignkey(db_field, request, **kwargs)
+	form = DoorAdminForm
 
 
 @register(AlertCategory)
@@ -1524,6 +1590,123 @@ class OnboardingPhaseAdmin(admin.ModelAdmin):
 	list_display = ("name", "display_order")
 
 
+class ToolTrainingDetailAdminForm(forms.ModelForm):
+	class Meta:
+		model = ToolTrainingDetail
+		fields = "__all__"
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.fields["user_availability_allowed"].initial = TrainingCustomization.get_bool("training_request_default_availability_allowed")
+
+
+@register(ToolTrainingDetail)
+class ToolTrainingDetailAdmin(admin.ModelAdmin):
+	list_display = ("tool", "duration", "get_techniques")
+	filter_horizontal = ["techniques"]
+	form = ToolTrainingDetailAdminForm
+
+	@admin.display(description="Techniques")
+	def get_techniques(self, details: ToolTrainingDetail):
+		return mark_safe("<br>".join(str(tech) for tech in details.techniques.all()))
+
+
+class TrainingRequestTimeInline(admin.TabularInline):
+	model = TrainingRequestTime
+	extra = 2
+
+
+@register(TrainingRequest)
+class TrainingRequestAdmin(admin.ModelAdmin):
+	inlines = [TrainingRequestTimeInline]
+	list_display = ["user", "trainer", "tool", "get_status", "get_request_times"]
+	list_filter = ["status", ("tool", admin.RelatedOnlyFieldListFilter)]
+	date_hierarchy = "creation_time"
+	form = TrainingRequestForm
+
+	@admin.display(description="Status", ordering="status")
+	def get_status(self, training_request: TrainingRequest):
+		return training_request.get_status_display()
+
+	@admin.display(description="Times", ordering="training_request_time")
+	def get_request_times(self, training_request: TrainingRequest) -> str:
+		return mark_safe(
+			"<br>".join(
+				[
+					format_daterange(
+						ct.start_time,
+						ct.end_time,
+						dt_format="SHORT_DATETIME_FORMAT",
+						d_format="SHORT_DATE_FORMAT",
+						date_separator=" ",
+						time_separator=" - ",
+					)
+					for ct in TrainingRequestTime.objects.filter(training_request=training_request)
+				]
+			)
+		)
+
+
+@register(TrainingInvitation)
+class TrainingInvitationAdmin(admin.ModelAdmin):
+	list_display = ["training_event", "user", "trainer", "tool", "get_status", "start", "end"]
+	list_filter = ["status", ("training_event__tool", admin.RelatedOnlyFieldListFilter)]
+	date_hierarchy = "creation_time"
+
+	@admin.display(description="Status", ordering="status")
+	def get_status(self, training_request: TrainingRequest):
+		return training_request.get_status_display()
+
+
+@register(TrainingEvent)
+class TrainingEventAdmin(admin.ModelAdmin):
+	list_display = ["tool", "start", "end", "trainer", "technique", "get_capacity", "cancelled"]
+	list_filter = ["cancelled", ("trainer", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter)]
+	date_hierarchy = "start"
+	filter_horizontal = ["users"]
+
+	@admin.display(description="Capacity")
+	def get_capacity(self, training_event: TrainingEvent):
+		return f"{training_event.users.count()}/{training_event.capacity}"
+
+
+class TrainingTargetUserFilter(admin.SimpleListFilter):
+	title = _("target user")
+
+	# Parameter for the filter that will be used in the URL query.
+	parameter_name = "target_user"
+
+	def lookups(self, request, model_admin):
+		qs = model_admin.get_queryset(request).distinct()
+		pks = set()
+		pks.update(qs.values_list("training_request__user__pk", flat=True))
+		pks.update(qs.values_list("training_invitation__user__pk", flat=True))
+		pks.update(qs.values_list("training_invitation__pk", flat=True))
+		pks.update(qs.values_list("training_event__users__pk", flat=True))
+		return [(x.pk, str(x)) for x in User.objects.filter(pk__in=pks)]
+
+	def queryset(self, request, queryset):
+		if not self.value():
+			return queryset
+		return queryset.filter(Q(training_request__user__pk=self.value())|Q(training_invitation__user__pk=self.value())|Q(training_event__users__in=[self.value()]))
+
+
+@register(TrainingHistory)
+class TrainingHistoryAdmin(admin.ModelAdmin):
+	list_display = ["time", "user", "status", "get_target_users", "get_training_item"]
+	list_filter = [("user", admin.RelatedOnlyFieldListFilter), TrainingTargetUserFilter, "status"]
+	date_hierarchy = "time"
+
+	@admin.display(description="Targeted users")
+	def get_target_users(self, training_history: TrainingHistory):
+		return mark_safe("<br>".join(str(user) for user in training_history.target_users()))
+
+	@admin.display(description="Training item")
+	def get_training_item(self, training_history: TrainingHistory):
+		item = training_history.training_item
+		return admin_get_item(ContentType.objects.get_for_model(item), item.id)
+
+
 @register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
 	list_display = ["id", "category", "sender", "to", "subject", "when", "ok"]
@@ -1546,6 +1729,47 @@ class EmailLogAdmin(admin.ModelAdmin):
 
 	def has_change_permission(self, request, obj=None):
 		return False
+
+
+@register(Qualification)
+class QualificationAdmin(admin.ModelAdmin):
+	list_display = (
+		"user",
+		"tool",
+		"qualification_level",
+		"qualified_on",
+	)
+	readonly_fields = ["qualified_on"]
+	date_hierarchy = "qualified_on"
+	list_filter = [("qualification_level", admin.RelatedOnlyFieldListFilter), ("user", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter)]
+
+	def get_readonly_fields(self, request, obj=None):
+		""" Override to make fields readonly when editing """
+		if obj and obj.pk:
+			return self.readonly_fields + ["user", "tool"]
+		else:
+			return self.readonly_fields
+
+	# Override save and delete to use qualify method
+	def save_model(self, request, obj, form, change):
+		from NEMO.views.qualifications import qualify
+		qualify(request.user, obj.tool, obj.user, obj.qualification_level_id)
+
+	def delete_model(self, request, obj: Qualification):
+		from NEMO.views.qualifications import disqualify
+		disqualify(request.user, obj.tool, obj.user)
+
+
+@register(QualificationLevel)
+class QualificationLevelAdmin(admin.ModelAdmin):
+	list_display = (
+		"name",
+		"qualify_user",
+		"qualify_schedule",
+		"schedule_start_time",
+		"schedule_end_time",
+		"qualify_weekends",
+	)
 
 
 def iframe_content(content, extra_style="padding-bottom: 75%") -> str:
@@ -1571,3 +1795,4 @@ admin.site.register(ProjectDiscipline)
 admin.site.register(AccountType)
 admin.site.register(ResourceCategory)
 admin.site.register(Permission)
+admin.site.register(TrainingTechnique)

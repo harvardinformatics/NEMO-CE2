@@ -1,3 +1,4 @@
+{% load custom_tags_and_filters %}
 <div class="row" style="margin-top:30px">
 	<div class="col-xs-offset-3 col-xs-6" onclick="{% if back == 'back_to_start' %}load_choices('{{ customer.badge_number }}'){% elif back == 'back_to_category' %}view_category('{% url 'kiosk_category_choices' tool.category customer.id %}'){% endif %}">
 		<div class="alert alert-warning" style="text-align:center; margin-bottom:0; font-size:x-large">
@@ -30,7 +31,11 @@
 		{% if tool.in_use %}
             {% if customer.is_staff or customer.is_user_office %}
 			    <p>You may <a href="javascript:void(0)" onclick="disable_tool();">force {{ tool.get_current_usage_event.operator }} off this tool</a>.</p>
-            {% endif %}
+			{% elif not tool.post_usage_questions %}
+				{% if remaining_reservation_duration and "tool"|customization:"tool_control_ongoing_reservation_force_off" == "enabled" %}
+					<p>You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a> since you have an ongoing reservation and the tool has no post usage questions.</p>
+				{% endif %}
+			{% endif %}
 		{% endif %}
 	{% elif tool.delayed_logoff_in_progress %}
 		{% with tool.get_delayed_logoff_usage_event as delayed_logoff_event %}

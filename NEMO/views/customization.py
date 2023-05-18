@@ -277,6 +277,7 @@ class UserRequestsCustomization(CustomizationBase):
 		"adjustment_requests_display_max": "",
 		"adjustment_requests_time_limit_interval": "2",
 		"adjustment_requests_time_limit_frequency": RecurrenceFrequency.WEEKLY.index,
+		"adjustment_requests_edit_charge_button": "",
 		"weekend_access_notification_emails": "",
 		"weekend_access_notification_cutoff_hour": "",
 		"weekend_access_notification_cutoff_day": "",
@@ -357,6 +358,8 @@ class ToolCustomization(CustomizationBase):
 		"tool_location_required": "enabled",
 		"tool_control_hide_data_history_users": "",
 		"tool_control_configuration_setting_template": "{{ current_setting }}",
+		"tool_control_ongoing_reservation_force_off": "",
+		"tool_control_broadcast_qualified_users": "",
 		"tool_qualification_reminder_days": "",
 		"tool_qualification_expiration_days": "",
 		"tool_qualification_expiration_never_used_days": "",
@@ -401,6 +404,20 @@ class RemoteWorkCustomization(CustomizationBase):
 	}
 
 
+@customization(key="training", title="Training")
+class TrainingCustomization(CustomizationBase):
+	variables = {
+		"training_module_enabled": "enabled",
+		"training_request_default_availability_allowed": "",
+		"training_event_default_duration": "",
+		"training_event_default_capacity": "",
+	}
+
+	def validate(self, name, value):
+		if name in ["training_event_default_duration", "training_event_default_capacity"] and value:
+			validate_integer(value)
+
+
 @customization(key="templates", title="File & email templates")
 class TemplatesCustomization(CustomizationBase):
 	files = [
@@ -427,6 +444,10 @@ class TemplatesCustomization(CustomizationBase):
 		("staff_charge_reminder_email", ".html"),
 		("task_status_notification", ".html"),
 		("tool_qualification_expiration_email", ".html"),
+		("training_invitation_declined_email", ".html"),
+		("training_invitation_received_email", ".html"),
+		("training_request_submitted_email", ".html"),
+		("training_session_cancelled_email", ".html"),
 		("unauthorized_tool_access_email", ".html"),
 		("usage_reminder_email", ".html"),
 		("user_access_expiration_reminder_email", ".html"),

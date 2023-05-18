@@ -100,6 +100,8 @@ url_kwargs_get_post = {
 	"customization": {"kwargs": {"key": "application"}},
 	"customize": {"kwargs": {"key": "application"}, "post": {"facility_name": "test facility"}},
 	"media_view": {"kwargs": {"popup": "true", "document_type": "safety_document", "document_id": 1}},
+	"create_adjustment_request": {"kwargs": {}},
+	"edit_adjustment_request": {"kwargs": {"request_id": 1}},
 }
 
 urls_to_skip = [
@@ -118,11 +120,24 @@ urls_to_skip = [
 	"update_safety_issue",
 	"new_reservation",
 	"remove_document_from_project",
-	# TODO: remove those when data is added to splash pad
-	"edit_adjustment_request",
-	"create_adjustment_request",
-	"delete_adjustment_request",
 	"adjustment_request_reply",
+	"delete_adjustment_request",
+]
+# Skip new training URLs
+urls_to_skip += [
+	"create_training_event_calendar",
+	"create_training_event",
+	"resize_training_event",
+	"move_training_event",
+	"training_event_details",
+	"withdraw_training_request",
+	"accept_training_invitation",
+	"decline_training_invitation",
+	"review_training_invitation",
+	"cancel_training_event",
+	"register_for_training",
+	"review_training_request",
+	"decline_training_request",
 ]
 
 
@@ -273,7 +288,7 @@ def test_urls(test_case, url_patterns, url_params, url_skip, prefix=""):
 					"NEMO.decorators.synchronized",
 					"django.contrib.admin.sites",
 					"django.contrib.admin.options",
-				]:
+				] or prefix == "admin":
 					continue
 				pkg_mod = importlib.import_module(pkg)
 				view_function = getattr(pkg_mod, fun_name)
@@ -344,7 +359,7 @@ def login_as_relevant_user(test_case: TestCase, annotations: List[str]):
 		login_as_user_with_permissions(test_case.client, ["add_areaaccessrecord", "change_areaaccessrecord"])
 	elif "login_required" in annotations:
 		login_as_user(test_case.client)
-	elif "staff_member_required" in annotations or "staff_member_or_tool_superuser_required" in annotations or "staff_member_or_user_office_required" in annotations:
+	elif "staff_member_required" in annotations or "staff_member_or_tool_superuser_required" in annotations or "staff_member_or_user_office_required" in annotations or "any_staff_or_trainer" in annotations:
 		login_as_staff(test_case.client)
 	elif "administrator_required" in annotations:
 		staff = login_as_staff(test_case.client)

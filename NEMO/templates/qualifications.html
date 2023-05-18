@@ -16,21 +16,28 @@
 		<input type="hidden" name="redirect" value="true">
 		<div class="form-group">
 			<div class="row">
-				<div class="col-md-12">
-					<button type='submit' class="btn btn-success" name="action" value="qualify"><i class="glyphicon glyphicon-plus"></i> Qualify users</button>
-					<button type='submit' class="btn btn-danger pull-right" name="action" value="disqualify"><i class="glyphicon glyphicon-minus"></i> Disqualify users</button>
+				<div class="col-md-6">
+					<button type='submit' class="btn btn-success" name="action" value="qualify"
+							onclick="set_qualification_level_required(true)"><i class="glyphicon glyphicon-plus"></i> Qualify users
+					</button>
+				</div>
+				<div class="col-md-6 text-right">
+					<button type='submit' class="btn btn-danger" name="action" value="disqualify"
+							onclick="set_qualification_level_required(false)"><i class="glyphicon glyphicon-minus"></i> Disqualify
+						users
+					</button>
 				</div>
 			</div>
 		</div>
 		<div class="row">
-			<div class="col-md-6">
+			<div class="{% if qualification_levels %}col-md-4{% else %}col-md-6{% endif %}">
 				<div class="form-group">
 					<label for="user_search">Search for user</label>
 					<input id='user_search' class="form-control"/>
 				</div>
 				<div id="chosen_users" class="form-group"></div>
 			</div>
-			<div class="col-md-6">
+			<div class="{% if qualification_levels %}col-md-4{% else %}col-md-6{% endif %}">
 				<div class="form-group">
 					<label for="tool_search">Search for tool</label>
 					<input id='tool_search' class="form-control"/>
@@ -38,6 +45,17 @@
 				<div id="chosen_tools" class="form-group"></div>
 				<div id="chosen_toolqualificationgroups" class="form-group"></div>
 			</div>
+			{% if qualification_levels %}
+				<div class="col-md-4">
+					<label for="qualification_level">Select qualification level</label>
+					<select id="qualification_level" name="qualification_level" class="form-control">
+						<option disabled selected value="">&nbsp;</option>
+						{% for ql in qualification_levels %}
+							<option value="{{ ql.id }}">{{ ql.name }}</option>
+						{% endfor %}
+					</select>
+				</div>
+			{% endif %}
 		</div>
 	</form>
 
@@ -60,6 +78,10 @@
 			);
 		}
 
+		function set_qualification_level_required(required) {
+            $('#qualification_level').prop('required', required);
+        }
+
 		function on_load()
 		{
 			$('#user_search').autocomplete('user', create_entry, {{ users|json_search_base }}).focus();
@@ -67,7 +89,5 @@
 		}
 
 		$(on_load);
-
 	</script>
-
 {% endblock %}

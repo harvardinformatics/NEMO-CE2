@@ -26,6 +26,9 @@ NEMO-CE dev build:
     - docker build --tag $CI_REGISTRY_IMAGE:dev .
     - docker push $CI_REGISTRY_IMAGE:dev
     - docker logout
+  only:
+    - schedules
+    - master
 
 NEMO-CE Release:
   stage: build
@@ -41,13 +44,24 @@ NEMO-CE Release:
   only:
     - tags
 
+NEMO-CE PyPI Release:
+  variables:
+    GIT_STRATEGY: clone
+  image: python:3
+  stage: build
+  script:
+    - sed -i "s/^VERSION =.*/VERSION = '$(git describe --tags)'/" setup.py
+    - pip install --upgrade pip setuptools wheel twine keyring
+    - python setup.py sdist bdist_wheel
+    - twine upload --user $PYPI_USER --password $PYPI_PASSWORD ./dist/NEMO_CE*
+  only:
+    - tags
 
 NEMO-CE dev deploy:
   stage: deploy
   script:
-    - cd /opt/nemo
-    - docker pull registry.gitlab.com/nemo-community/nemo-ce:dev
-    - docker compose up -d nemodev
+    - sudo bash -c 'cd /opt/nemo/ && docker pull registry.gitlab.com/nemo-community/nemo-ce:dev'
+    - sudo bash -c 'cd /opt/nemo/ && docker compose up -d nemodev'
   only:
     - schedules
   except:

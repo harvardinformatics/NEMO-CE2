@@ -1,7 +1,8 @@
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.utils import timezone
@@ -27,11 +28,15 @@ from NEMO.models import (
     Consumable,
     PhysicalAccessLevel,
     Project,
+    Qualification,
     Reservation,
     ReservationItemType,
     ScheduledOutage,
     StaffCharge,
     Tool,
+    ToolAccessory,
+    TrainingEvent,
+    TrainingInvitation,
     User,
 )
 from NEMO.utilities import (
@@ -43,7 +48,12 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
 )
-from NEMO.views.customization import ApplicationCustomization, EmailsCustomization, get_media_file_contents
+from NEMO.views.customization import (
+    ApplicationCustomization,
+    EmailsCustomization,
+    ToolCustomization,
+    get_media_file_contents,
+)
 
 
 class NEMOPolicy:
@@ -70,8 +80,16 @@ class NEMOPolicy:
 
         # The user must be qualified to use the tool itself, or the parent tool in case of alternate tool.
         tool_to_check_qualifications = tool.parent_tool if tool.is_child_tool() else tool
-        if tool_to_check_qualifications not in operator.qualifications.all() and not operator.is_staff:
-            return HttpResponseBadRequest("You are not qualified to use this tool.")
+        if not operator.is_staff:
+            qualification = Qualification.objects.filter(user=operator, tool=tool_to_check_qualifications).first()
+            if not qualification:
+                return HttpResponseBadRequest("You are not qualified to use this tool.")
+            elif qualification.qualification_level and not qualification.qualification_level.qualify_user:
+                return HttpResponseBadRequest("You do not have the qualification level required to operate this tool.")
+            elif qualification.qualification_level and not qualification.qualification_level.is_allowed():
+                return HttpResponseBadRequest(
+                    f"You do not have the qualification level required to operate this tool at this time. Allowed times are {qualification.qualification_level.allowed_times_display()}"
+                )
 
         # Only staff members can operate a tool on behalf of another user.
         if (user and operator.pk != user.pk) and not operator.is_staff:
@@ -132,6 +150,21 @@ class NEMOPolicy:
                     )
                 )
 
+        # Users may not enable a tool if reservation_required is True and the user doesn't have a reservation
+        if tool.reservation_required and not operator.is_staff and not operator.is_service_personnel:
+            tolerance = timedelta(minutes=15)
+            if not Reservation.objects.filter(
+                start__lt=timezone.now() + tolerance,
+                end__gt=timezone.now(),
+                cancelled=False,
+                missed=False,
+                shortened=False,
+                user=operator,
+                tool=tool,
+            ).exists():
+                return HttpResponseBadRequest("You must have a current reservation to operate this tool.")
+
+
         # Staff may only charge staff time for one user at a time.
         if staff_charge and operator.charging_staff_time():
             return HttpResponseBadRequest(
@@ -172,14 +205,30 @@ class NEMOPolicy:
     def check_to_disable_tool(self, tool, operator, downtime) -> HttpResponse:
         """Check that the user is allowed to disable the tool."""
         current_usage_event = tool.get_current_usage_event()
+        has_post_usage_questions = bool(tool.post_usage_questions)
+        force_off = ToolCustomization.get("tool_control_ongoing_reservation_force_off")
+
+        ongoing_reservation = Reservation.objects.filter(tool=tool, user=operator, start__lte=timezone.now(),
+                                                         end__gte=timezone.now(), shortened=False,
+                                                         cancelled=False, missed=False).exists()
+
         if (
-            current_usage_event.operator != operator
-            and current_usage_event.user != operator
-            and not (operator.is_staff or operator.is_user_office)
+                current_usage_event.operator != operator
+                and current_usage_event.user != operator
+                and not (operator.is_staff or operator.is_user_office)
+                and not (ongoing_reservation and not has_post_usage_questions)
         ):
-            return HttpResponseBadRequest(
-                "You may not disable a tool while another user is using it unless you are a staff member."
-            )
+            if (
+                    not (ongoing_reservation and not has_post_usage_questions and force_off)
+            ):
+                return HttpResponseBadRequest(
+                    "You may not disable a tool while another user is using it unless you are a staff member or have an ongoing reservation."
+                )
+            elif not force_off:
+                return HttpResponseBadRequest(
+                    "You may not disable a tool while another user is using it unless you are a staff member."
+                )
+
         if downtime < timedelta():
             return HttpResponseBadRequest("Downtime cannot be negative.")
         if downtime > timedelta(minutes=120):
@@ -226,6 +275,9 @@ class NEMOPolicy:
         self.check_coincident_item_reservation_policy(
             cancelled_reservation, new_reservation, user_creating_reservation, policy_problems
         )
+
+        previous_accessories = cancelled_reservation.tool_accessories.all() if cancelled_reservation else []
+        policy_problems.extend(self.check_accessories_available_for_reservation(new_reservation, previous_accessories, cancelled_reservation))
 
         # Reservations that have been cancelled may not be changed.
         if new_reservation.cancelled:
@@ -337,15 +389,41 @@ class NEMOPolicy:
         # The user must be qualified on the tool in question in order to create, move, or resize a reservation.
         # Staff may break this rule.
         # An explicit policy override allows this rule to be broken.
-        if new_reservation.tool and new_reservation.tool not in user.qualifications.all():
-            if user == user_creating_reservation:
-                policy_problems.append(
-                    "You are not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
-                )
-            else:
-                policy_problems.append(
-                    f"{str(user)} is not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
-                )
+        if new_reservation.tool:
+            # Retrieve the user's qualification for the tool if any
+            qualification = Qualification.objects.filter(user=user, tool=new_reservation.tool).first()
+
+            # If the user is not qualified, add a policy problem
+            if not qualification:
+                if user == user_creating_reservation:
+                    policy_problems.append(
+                        "You are not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
+                    )
+                else:
+                    policy_problems.append(
+                        f"{str(user)} is not qualified to use this tool. Creating, moving, and resizing reservations is forbidden."
+                    )
+            elif qualification.qualification_level and not qualification.qualification_level.qualify_user:
+                if user == user_creating_reservation:
+                    policy_problems.append(
+                        "You do not have the qualification level required to operate this tool."
+                    )
+                else:
+                    policy_problems.append(
+                        f"{str(user)} does not have the qualification level required to operate this tool."
+                    )
+            elif qualification.qualification_level:
+                times_to_check = get_times_to_check(new_reservation.start, new_reservation.end)
+                if not all([qualification.qualification_level.is_allowed_at(check_time) for check_time in
+                            times_to_check]):
+                    if user == user_creating_reservation:
+                        policy_problems.append(
+                            f"You do not have the qualification level required to operate this tool at some point during the reservation window. Allowed times are {qualification.qualification_level.allowed_times_display()}"
+                        )
+                    else:
+                        policy_problems.append(
+                            f"{str(user)} does not have the qualification level required to operate this tool at some point during the reservation window. Allowed times are {qualification.qualification_level.allowed_times_display()}"
+                        )
 
         # The user must be authorized on the area in question at the start and end times of the reservation
         # in order to create, move, or resize a reservation.
@@ -760,6 +838,14 @@ class NEMOPolicy:
 
         return HttpResponse()
 
+    def check_accessories_available_for_reservation(self, reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None) -> List[str]:
+        policy_problems = []
+        conflicts = accessory_conflicts_for_reservation(reservation, accessories, cancelled_reservation)
+        for accessory_name, reservations in conflicts.items():
+            for reservation_using_accessory in reservations:
+                policy_problems.append(f"Someone already reserved the {accessory_name} for the {reservation_using_accessory.tool.name}: {format_daterange(reservation_using_accessory.start, reservation_using_accessory.end)}")
+        return policy_problems
+
     def check_to_create_outage(self, outage: ScheduledOutage) -> Optional[str]:
         # Outages may not have a start time that is earlier than the end time.
         if outage.start >= outage.end:
@@ -910,6 +996,40 @@ class NEMOPolicy:
                 max_time = time[0]
         return max_count, max_time
 
+    def check_to_create_training(self, training: TrainingEvent) -> List[str]:
+        policy_problems = []
+        coincident_trainings = TrainingEvent.objects.filter(tool=training.tool, cancelled=False).exclude(id=training.id)
+        coincident_trainings = coincident_trainings.exclude(start__lt=training.start, end__lte=training.start)
+        coincident_trainings = coincident_trainings.exclude(start__gte=training.end, end__gt=training.end)
+        if coincident_trainings.exists():
+            policy_problems.append(
+                "Your training coincides with another training that already exists. Please choose a different time."
+            )
+        coincident_reservations = Reservation.objects.filter(tool=training.tool, cancelled=False, missed=False, shortened=False)
+        coincident_reservations = coincident_reservations.exclude(start__lt=training.start, end__lte=training.start)
+        coincident_reservations = coincident_reservations.exclude(start__gte=training.end, end__gt=training.end)
+        if coincident_reservations.exists():
+            policy_problems.append(
+                "Your training coincides with a reservation that already exists. Please choose a different time."
+            )
+        coincident_outages = ScheduledOutage.objects.filter(Q(tool=training.tool) | Q(resource__fully_dependent_tools__in=[training.tool]))
+        coincident_outages = coincident_outages.exclude(start__lt=training.start, end__lte=training.start)
+        coincident_outages = coincident_outages.exclude(start__gte=training.end, end__gt=training.end)
+        if coincident_outages.exists():
+            policy_problems.append(
+                "Your training coincides with a scheduled outage. Please choose a different time."
+            )
+        return policy_problems
+
+    def check_to_register_for_training(self, training_invite: TrainingInvitation) -> Optional[List[str]]:
+        policy_problems = []
+        try:
+            training_invite.full_clean()
+        except ValidationError as e:
+            for error_message in e.messages:
+                policy_problems.append(error_message)
+        return policy_problems
+
 
 def recursive_merge(intervals: List[tuple], start_index=0) -> List[tuple]:
     for i in range(start_index, len(intervals) - 1):
@@ -920,6 +1040,32 @@ def recursive_merge(intervals: List[tuple], start_index=0) -> List[tuple]:
             del intervals[i + 1]
             return recursive_merge(intervals.copy(), start_index=i)
     return intervals
+
+
+def accessory_conflicts_for_reservation(reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None) -> Dict[str, List[Reservation]]:
+    conflicts = {}
+    for accessory in accessories:
+        reservation_qs = accessory.reservation_set.filter(cancelled=False, missed=False, shortened=False)
+        reservation_qs = reservation_qs.exclude(start__lt=reservation.start, end__lte=reservation.start)
+        reservation_qs = reservation_qs.exclude(start__gte=reservation.end, end__gt=reservation.end)
+        if cancelled_reservation:
+            reservation_qs.exclude(id=cancelled_reservation.id)
+        if reservation_qs.exists():
+            conflicts[accessory.name] = list(reservation_qs.order_by("start"))
+    return conflicts
+
+
+# Splitting times when reservation window is on multiple days, so we can check the policy for each day times
+def get_times_to_check(start: datetime, end: datetime) -> List[datetime]:
+    if start.day != end.day:
+        return [
+            start,
+            start.replace(hour=23, minute=59, second=59, microsecond=999999),
+            end.replace(hour=0, minute=0, second=0, microsecond=0),
+            end,
+        ]
+    else:
+        return [start, end]
 
 
 policy_class: NEMOPolicy = get_class_from_settings("NEMO_POLICY_CLASS", "NEMO.policy.NEMOPolicy")

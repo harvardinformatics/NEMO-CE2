@@ -6,6 +6,7 @@ dist/
 *.egg-info/
 settings.py
 NEMO/media
+media
 nemo.db
 test_nemo.db
 test_nemo.log

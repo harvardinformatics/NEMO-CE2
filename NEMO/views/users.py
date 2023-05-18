@@ -1,6 +1,7 @@
 from datetime import timedelta
 from http import HTTPStatus
 from logging import getLogger
+from typing import List
 from urllib.parse import urljoin
 
 import requests
@@ -18,8 +19,11 @@ from NEMO.models import (
 	ActivityHistory,
 	Area,
 	AreaAccessRecord,
+	EmailNotificationType,
 	PhysicalAccessLevel,
 	Project,
+	Qualification,
+	QualificationLevel,
 	Reservation,
 	StaffCharge,
 	Tool,
@@ -30,7 +34,7 @@ from NEMO.models import (
 	record_active_state,
 	record_local_many_to_many_changes,
 )
-from NEMO.utilities import queryset_search_filter
+from NEMO.utilities import is_trainer, queryset_search_filter
 from NEMO.views.customization import ApplicationCustomization, StatusDashboardCustomization, UserCustomization
 from NEMO.views.pagination import SortedPaginator
 from NEMO.views.status_dashboard import show_staff_status
@@ -71,10 +75,17 @@ def create_or_modify_user(request, user_id):
 	for access in access_levels:
 		dict_area.setdefault(access.area.id, []).append(access)
 
+	try:
+		user = User.objects.get(id=user_id)
+	except:
+		user = None
+
 	readonly = readonly_users(request)
 	dictionary = {
 		'projects': Project.objects.filter(active=True, account__active=True),
 		'tools': Tool.objects.filter(visible=True),
+		'qualification_levels': QualificationLevel.objects.all(),
+		'qualifications': Qualification.objects.filter(user=user),
 		'area_access_dict': dict_area,
 		'area_access_levels': area_access_levels,
 		'one_year_from_now': timezone.localdate() + timedelta(days=365),
@@ -83,10 +94,6 @@ def create_or_modify_user(request, user_id):
 		'allow_document_upload': UserCustomization.get_bool("user_allow_document_upload"),
 		'readonly': readonly
 	}
-	try:
-		user = User.objects.get(id=user_id)
-	except:
-		user = None
 
 	timeout = identity_service.get('timeout', 3)
 	site_title = ApplicationCustomization.get('site_title')
@@ -207,7 +214,8 @@ def create_or_modify_user(request, user_id):
 		user = form.save(commit=False)
 		user.save()
 		record_active_state(request, user, form, 'is_active', user_id == 'new')
-		record_local_many_to_many_changes(request, user, form, 'qualifications')
+
+		record_qualifications(request.user, user, request.POST.getlist("qualifications", []))
 		record_local_many_to_many_changes(request, user, form, 'physical_access_levels')
 		record_local_many_to_many_changes(request, user, form, 'projects')
 		form.save_m2m()
@@ -222,6 +230,20 @@ def create_or_modify_user(request, user_id):
 		return redirect(request.GET.get("next") or "users")
 	else:
 		return HttpResponseBadRequest('Invalid method')
+
+
+def record_qualifications(request_user, user, qualifications: List[str]):
+	from NEMO.views.qualifications import qualify, disqualify
+	tools = set()
+	if qualifications:
+		for qualification in qualifications:
+			tool_id = qualification.split("_")[0]
+			qualification_level_id = qualification.split("_")[1] if "_" in qualification else None
+			tool = Tool.objects.get(pk=tool_id)
+			qualify(request_user, tool, user, qualification_level_id)
+			tools.add(tool)
+	for tool in set(user.qualifications.all()).difference(tools):
+		disqualify(request_user, tool, user)
 
 
 @user_office_or_manager_required
@@ -389,6 +411,8 @@ def user_preferences(request):
 	staff_view_options = StatusDashboardCustomization.get("dashboard_staff_status_staff_view")
 	user_view = user_view_options if not user.is_staff else staff_view_options if not user.is_facility_manager else ''
 	form = UserPreferencesForm(data=request.POST or None, instance=user.preferences)
+	if not is_trainer(user):
+		form.fields["email_send_training_emails"].choices = EmailNotificationType.on_choices()
 	if not show_staff_status(request) or user_view == 'day':
 		form.fields["staff_status_view"].disabled = True
 	if request.method == 'POST':

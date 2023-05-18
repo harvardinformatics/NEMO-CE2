@@ -1,0 +1,258 @@
+{% extends mobile_device|yesno:"base.html,base/popup.html" %}
+{% if mobile_device %}
+	{% block extrahead %}
+		{% load static %}
+		<script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
+		<link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}"/>
+	{% endblock %}
+{% endif %}
+{% load custom_tags_and_filters %}
+{% load tz %}
+{% block title %}{% if form.instance.pk %}Edit{% else %}New{% endif %} training session{% endblock %}
+{% block content %}
+	{% if not selected_tool %}
+		<div class="form-horizontal">
+			<div class="form-group">
+				<label class="control-label col-sm-3 col-md-2" for="tool_search">Tool</label>
+				<div class="col-sm-6 col-md-4">
+					<input type="text" class="form-control" id="tool_search" placeholder="Search for a tool" required>
+				</div>
+			</div>
+		</div>
+	{% else %}
+		<div class="col-sm-12">
+			{% if form.errors %}
+				<div class="alert alert-danger">
+					Oops! Something went wrong. Please correct the errors highlighted below.<br>
+					{{ form.non_field_errors }}
+				</div>
+			{% endif %}
+		</div>
+		<form id="training_event_form" class="form-horizontal" action="{% if form.instance.pk %}{% url 'edit_training_event' form.instance.pk %}{% else %}{% url 'create_training_event' %}{% endif %}" method="POST">
+			{% csrf_token %}
+			<div class="form-group">
+				<label class="control-label col-sm-3 col-md-2" for="tool_search">Tool</label>
+				<div class="col-sm-9">
+					<input type="button" id="chosen_tool" class="btn btn-default" {% if form.instance.id %} disabled{% endif %} onclick="$('#dialog .modal-dialog').removeClass('modal-lg');reload_url('{% url 'create_training_event' %}')" value="{{ selected_tool.name }}">
+					<input type="hidden" id="tool" name="tool" value="{{ selected_tool.id }}">
+				</div>
+			</div>
+			{% if training_details.techniques.all %}
+				<div class="form-group">
+					<label class="col-sm-3 col-md-2 control-label" for="technique">Technique</label>
+					<div class="col-sm-5 col-md-4">
+						<select class="form-control" name="technique" id="technique">
+							<option value="">Basic training</option>
+							{% for technique in training_details.techniques.all %}
+								<option label="{{ technique.name }}" value="{{ technique.id }}" {% if form.technique.value|to_int == technique.id %}selected{% endif %}></option>
+							{% endfor %}
+						</select>
+					</div>
+					{% if form.technique.errors %}
+						<div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+							{{ form.technique.errors|striptags }}
+						</div>
+					{% endif %}
+				</div>
+			{% endif %}
+			<div class="form-group">
+				<label class="control-label col-sm-3 col-md-2" for="start">Start</label>
+				<div class="col-sm-5 col-md-4">
+					<input class="form-control" name="start" id="start" value="{{ form.start.value|input_date_format }}" required>
+				</div>
+				{% if suggested_times %}
+					<div class="hidden-xs col-sm-4 col-md-5 text-right" style="position: relative">
+						<div style="position: absolute; right: 15px">
+						<div style="text-decoration: underline;margin-bottom: 5px">Suggested times:</div>
+						{% for suggested_time in suggested_times %}
+							<div>
+								<span onclick="$('#start').val('{{ suggested_time.0.0|localtime|input_date_format }}')" title="Set this time as the start time"><span class="grey glyphicon glyphicon-chevron-left"></span> {{ suggested_time.0.0 }}<br>({{ suggested_time.1|join:' & ' }})</span><br>
+							</div>
+						{% endfor %}
+						</div>
+					</div>
+				{% endif %}
+				{% if form.start.errors %}
+					<div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+						{{ form.start.errors|striptags }}
+					</div>
+				{% endif %}
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 col-md-2 control-label" for="duration">Duration</label>
+				<div class="col-sm-5 col-md-4">
+					<div class="input-group">
+						<input class="form-control" name="duration" id="duration" type="number" min="15" value="{{ form.duration.value|default_if_none:'' }}" required>
+						<span class="input-group-addon">minutes</span>
+					</div>
+				</div>
+				{% if form.duration.errors %}
+					<div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+						{{ form.duration.errors|striptags }}
+					</div>
+				{% endif %}
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3 col-md-2 control-label" for="capacity">Capacity</label>
+				<div class="col-sm-5 col-md-4">
+					<div class="input-group">
+						<input class="form-control" name="capacity" id="capacity" type="number" min="1" value="{{ form.capacity.value|default_if_none:'' }}" required>
+						<span class="input-group-addon">attendees</span>
+					</div>
+				</div>
+				{% if form.capacity.errors %}
+					<div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+						{{ form.capacity.errors|striptags }}
+					</div>
+				{% endif %}
+			</div>
+			{% if form.instance.id and form.instance.users.all %}
+				<div class="form-group">
+					<label class="control-label col-sm-3 col-md-2" for="_search">Attendees</label>
+					<div id="registered-user-list" class="col-sm-9 form-control-static">
+						No users have registered for this training yet.
+					</div>
+				</div>
+			{% endif %}
+			<div class="form-group">
+				<label class="control-label col-sm-3 col-md-2" for="invited_search">Invitations</label>
+				<div class="col-sm-5 col-md-4">
+					<input id="invited_search" type="text" autocomplete="off" class="form-control" placeholder="Invite users">
+				</div>
+			</div>
+			<div class="form-group">
+				<div id="invited-user-list" class="col-sm-offset-3 col-md-offset-2 col-sm-5">
+					No users have been invited to this training yet.
+				</div>
+				{% if suggested_users %}
+					<div id="suggested_users_container" class="col-sm-4">
+						<div class="visible-xs" style="margin-top: 20px"></div>
+						<div style="text-align: right; margin-top: -40px">
+							<div style="text-decoration: underline;margin-bottom: 5px">Suggested users:</div>
+							<div id="suggested_users">
+								{% for user in suggested_users %}
+									<div>
+										<span onclick="add_invited_user('{{ user }}', '{{ user.id }}');$(this).closest('div').remove();if ($.trim($('#suggested_users').html()).length === 0){$('#suggested_users_container').remove()}" title="Add this user to the list of invited users"><span class="grey glyphicon glyphicon-chevron-left"></span> {{ user.get_name }}</span><br>
+									</div>
+								{% endfor %}
+							</div>
+						</div>
+					</div>
+				{% endif %}
+			</div>
+			<div class="form-group {% if form.message.errors %}has-error{% endif %}">
+				<label class="control-label col-sm-3 col-md-2" for="message">Message</label>
+				<div class="col-sm-8 col-md-6">
+					<textarea id="message" oninput="auto_size_textarea(this)" name="message" class="form-control" placeholder="Add a optional message for the users">{{ form.message.value|default_if_none:"" }}</textarea>
+				</div>
+				{% if form.message.errors %}
+					<div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+						{{ form.message.errors|striptags }}
+					</div>
+				{% endif %}
+			</div>
+			<div class="form-group">
+				<div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10">
+					{% button type="save" submit=False value=form.instance.id|yesno:"Save changes,Create session" onclick="submit_form(this)" %}
+				</div>
+			</div>
+		</form>
+	{% endif %}
+	<script>
+		let unavailable_times = [];
+		{% for item in invalid_times %}
+		unavailable_times.push([moment('{{ item.0|date:"U" }}', 'X').add(-1, "minutes"),moment('{{ item.1|date:"U" }}', 'X').startOf('hour')]);
+		{% endfor %}
+		let timepicker_properties =
+		{
+			format: '{{ datetime_input_js_format }}',
+            showClose: true,
+			sideBySide: true,
+			stepping: 15,
+			disabledTimeIntervals: unavailable_times,
+			minDate: moment().startOf('day'),
+            useCurrent: false
+		};
+		function reload_url(url)
+        {
+            {% if mobile_device %}
+				location.href = url;
+            {% else %}
+				ajax_get(url, undefined, ajax_success_callback, general_failure_callback);
+            {% endif %}
+		}
+		function success_callback(response, status, xml_http_request, ajax_post, success_callback)
+		{
+			{# If the response is empty then the training request was successfully created. #}
+			if(response === "")
+			{
+				location.reload();
+			}
+			else {# the response was non-empty, display in popup. #}
+			{
+				$("#dialog .modal-content").html(response);
+				$("#dialog").modal('show');
+			}
+		}
+		function submit_form(button)
+		{
+            {% if mobile_device %}
+				submit_and_disable(button)
+            {% else %}
+				if (button.form.reportValidity())
+                {
+                    let post_data = $("#" + button.form.id).serialize();
+                    ajax_post(button.form.action, post_data, success_callback, general_failure_callback);
+                    button.disabled = true;
+                }
+            {% endif %}
+		}
+		function select_tool(jquery_event, search_selection, dataset_name)
+		{
+            reload_url("{% url 'create_training_event_for_tool' 9999 %}".replace('9999', search_selection.id));
+		}
+        function select_invited_user(jquery_event, search_selection, dataset_name)
+		{
+			$(this).typeahead('val', '').focus();
+			add_invited_user(search_selection.name, search_selection.id);
+		}
+        function add_invited_user(user_name, user_id)
+		{
+			add_to_list("#invited-user-list", "remove_invited_user", user_id, user_name, "Remove this user from the list of invited users", "user_ids_to_invite");
+		}
+		function remove_invited_user(user_id)
+		{
+			remove_from_list("#invited-user-list", "#user_ids_to_invite_" + user_id, "No users have been invited to this training yet.");
+		}
+		function on_load()
+		{
+            {% if not selected_tool %}
+				$("#tool_search").autocomplete('tools', select_tool, '{% url 'training_tool_search' %}', true);
+            {% else %}
+				$("#invited_search").autocomplete('users', select_invited_user, '{% url 'user_for_training_search' %}', true);
+            {% endif %}
+			let start_jq = $("#start");
+			start_jq.datetimepicker(timepicker_properties);
+			start_jq.on("dp.change", function (e) {
+                let picker = $('#start').data("DateTimePicker");
+                {# Forcing refresh otherwise it won't update the invalid times #}
+                picker.viewDate(picker.date());
+                picker.disabledTimeIntervals(unavailable_times);
+            });
+			{% for user in invited_users %}
+				add_invited_user('{{ user }}', '{{ user.id }}');
+			{% endfor %}
+            {% if form.instance.id %}
+				{% for user in form.instance.users.all %}
+					add_to_list("#registered-user-list", "remove_registered_user", '{{ user.id }}', '{{ user }}', "Remove this user from the list of invited users", "user_ids_to_register", true);
+				{% endfor %}
+            {% endif %}
+            {% if not mobile_device and selected_tool %}
+				{% if suggested_times or suggested_users %}
+					$('#dialog .modal-dialog').addClass('modal-lg');
+				{% endif %}
+            {% endif %}
+		}
+		$(function (){on_load()});
+	</script>
+{% endblock %}

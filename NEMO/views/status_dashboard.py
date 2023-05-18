@@ -439,6 +439,7 @@ def merge(tools, tasks, unavailable_resources, usage_events, scheduled_outages, 
 			"nonrequired_resource_is_unavailable": False,
 			"scheduled_outage": False,
 			"scheduled_partial_outage": False,
+			"reservation_required": tool.reservation_required,
 			"area_name": tool.requires_area_access.name if tool.requires_area_access else None,
 			"area_requires_reservation": tool.requires_area_access.requires_reservation
 			if tool.requires_area_access

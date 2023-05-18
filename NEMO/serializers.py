@@ -18,6 +18,7 @@ from NEMO.models import (
 	Project,
 	ProjectDiscipline,
 	Qualification,
+	QualificationLevel,
 	Reservation,
 	Resource,
 	ScheduledOutage,
@@ -55,6 +56,9 @@ class UserSerializer(ModelSerializer):
 	class Meta:
 		model = User
 		fields = "__all__"
+		extra_kwargs = {
+			"qualifications": {"read_only": True},
+		}
 
 	# Special handling to exclude OneToOne user preferences here and add it in create
 	def full_clean(self, instance, exclude=None, validate_unique=True):
@@ -94,6 +98,15 @@ class AccountSerializer(FlexFieldsSerializerMixin, ModelSerializer):
 	class Meta:
 		model = Account
 		fields = "__all__"
+		expandable_fields = {
+			"type": "NEMO.serializers.AccountTypeSerializer",
+		}
+
+
+class QualificationLevelSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+	class Meta:
+		model = QualificationLevel
+		fields = "__all__"
 
 
 class QualificationSerializer(FlexFieldsSerializerMixin, ModelSerializer):
@@ -103,6 +116,9 @@ class QualificationSerializer(FlexFieldsSerializerMixin, ModelSerializer):
 		expandable_fields = {
 			"user": "NEMO.serializers.UserSerializer",
 			"tool": "NEMO.serializers.ToolSerializer",
+		}
+		extra_kwargs = {
+			"qualified_on": {"read_only": True},
 		}
 
 

@@ -22,6 +22,9 @@
 	<input type="hidden" name="tool_id" value="{{ tool.id }}">
 	<input type="hidden" name="project_id" value="{{ project.id }}">
 	<input type="hidden" name="customer_id" value="{{ customer.id }}">
+	{% if tool_accessories %}
+		{% include "calendar/accessories_helper.html" %}
+	{% endif %}
 	{% if configurations %}
 		<h4>Choose tool configuration settings</h4>
 		{% if notice_limit > 0 %}

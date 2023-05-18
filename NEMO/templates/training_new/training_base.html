@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load training_tags %}
+{% block extrahead %}
+	{% load static %}
+	<script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
+	<link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}"/>
+{% endblock %}
+{% block title %}Training dashboard{% endblock %}
+{% block content %}
+	<h1 style="margin-top: 0; margin-bottom: 25px">Training dashboard</h1>
+	<ul class="nav nav-tabs">
+		{% url 'training_requests' as training_requests_url %}
+		<li class="nav-item{% if training_requests_url in request.path %} active{% endif %}">
+			<a class="nav-link" href="{{ training_requests_url }}">My training requests
+				{% if training_invitation_notification_count %}
+					<span class="badge badge-tab-top">{{ training_invitation_notification_count }}</span>
+				{% endif %}
+			</a>
+		</li>
+		{% url 'training_history' as training_history_url %}
+		<li class="nav-item{% if training_history_url in request.path %} active{% endif %}">
+			<a class="nav-link" href="{{ training_history_url }}">Training history</a>
+		</li>
+		{% if user|is_trainer %}
+			{% url 'schedule_training_events' as schedule_training_events_url %}
+			<li class="nav-item{% if schedule_training_events_url in request.path %} active{% endif %}">
+				<a class="nav-link" href="{{ schedule_training_events_url }}">Schedule training sessions
+					{% if training_request_notification_count %}
+						<span class="badge badge-tab-top">{{ training_request_notification_count }}</span>
+					{% endif %}
+				</a>
+			</li>
+			{% url 'manage_training_events' as manage_training_events_url %}
+			<li class="nav-item{% if manage_training_events_url in request.path %} active{% endif %}">
+				<a class="nav-link" href="{{ manage_training_events_url }}">Manage training sessions</a>
+			</li>
+		{% endif %}
+	</ul>
+	<div class="tab-content panel panel-default panel-tab-content">
+		<div class="panel-body">
+			{% block tab_content %}{% endblock %}
+		</div>
+	</div>
+	{% include 'snippets/confirm_action_modal.html' %}
+	<script>
+		let general_failure_callback = ajax_failure_callback("There was an error sending your request")
+
+		function training_callback_success()
+		{
+			location.reload();
+		}
+
+		function new_get_request(url)
+		{
+        	new_request(url);
+		}
+
+		function new_post_request(url)
+		{
+        	new_request(url, true);
+		}
+
+        function new_request(url, post)
+		{
+        	{% if request.device == "mobile" %}
+            	window.location = url;
+            {% else %}
+				post = post || false;
+				if (post) ajax_post(url, undefined, ajax_success_callback, general_failure_callback);
+				else ajax_get(url, undefined, ajax_success_callback, general_failure_callback);
+            {% endif %}
+		}
+	</script>
+{% endblock %}

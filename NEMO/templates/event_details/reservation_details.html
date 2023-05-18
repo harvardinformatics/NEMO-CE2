@@ -91,6 +91,12 @@
             <td>Tool:</td>
             <td><a title="Click to go to the tool control page for this tool" href="{% url 'tool_control' reservation.tool.id %}">{{ reservation.tool }}</a></td>
         </tr>
+		{% if reservation.tool_accessories %}
+			<tr>
+				<td>Selected accessories:</td>
+				<td>{{ reservation.tool_accessories.all|join:", " }}</td>
+			</tr>
+		{% endif %}
     {% elif reservation.area %}
         <tr>
             <td>Area:</td>

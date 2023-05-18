@@ -20,7 +20,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import disable_session_expiry_refresh, staff_member_required, synchronized
 from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException
-from NEMO.forms import nice_errors
+from NEMO.forms import CalendarTrainingEventForm, nice_errors
 from NEMO.models import (
 	Alert,
 	Area,
@@ -39,10 +39,13 @@ from NEMO.models import (
 	ScheduledOutageCategory,
 	StaffCharge,
 	Tool,
+	ToolAccessory,
+	ToolTrainingDetail,
+	TrainingEvent,
 	UsageEvent,
 	User,
 )
-from NEMO.policy import policy_class as policy
+from NEMO.policy import accessory_conflicts_for_reservation, policy_class as policy
 from NEMO.utilities import (
 	EmailCategory,
 	RecurrenceFrequency,
@@ -69,9 +72,12 @@ from NEMO.views.customization import (
 	EmailsCustomization,
 	RecurringChargesCustomization,
 	ToolCustomization,
+	TrainingCustomization,
 	UserCustomization,
 	get_media_file_contents,
 )
+from NEMO.views.qualifications import disqualify
+from NEMO.views.training_new import suggested_users_to_invite
 from NEMO.widgets.dynamic_form import DynamicForm, render_group_questions
 
 calendar_logger = getLogger(__name__)
@@ -209,6 +215,7 @@ def extract_calendar_dates(parameters):
 def reservation_event_feed(request, start, end):
 	events = Reservation.objects.filter(cancelled=False, missed=False, shortened=False)
 	outages = ScheduledOutage.objects.none()
+	trainings = TrainingEvent.objects.none()
 	# Exclude events for which the following is true:
 	# The event starts and ends before the time-window, and...
 	# The event starts and ends after the time-window.
@@ -231,6 +238,7 @@ def reservation_event_feed(request, start, end):
 			events = events.filter(**{f'{item_type.value}__id': item_id})
 			if item_type == ReservationItemType.TOOL:
 				outages = ScheduledOutage.objects.filter(Q(tool=item_id) | Q(resource__fully_dependent_tools__in=[item_id]))
+				trainings = TrainingEvent.objects.filter(tool=item_id, cancelled=False)
 			elif item_type == ReservationItemType.AREA:
 				outages = Area.objects.get(pk=item_id).scheduled_outage_queryset()
 
@@ -240,10 +248,17 @@ def reservation_event_feed(request, start, end):
 	outages = outages.exclude(start__lt=start, end__lt=start)
 	outages = outages.exclude(start__gt=end, end__gt=end)
 
+	# Exclude trainings for which the following is true:
+	# The training starts and ends before the time-window, and...
+	# The training starts and ends after the time-window.
+	trainings = trainings.exclude(start__lt=start, end__lt=start)
+	trainings = trainings.exclude(start__gt=end, end__gt=end)
+
 	# Filter events that only have to do with the current user.
 	personal_schedule = request.GET.get('personal_schedule')
 	if personal_schedule:
 		events = events.filter(user=request.user)
+		trainings = TrainingEvent.objects.filter(Q(users__in=[request.user]) | Q(trainer=request.user)).filter(cancelled=False)
 
 	dictionary = {
 		'events': events,
@@ -253,6 +268,9 @@ def reservation_event_feed(request, start, end):
 		'all_areas': all_areas,
 		'all_areastools': all_areastools,
 	}
+	# Don't show trainings if disabled
+	if TrainingCustomization.get_bool("training_module_enabled"):
+		dictionary["trainings"] = trainings
 	return render(request, 'calendar/reservation_event_feed.html', dictionary)
 
 
@@ -434,8 +452,23 @@ def create_item_reservation(request, current_user, start, end, item_type: Reserv
 				dictionary = {'error': str(e), 'reservation_questions': reservation_questions}
 				return render(request, 'calendar/reservation_questions.html', dictionary)
 
-	# Configuration rules only apply to tools
+	# Configuration & Accessory rules only apply to tools
 	if item_type == ReservationItemType.TOOL:
+		accessories_configured = (request.POST.get('accessories_configured') == "true")
+		tool_accessories = item.toolaccessory_set.all()
+		if tool_accessories and not accessories_configured:
+			conflicts = accessory_conflicts_for_reservation(new_reservation, tool_accessories)
+			return render(request, "calendar/accessories.html", {"tool_accessories": tool_accessories, "conflicts": conflicts})
+
+		if tool_accessories and accessories_configured:
+			selected_accessories = extract_tool_accessories(request)
+			if selected_accessories:
+				policy_problems = policy.check_accessories_available_for_reservation(new_reservation, selected_accessories)
+				if policy_problems:
+					return render(request, 'calendar/policy_dialog.html', {'policy_problems': policy_problems, 'overridable': False, 'reservation_action': 'create'})
+				else:
+					new_reservation._tool_accessories = selected_accessories
+
 		configured = (request.POST.get('configured') == "true")
 		# If a reservation is requested and the tool does not require configuration...
 		if not item.is_configurable():
@@ -491,6 +524,13 @@ def reservation_success(request, reservation: Reservation):
 		return render(request, 'calendar/reservation_warning.html', dictionary, status=201) # send 201 code CREATED to indicate success but with more information to come
 	else:
 		return HttpResponse()
+
+
+def extract_tool_accessories(request) -> List[ToolAccessory]:
+	selected_accessories = request.POST.getlist("tool_accessories", [])
+	if selected_accessories:
+		return ToolAccessory.objects.in_bulk(selected_accessories).values()
+	return []
 
 
 def extract_configuration(request):
@@ -1321,7 +1361,8 @@ def do_manage_tool_qualifications(request=None):
 		if qualification_expiration_days or qualification_expiration_never_used:
 			qualification_expiration_days = quiet_int(qualification_expiration_days, None)
 			qualification_expiration_never_used = quiet_int(qualification_expiration_never_used, None)
-			for qualification in Qualification.objects.filter(user__is_active=True, user__is_staff=False):
+			# Only applies if there is no qualification level or the qualification level has qualify_user set to True
+			for qualification in Qualification.objects.filter(user__is_active=True, user__is_staff=False).filter(Q(qualification_level__isnull=True)|Q(qualification_level__qualify_user=True)):
 				user = qualification.user
 				tool = qualification.tool
 				last_tool_use = None
@@ -1333,7 +1374,7 @@ def do_manage_tool_qualifications(request=None):
 					expiration_date: date = qualification.qualified_on + timedelta(days=qualification_expiration_never_used) if qualification_expiration_never_used else None
 				if expiration_date:
 					if expiration_date <= date.today():
-						qualification.delete()
+						disqualify(request.user if request else None, qualification.tool, qualification.user, "Qualification expired")
 						send_tool_qualification_expiring_email(qualification, last_tool_use, expiration_date, request=request)
 					if qualification_reminder_days:
 						for remaining_days in [int(days) for days in qualification_reminder_days.split(",")]:
@@ -1429,3 +1470,94 @@ def send_recurring_charge_reminders(request, reminders: Iterable[Dict]):
 			rendered_message = render_email_template(message, user_reminders, request)
 			email_notification = user_instance.get_preferences().email_send_recurring_charges_reminder_emails
 			user_instance.email_user(subject=subject, message=rendered_message, from_email=user_office_email, email_category=EmailCategory.TIMED_SERVICES, email_notification=email_notification)
+
+
+# Training
+@require_POST
+def create_training_event(request):
+	try:
+		start, end = extract_times(request.POST)
+		item_type = ReservationItemType(request.POST["item_type"])
+		item_id = request.POST.get("item_id")
+	except Exception as e:
+		return HttpResponseBadRequest(str(e))
+	tool: Tool = get_object_or_404(item_type.get_object_class(), id=item_id)
+
+	# Create the new training:
+	training_details: ToolTrainingDetail = ToolTrainingDetail.objects.filter(tool=tool).first()
+	training = TrainingEvent()
+	training.creator = request.user
+	training.trainer = request.user
+	training.tool = tool
+	training.start = start
+	training.end = end
+	# Set end date to the training detail duration if set
+	default_duration = training_details.duration if training_details and training_details.duration else TrainingCustomization.get_int("training_event_default_duration")
+	if default_duration:
+		training.end = training.start + timedelta(minutes=default_duration)
+	initial = {
+		"duration": training.duration,
+		"capacity": training_details.capacity if training_details and training_details.capacity else TrainingCustomization.get_int("training_event_default_capacity"),
+	}
+
+	# Check for policy issues
+	policy_problem = policy.check_to_create_training(training)
+	if policy_problem:
+		return HttpResponseBadRequest(policy_problem)
+	else:
+		training_configured = "training_configured" in request.POST
+		training_event_form = CalendarTrainingEventForm(request.POST if training_configured else None, instance=training, initial=initial)
+		if not training_configured or not training_event_form.is_valid():
+			dictionary = {
+				"form": training_event_form,
+				"training_details": training_details,
+				"suggested_users": suggested_users_to_invite(tool),
+			}
+			return render(request, 'calendar/new_training_event.html', dictionary)
+		training_event_form.instance.end = training.start + timedelta(minutes=training_event_form.cleaned_data["duration"])
+		training_event = training_event_form.save()
+		user_ids_to_invite = set(int(param) for param in request.POST.getlist("user_ids_to_invite", []) if param)
+		training_event.invite_users(request.user, User.objects.filter(id__in=user_ids_to_invite), request)
+
+	return HttpResponse()
+
+
+@require_POST
+def resize_training_event(request):
+	"""Resize a training event"""
+	try:
+		delta = timedelta(minutes=int(request.POST["delta"]))
+	except:
+		return HttpResponseBadRequest("Invalid delta")
+	return modify_training_event(request, None, delta)
+
+
+@require_POST
+def move_training_event(request):
+	"""Move a training event"""
+	try:
+		delta = timedelta(minutes=int(request.POST["delta"]))
+	except:
+		return HttpResponseBadRequest("Invalid delta")
+	return modify_training_event(request, delta, delta)
+
+
+def modify_training_event(request, start_delta, end_delta):
+	try:
+		training_event = TrainingEvent.objects.get(pk=request.POST.get("id"))
+	except TrainingEvent.DoesNotExist:
+		return HttpResponseNotFound("The training that you wish to modify doesn't exist!")
+	if training_event.cancelled:
+		return HttpResponseNotFound("This training was cancelled")
+	if not request.user.is_staff and not request.user == training_event.trainer:
+		return HttpResponseBadRequest("You are not allowed to modify this training")
+	if start_delta:
+		training_event.start += start_delta
+	training_event.end += end_delta
+	policy_problem = policy.check_to_create_training(training_event)
+	if policy_problem:
+		return HttpResponseBadRequest(policy_problem)
+	else:
+		training_event.save()
+
+	return HttpResponse()

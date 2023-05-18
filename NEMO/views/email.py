@@ -1,7 +1,7 @@
 import csv
 from logging import getLogger
 from smtplib import SMTPException
-from typing import List
+from typing import List, Optional
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -17,7 +17,7 @@ from NEMO.decorators import any_staff_required
 from NEMO.forms import EmailBroadcastForm
 from NEMO.models import Account, Area, Project, Tool, User, UserType
 from NEMO.utilities import EmailCategory, export_format_datetime, render_email_template, send_mail
-from NEMO.views.customization import ApplicationCustomization, get_media_file_contents
+from NEMO.views.customization import ApplicationCustomization, ToolCustomization, get_media_file_contents
 
 logger = getLogger(__name__)
 
@@ -100,9 +100,10 @@ def email_broadcast(request, audience=""):
 	return render(request, "email/email_broadcast.html", dictionary)
 
 
-@any_staff_required
+@login_required
 @require_GET
 def compose_email(request):
+	user: User = request.user
 	try:
 		audience = request.GET["audience"]
 		selection = request.GET.getlist("selection")
@@ -111,6 +112,10 @@ def compose_email(request):
 	except:
 		dictionary = {"error": "You specified an invalid audience parameter"}
 		return render(request, "email/email_broadcast.html", dictionary)
+	# Check if the user is allowed to broadcast email
+	error = check_user_allowed(user, audience, selection)
+	if error:
+		return HttpResponseBadRequest(error)
 	generic_email_sample = get_media_file_contents("generic_email.html")
 	dictionary = {
 		"audience": audience,
@@ -156,7 +161,7 @@ def export_email_addresses(request):
 		return render(request, "email/email_broadcast.html", dictionary)
 
 
-@any_staff_required
+@login_required
 @require_POST
 def send_broadcast_email(request):
 	content = get_media_file_contents("generic_email.html")
@@ -167,6 +172,10 @@ def send_broadcast_email(request):
 	form = EmailBroadcastForm(request.POST)
 	if not form.is_valid():
 		return render(request, "email/compose_email.html", {"form": form})
+	# Check if the user is allowed to broadcast email
+	error = check_user_allowed(request.user, form.cleaned_data["audience"], form.cleaned_data["selection"])
+	if error:
+		return render(request, "email/compose_email.html", {"form": form, "error": error})
 	dictionary = {
 		"title": form.cleaned_data["title"],
 		"greeting": form.cleaned_data["greeting"],
@@ -175,8 +184,8 @@ def send_broadcast_email(request):
 	}
 	content = render_email_template(content, dictionary, request)
 	active_choice = form.cleaned_data["only_active_users"]
+	audience = form.cleaned_data["audience"]
 	try:
-		audience = form.cleaned_data["audience"]
 		selection = form.cleaned_data["selection"]
 		no_type = form.cleaned_data["no_type"]
 		users = get_users_for_email(audience, selection, no_type)
@@ -221,7 +230,7 @@ def send_broadcast_email(request):
 	return redirect("email_broadcast")
 
 
-@any_staff_required
+@login_required
 @require_POST
 def email_preview(request):
 	generic_email_template = get_media_file_contents("generic_email.html")
@@ -265,3 +274,14 @@ def get_users_for_email(audience: str, selection: List, no_type: bool) -> QueryS
 		elif no_type:
 			users = users.filter(type_id__isnull=True)
 	return users
+
+
+def check_user_allowed(user: User, audience: str, selection: str) -> Optional[str]:
+	if not user.is_any_part_of_staff:
+		tool_qualified_broadcast = ToolCustomization.get_bool("tool_control_broadcast_qualified_users")
+		if not tool_qualified_broadcast or audience != "tool":
+			return "You may not broadcast email to this audience"
+		else:
+			tool = Tool.objects.filter(id__in=selection).first()
+			if not tool or user not in tool.user_set.all():
+				return "You can only send a broadcast email to users of a tool you are qualified to use"

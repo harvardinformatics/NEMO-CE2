@@ -26,6 +26,9 @@
 				{% endfor %}
 			{% endif %}
 		{% endif %}
+		{% if tool_accessories %}
+			{% include "calendar/accessories_helper.html" %}
+		{% endif %}
 		{% if configurations %}
 			<h4>Choose tool configuration settings</h4>
 			{% if notice_limit > 0 %}

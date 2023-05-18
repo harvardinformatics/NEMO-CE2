@@ -1,0 +1,211 @@
+{% extends mobile_device|yesno:"base.html,base/popup.html" %}
+{% if mobile_device %}
+	{% block extrahead %}
+		{% load static %}
+		<script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
+		<link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}"/>
+	{% endblock %}
+{% endif %}
+{% load custom_tags_and_filters %}
+{% block title %}New training request{% endblock %}
+{% block content %}
+	{% if not selected_tool %}
+		<div class="form-horizontal">
+			<div class="form-group">
+				<label class="control-label col-sm-3" for="tool_search">Tool</label>
+				<div class="col-sm-6">
+					<input type="text" class="form-control" id="tool_search" placeholder="Search for a tool" required>
+				</div>
+			</div>
+		</div>
+	{% else %}
+		<div class="col-sm-12">
+			{% if form.errors %}
+				<div class="alert alert-danger">
+					Oops! Something went wrong. Please correct the errors highlighted below.<br>
+					{{ form.non_field_errors }}
+				</div>
+			{% endif %}
+		</div>
+		<form id="training_request_form" class="form-horizontal" action="{% url 'create_training_request' %}" method="POST">
+			{% csrf_token %}
+			<div class="form-group">
+				<label class="control-label col-sm-3" for="tool_search">Tool</label>
+				<div class="col-sm-9">
+					<input type="button" id="chosen_tool" class="btn btn-default" onclick="reload_url('{% url 'create_training_request' %}')" value="{{ selected_tool.name }}">
+					<input type="hidden" id="tool" name="tool" value="{{ selected_tool.id }}">
+				</div>
+			</div>
+			{% if user.active_project_count == 1 %}
+				<input type="hidden" name="project" value="{{ user.active_projects.0.id }}">
+			{% else %}
+				<div class="form-group">
+					<label class="col-sm-3 control-label" for="project">Project</label>
+					<div class="col-sm-9">
+						{% if user.active_project_count > 1 %}
+							<div class="row">
+								<div class="col-sm-5">
+									<div class="btn-group" style="width: 100%">
+										<a class="btn btn-default dropdown-toggle text-right" style="width: 100%;" data-toggle="dropdown" href="#"><span id="project_selected" style="display: inline-block; width: 95%">{% for project in user.active_projects %}{% if form.project.value|to_int == project.id %}{{ project }}{% endif %}{% endfor %}</span><span class="caret"></span></a>
+										<ul id="project_dropdown" class="dropdown-menu" style="width: 100%">
+											{% for project in user.active_projects %}
+												<li class="radio">
+													<label style="width: 100%; padding-left: 15px"><input style="display: none" type="radio" name="project" value="{{ project.id }}" {% if form.project.value|to_int == project.id %}checked{% endif %}>{% project_selection_display project %}</label>
+												</li>
+											{% endfor %}
+										</ul>
+									</div>
+								</div>
+							</div>
+						{% else %}
+							<div class="form-control-static">You do not have any active projects</div>
+						{% endif %}
+					</div>
+					{% if form.project.errors %}
+						<div class="col-md-offset-3 col-sm-9 form-control-static danger-highlight">
+							{{ form.project.errors|striptags }}
+						</div>
+					{% endif %}
+				</div>
+			{% endif %}
+			{% if training_details.techniques.all %}
+				<div class="form-group">
+					<label class="col-sm-3 control-label" for="technique">Technique</label>
+					<div class="col-sm-9">
+						<div class="row">
+							<div class="col-sm-5">
+								<select class="form-control" name="technique" id="technique">
+									<option value="">Basic training</option>
+									{% for technique in training_details.techniques.all %}
+										<option label="{{ technique.name }}" value="{{ technique.id }}" {% if form.technique.value|to_int == technique.id %}selected{% endif %}></option>
+									{% endfor %}
+								</select>
+							</div>
+						</div>
+					</div>
+					{% if form.technique.errors %}
+						<div class="col-md-offset-3 col-sm-9 form-control-static danger-highlight">
+							{{ form.technique.errors|striptags }}
+						</div>
+					{% endif %}
+				</div>
+			{% endif %}
+			{% if user_availability_allowed %}
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="times">Availability</label>
+					<div class="col-sm-9" id="times" style="position: relative;">
+						{% for time_form in time_forms %}
+							<div class="row" id="times_{{ forloop.counter }}" style="padding-bottom: 5px;">
+								<input type="hidden" name="times" value="{{ forloop.counter }}">
+								<div class="col-xs-5"><input style="position: relative" class="form-control" type="text" name="start_{{ forloop.counter }}" id="start_{{ forloop.counter }}" value="{{ time_form.start_time.value|input_date_format }}" aria-label="start time {{ forloop.counter }}"></div>
+								<div class="col-xs-5"><input class="form-control" type="text" name="end_{{ forloop.counter }}" id="end_{{ forloop.counter }}" value="{{ time_form.end_time.value|input_date_format }}" aria-label="end time {{ forloop.counter }}"></div>
+								<div class="col-xs-1 text-center form-control-static" style="padding-left: 0;"><span class="glyphicon glyphicon-minus-sign danger-highlight" onclick="$('#times_{{ forloop.counter }}').remove();"></span></div>
+								<div class="col-xs-1 form-control-static" style="padding-left: 0;"><span class="glyphicon glyphicon-plus-sign success-highlight" onclick="add_requested_time()"></span></div>
+								{% if time_form.start_time.errors %}<div class="col-sm-5 danger-highlight">{{ time_form.start_time.errors|striptags }}</div>{% endif %}
+								{% if time_form.end_time.errors %}<div class="{% if not time_form.start_time.errors %}col-md-offset-5{% endif %} col-sm-5 danger-highlight">{{ time_form.end_time.errors|striptags }}</div>{% endif %}
+							</div>
+						{% endfor %}
+					</div>
+				</div>
+			{% endif %}
+			<div class="form-group {% if form.message.errors %}has-error{% endif %}">
+				<label class="control-label col-sm-3" for="message">Message</label>
+				<div class="col-sm-9">
+					<textarea id="message" oninput="auto_size_textarea(this)" name="message" class="form-control" placeholder="Add a optional message for the trainer">{{ form.message.value|default_if_none:"" }}</textarea>
+				</div>
+				{% if form.message.errors %}
+					<div class="col-md-offset-3 col-sm-9 form-control-static danger-highlight">
+						{{ form.message.errors|striptags }}
+					</div>
+				{% endif %}
+			</div>
+			<div class="form-group">
+				<div class="col-md-offset-3 col-sm-9">
+					{% button type="save" submit=False value=form.instance.id|yesno:"Save changes,Create request" onclick="submit_form(this)" %}
+				</div>
+			</div>
+		</form>
+	{% endif %}
+	<script>
+        $("#project_dropdown.dropdown-menu li label").click(function ()
+		{
+            let selText = $(this).text();
+            $('#project_selected').html(selText);
+        });
+		let timepicker_properties =
+		{
+			format: '{{ datetime_input_js_format }}',
+            showClose: true,
+            showClear: true,
+			stepping: 15,
+			sideBySide: true,
+			minDate: moment().startOf('day'),
+            useCurrent: false
+		};
+		let requested_times_counter = {{ time_forms|length }};
+        function add_requested_time()
+        {
+            requested_times_counter ++;
+            let times_div = '<div id="times_'+requested_times_counter+'" class="row" style="margin-bottom: 5px;">' +
+				'<input type="hidden" name="times" value="'+requested_times_counter+'">' +
+				'<div class="col-xs-5""><input class="form-control" type="text" name="start_'+requested_times_counter+'" id="start_'+requested_times_counter+'" aria-label="start time '+requested_times_counter+'"></div>' +
+				'<div class="col-xs-5"><input class="form-control" type="text" name="end_'+requested_times_counter+'" id="end_'+requested_times_counter+'" aria-label="end time '+requested_times_counter+'"></div>' +
+				'<div class="col-xs-1 text-center form-control-static" style="padding-left: 0;"><span class="glyphicon glyphicon-minus-sign danger-highlight" onclick="$(\'#times_'+requested_times_counter+'\').remove();"></span></div>' +
+				'<div class="col-xs-1 form-control-static" style="padding-left: 0;"><span class="glyphicon glyphicon-plus-sign success-highlight" onclick="add_requested_time()"></span></div></div>'
+            $("#times").append(times_div);
+            set_start_end_datetime_pickers($("#start_"+requested_times_counter), $("#end_"+requested_times_counter), timepicker_properties, true);
+		}
+		function reload_url(url)
+        {
+            {% if mobile_device %}
+				location.href = url;
+            {% else %}
+				ajax_get(url, undefined, ajax_success_callback, general_failure_callback);
+            {% endif %}
+		}
+		function success_callback(response, status, xml_http_request, ajax_post, success_callback)
+		{
+			{# If the response is empty then the training request was successfully created. #}
+			if(response === "")
+			{
+				location.reload();
+			}
+			else {# the response was non-empty, display in popup. #}
+			{
+				$("#dialog .modal-content").html(response);
+				$("#dialog").modal('show');
+			}
+		}
+		function submit_form(button)
+		{
+            {% if mobile_device %}
+				submit_and_disable(button)
+            {% else %}
+				if (button.form.reportValidity())
+                {
+                    let post_data = $("#" + button.form.id).serialize();
+                    ajax_post(button.form.action, post_data, success_callback, general_failure_callback);
+                    button.disabled = true;
+                }
+            {% endif %}
+		}
+		function select_tool(jquery_event, search_selection, dataset_name)
+		{
+            reload_url("{% url 'create_training_request_for_tool' 9999 %}".replace('9999', search_selection.id));
+		}
+		function on_load()
+		{
+            {% if not selected_tool %}
+				$("#tool_search").autocomplete('tools', select_tool, '{% url 'training_tool_search' %}', true);
+            {% endif %}
+            {% if not time_forms %}
+				add_requested_time();
+            {% else %}
+                {% for time_form in time_forms %}
+					set_start_end_datetime_pickers($("#start_{{ forloop.counter }}"), $("#end_{{ forloop.counter }}"), timepicker_properties);
+                {% endfor %}
+            {% endif %}
+		}
+		$(function (){on_load()});
+	</script>
+{% endblock %}
