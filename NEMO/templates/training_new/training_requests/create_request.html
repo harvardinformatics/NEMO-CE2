@@ -37,7 +37,7 @@
 				</div>
 			</div>
 			{% if user.active_project_count == 1 %}
-				<input type="hidden" name="project_id" value="{{ user.active_projects.0.id }}">
+				<input type="hidden" name="project" value="{{ user.active_projects.0.id }}">
 			{% else %}
 				<div class="form-group">
 					<label class="col-sm-3 control-label" for="project">Project</label>
