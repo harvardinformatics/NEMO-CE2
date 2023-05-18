@@ -3570,7 +3570,7 @@ class TrainingHistory(BaseModel):
 		if self.training_request or self.training_invitation:
 			return [self.training_item.user]
 		elif self.training_event:
-			return [self.training_event.users]
+			return list(self.training_event.users.all())
 		elif self.qualification:
 			return [self.qualification.child_content_object]
 		return []

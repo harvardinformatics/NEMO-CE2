@@ -38,6 +38,7 @@ from NEMO.utilities import (
     export_format_datetime,
     format_datetime,
     get_email_from_settings,
+    is_trainer,
     parse_parameter_string,
     queryset_search_filter,
     render_email_template,
@@ -150,27 +151,38 @@ def decline_request(request, training_request_id):
 def history(request):
     mark_training_objects_expired()
     user: User = request.user
+    # Action mode is either True (actions) or False (history)
+    action_mode = request.GET.get("action_mode")
+    if action_mode is not None:
+        request.session["training_history_mode"] = bool(action_mode == "True")
+    try:
+        action_mode = request.session["training_history_mode"]
+    except KeyError:
+        action_mode = is_trainer(user)
     managed_users = user.managed_users()
     selected_user = request.GET.get("selected_user")
     user = User.objects.get(pk=selected_user) if selected_user else user
     if user not in [request.user] + managed_users:
         return HttpResponseBadRequest("You are not allowed to see this user's history")
-    # Filter out training histories related to the current user.
-    # This can be either:
+    # Filter out actions/training histories related to the current user.
+    # Actions can be either:
     # 1. training history items the user acted on
-    user_filter = Q(user=user)
-    # 2. training request for the user
-    user_filter |= Q(training_request__user=user)
-    # 3. training invitations created or for the user
-    user_filter |= Q(training_invitation__user=user) | Q(training_invitation__creator=user)
-    # 4. training sessions the user is attending
-    user_filter |= Q(training_event__users__in=[user])
-    # 5. training sessions the user is trainer for
-    user_filter |= Q(training_event__trainer=user)
-    # 6. qualifications for the user
+    user_actions_filter = Q(user=user)
+    # 2. training invitations created by the user
+    user_actions_filter |= Q(training_invitation__creator=user)
+    # 3. training sessions the user is a trainer for
+    user_actions_filter |= Q(training_event__trainer=user)
+    # History can be either:
+    # 1. training request for the user
+    user_history_filter = Q(training_request__user=user)
+    # 2. training invitations for the user
+    user_history_filter |= Q(training_invitation__user=user)
+    # 3. training sessions the user is attending
+    user_history_filter |= Q(training_event__users__in=[user])
+    # 4. qualifications for the user
     user_type = ContentType.objects.get_for_model(user)
-    user_filter |= Q(qualification__child_content_type=user_type) & Q(qualification__child_object_id=user.id)
-    training_histories = TrainingHistory.objects.filter(user_filter)
+    user_history_filter |= Q(qualification__child_content_type=user_type) & Q(qualification__child_object_id=user.id)
+    training_histories = TrainingHistory.objects.filter(user_actions_filter if action_mode else user_history_filter)
 
     # Annotate with useful attributes
     training_histories = training_histories.annotate(
@@ -206,6 +218,7 @@ def history(request):
             "managed_users": managed_users,
             "selected_user": user,
             "SYSTEM_USER_DISPLAY": SYSTEM_USER_DISPLAY,
+            "action_mode": action_mode,
         },
     )
 
@@ -453,11 +466,11 @@ def mark_training_objects_expired():
     for t_invite in TrainingInvitation.objects.filter(
         status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED], training_event__start__lte=date_now
     ):
-        t_invite.save_status(TrainingRequestStatus.EXPIRED, t_invite.user, "Automatically expired, training session already took place")
+        t_invite.save_status(TrainingRequestStatus.EXPIRED, None, "Automatically expired, training session already took place")
         delete_notification(Notification.Types.TRAINING_INVITATION, t_invite.id)
         # Expire corresponding requests
         for training_request in TrainingRequest.objects.filter(tool=t_invite.tool, status=TrainingRequestStatus.INVITED, user=t_invite.user):
-            training_request.save_status(TrainingRequestStatus.EXPIRED, training_request.user, "The associated invitation expired")
+            training_request.save_status(TrainingRequestStatus.EXPIRED, None, "The associated invitation expired")
 
 
 def send_email_training_request_received(training_request: TrainingRequest, request=None):

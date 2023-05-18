@@ -25,6 +25,12 @@
 	{% if page %}
 		{% with paginator=page.paginator %}
             {% block pagination_header %}
+				<div class="pagination pull-left">
+					<div class="btn-group" role="group" style="display: inline-flex">
+						<button type="button" class="btn btn-default {% if not action_mode %}active{% endif %}" onclick="location.href = '?action_mode=False'" {% if not action_mode %}aria-pressed="true"{% endif %}>My history</button>
+						<button type="button" class="btn btn-default {% if action_mode %}active{% endif %}" onclick="location.href = '?action_mode=True'" {% if action_mode %}aria-pressed="true"{% endif %}>My actions</button>
+					</div>
+				</div>
                 <div class="pagination pull-right">
                     {% include "pagination/pagination_selector.html" %}
                 </div>
@@ -40,7 +46,9 @@
 								<th>{% include 'pagination/pagination_column.html' with order_by='tool_order' name='Tool' %}</th>
 								<th>Date(s)</th>
 								<th>{% include 'pagination/pagination_column.html' with order_by='status' name='Status' %}</th>
-								<th>{% include 'pagination/pagination_column.html' with order_by='user' name='By' %}</th>
+								{% if not action_mode %}
+									<th>{% include 'pagination/pagination_column.html' with order_by='user' name='By' %}</th>
+								{% endif %}
 							</tr>
 						</thead>
 						<tbody>
@@ -54,11 +62,15 @@
 											{{ date_time }}{% if not forloop.last %}<br>{% endif %}
 										{% endfor %}
 									</td>
-									<td>{{ training_history.status }}</td>
 									<td>
-										{% if training_history.user == user %}Me{% else %}{{ training_history.user|default_if_none:SYSTEM_USER_DISPLAY }}{% endif %}
+										{{ training_history.status }}
 										{% if training_history.details %}<span title="{{ training_history.details }}" data-toggle="tooltip"><i class="primary-highlight glyphicon glyphicon-info-sign"></i></span>{% endif %}
 									</td>
+									{% if not action_mode %}
+										<td>
+											{% if training_history.user == user %}Me{% else %}{{ training_history.user|default_if_none:SYSTEM_USER_DISPLAY }}{% endif %}
+										</td>
+									{% endif %}
 								</tr>
 							{% endfor %}
 						</tbody>
