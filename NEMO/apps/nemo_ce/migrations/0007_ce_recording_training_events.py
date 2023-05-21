@@ -24,4 +24,9 @@ class Migration(NEMOMigration):
             name='technique',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='NEMO.trainingtechnique'),
         ),
+        migrations.AddField(
+            model_name='trainingevent',
+            name='recorded',
+            field=models.BooleanField(default=False, help_text='Indicated this training event has completed and training session was recorded'),
+        ),
     ]
