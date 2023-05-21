@@ -349,9 +349,8 @@ class ToolAdmin(admin.ModelAdmin):
 		"""
 		Explicitly record any project membership changes on non-child tools.
 		"""
-		if obj.parent_tool:
-			super(ToolAdmin, self).save_model(request, obj, form, change)
-		else:
+		super(ToolAdmin, self).save_model(request, obj, form, change)
+		if not obj.parent_tool:
 			if "required_resources" in form.changed_data:
 				obj.required_resource_set.set(form.cleaned_data["required_resources"])
 			if "nonrequired_resources" in form.changed_data:
