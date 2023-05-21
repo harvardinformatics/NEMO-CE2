@@ -48,6 +48,7 @@ from NEMO.views.constants import SYSTEM_USER_DISPLAY
 from NEMO.views.customization import TrainingCustomization, get_media_file_contents
 from NEMO.views.notifications import delete_notification
 from NEMO.views.pagination import SortedPaginator
+from NEMO.views.training import get_training_dictionary
 
 
 @login_required
@@ -63,6 +64,7 @@ def requests(request):
     training_invitations = TrainingInvitation.objects.filter(
         user=user,
         status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.ACCEPTED],
+        training_event__start__gte=timezone.now(),
     )
     dictionary = {"training_invitations": training_invitations, "training_requests": training_requests}
     return render(request, "training_new/training_requests/training_requests.html", dictionary)
@@ -362,10 +364,19 @@ def manage_events(request):
     mark_training_objects_expired()
     user: User = request.user
     date_now = timezone.now()
-    past_training_events = TrainingEvent.objects.filter(creator=user, cancelled=False, end__lte=date_now)
-    training_events = TrainingEvent.objects.filter(creator=user, cancelled=False, end__gt=date_now)
+    past_training_events = TrainingEvent.objects.filter(creator=user, cancelled=False).filter(Q(end__lte=date_now)|Q(start__lte=date_now, end__gte=date_now))
+    training_events = TrainingEvent.objects.filter(creator=user, cancelled=False, end__gte=date_now).exclude(start__lte=date_now)
     dictionary = {"training_events": training_events, "past_training_events": past_training_events, "now": date_now}
     return render(request, "training_new/training_events/manage_training_events.html", dictionary)
+
+
+@any_staff_or_trainer
+@require_GET
+def record_events(request, training_event_id = None):
+    mark_training_objects_expired()
+    dictionary = get_training_dictionary(request)
+    dictionary["training_event"] = TrainingEvent.objects.filter(id=training_event_id).first()
+    return render(request, "training_new/training_sessions.html", dictionary)
 
 
 @any_staff_or_trainer

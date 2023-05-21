@@ -464,8 +464,8 @@ class AreaAdmin(DraggableMPTTAdmin):
 
 @register(TrainingSession)
 class TrainingSessionAdmin(admin.ModelAdmin):
-	list_display = ("id", "trainer", "trainee", "tool", "project", "type", "date", "duration", "qualified")
-	list_filter = ("qualified", "date", "type", ("tool", admin.RelatedOnlyFieldListFilter), ("project", admin.RelatedOnlyFieldListFilter), ("trainer", admin.RelatedOnlyFieldListFilter), ("trainee", admin.RelatedOnlyFieldListFilter))
+	list_display = ("id", "trainer", "trainee", "tool", "project", "type", "date", "duration", "technique", "qualified")
+	list_filter = ("qualified", "date", "type", ("technique", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter), ("project", admin.RelatedOnlyFieldListFilter), ("trainer", admin.RelatedOnlyFieldListFilter), ("trainee", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "date"
 
 	def formfield_for_foreignkey(self, db_field, request, **kwargs):

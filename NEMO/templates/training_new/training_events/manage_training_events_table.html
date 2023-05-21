@@ -8,8 +8,8 @@
 		<th>Scheduled training</th>
 		<th class="text-center">Invited</th>
 		<th class="text-center">Attendees</th>
-		<th {% if hide_actions %}colspan="2"{% endif %}>Created</th>
-		{% if not hide_actions %}<th>Actions</th>{% endif %}
+		<th>Created</th>
+		<th></th>
 	</tr>
 </thead>
 <tbody>
@@ -19,19 +19,24 @@
 			<td>{{ training_event.start }}</td>
 			<td class="text-center">{{ training_event.pending_invitations.count }}</td>
 			<td class="text-center">{{ training_event.current_capacity }}</td>
-			<td {% if hide_actions %}colspan="2"{% endif %}>{{ training_event.creation_time }}</td>
-			{% if not hide_actions %}
-				<td>
-					{% if training_event.end >= now %}
-						{% url 'edit_training_event' training_event.id as edit_training_event_url %}
-						{% button type="edit" size="small" value="Edit" onclick="new_get_request('"|concat:edit_training_event_url|concat:"')" %}
-						{% url 'cancel_training_event' training_event.id as cancel_training_url %}
-						{% with reason_required=training_event.users.exists|yesno:"true,false" %}
-							{% button type="delete" size="small" value="Cancel" onclick="confirm_action('"|concat:cancel_training_url|concat:"', "|concat:reason_required|concat:", training_callback_success, 'cancelling', 'training', 'Confirm cancellation')" data_toggle="modal" data_target="#confirm-actions" %}
-						{% endwith %}
+			<td>{{ training_event.creation_time }}</td>
+			<td class="text-right">
+				{% if not past_events %}
+					{% url 'edit_training_event' training_event.id as edit_training_event_url %}
+					{% button type="edit" size="small" value="Edit" onclick="new_get_request('"|concat:edit_training_event_url|concat:"')" %}
+					{% url 'cancel_training_event' training_event.id as cancel_training_url %}
+					{% with reason_required=training_event.users.exists|yesno:"true,false" %}
+						{% button type="delete" size="small" value="Cancel" onclick="confirm_action('"|concat:cancel_training_url|concat:"', "|concat:reason_required|concat:", training_callback_success, 'cancelling', 'training', 'Confirm cancellation')" data_toggle="modal" data_target="#confirm-actions" %}
+					{% endwith %}
+				{% else %}
+					{% if training_event.recorded %}
+						Recorded
+					{% elif training_event.users.all %}
+						{% url 'record_training_event' training_event.id as record_training_event_url %}
+						{% button type="save" size="small" value="Record" url=record_training_event_url %}
 					{% endif %}
-				</td>
-			{% endif %}
+				{% endif %}
+			</td>
 		</tr>
 	{% endfor %}
 </tbody>

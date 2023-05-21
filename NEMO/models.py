@@ -1567,6 +1567,8 @@ class TrainingSession(BaseModel, BillableItemMixin):
 	duration = models.PositiveIntegerField(help_text="The duration of the training session in minutes.")
 	type = models.IntegerField(choices=Type.Choices)
 	date = models.DateTimeField(default=timezone.now)
+	technique = models.ForeignKey("TrainingTechnique", null=True, blank=True, on_delete=models.SET_NULL)
+	comment = models.CharField(max_length=255, blank=True, null=True)
 	qualified = models.BooleanField(default=False, help_text="Indicates that after this training session the user was qualified to use the tool.")
 	validated = models.BooleanField(default=False)
 	validated_by = models.ForeignKey(User, null=True, blank=True, related_name="training_validated_set", on_delete=models.CASCADE)
@@ -3252,6 +3254,9 @@ class TrainingTechnique(SerializationByNameModel):
 	class Meta:
 		ordering = ["name"]
 
+	def tool_ids(self) -> Set[int]:
+		return distinct_qs_value_list(self.tooltrainingdetail_set, "tool_id")
+
 	def __str__(self):
 		return str(self.name)
 
@@ -3354,6 +3359,7 @@ class TrainingEvent(BaseModel):
 	message = models.TextField(null=True, blank=True, help_text="The message to the trainee(s)")
 	users = models.ManyToManyField(User, blank=True)
 	capacity = models.PositiveIntegerField()
+	recorded = models.BooleanField(default=False, help_text="Indicated this training event has completed and training session was recorded")
 	cancelled = models.BooleanField(default=False)
 	cancellation_time = models.DateTimeField(null=True, blank=True)
 	cancelled_by = models.ForeignKey(User, related_name="training_events_cancelled", null=True, blank=True, on_delete=models.SET_NULL)
@@ -3380,14 +3386,13 @@ class TrainingEvent(BaseModel):
 	def clean(self):
 		errors = {}
 		# Add start and trainer errors to general errors since those fields are not present in the forms
-		if self.start and self.start < timezone.now():
+		if not self.pk and self.start and self.start < timezone.now():
 			errors[NON_FIELD_ERRORS] = _("You cannot create training sessions in the past")
 		if self.tool_id and self.trainer_id:
 			if not is_trainer(self.trainer, self.tool):
 				errors[NON_FIELD_ERRORS] = _("You are not allowed to train on this tool")
 			if self.technique_id and self.technique_id not in ToolTrainingDetail.objects.filter(
-					tool=self.tool
-			).values_list("techniques", flat=True):
+					tool=self.tool).values_list("techniques", flat=True):
 				errors["technique"] = _("This technique is not available for the selected tool")
 		if errors:
 			raise ValidationError(errors)
@@ -3445,11 +3450,16 @@ class TrainingEvent(BaseModel):
 		if users:
 			reset_training_request_to_pending(self.tool, user, users)
 
+	def finish(self, user):
+		self.recorded = True
+		self.save(update_fields=["recorded"])
+		fulfill_training_requests(self.tool, user, self.users.all())
+
 	def __str__(self):
 		return f"{self.tool.name} training by {self.trainer} on {format_datetime(self.start)}"
 
 	class Meta:
-		ordering = ["-creation_time"]
+		ordering = ["-end"]
 
 
 class TrainingInvitation(BaseModel):
@@ -3589,6 +3599,12 @@ def reset_training_request_to_pending(tool: Tool, actor: User, filter_by_users: 
 	for training_request in training_requests:
 		training_request.save_status(TrainingRequestStatus.SENT, actor)
 		create_training_request_notification(training_request)
+
+
+def fulfill_training_requests(tool: Tool, actor: User, users: Iterable[User]):
+	training_requests = TrainingRequest.objects.filter(tool=tool, user__in=users, status=TrainingRequestStatus.ACCEPTED)
+	for training_request in training_requests:
+		training_request.save_status(TrainingRequestStatus.FULFILLED, actor)
 
 
 def create_training_history(user, details=None, status=None, training_event=None, training_invitation=None, training_request=None, qualification=None):
