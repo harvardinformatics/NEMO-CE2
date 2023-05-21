@@ -90,7 +90,7 @@ class Migration(NEMOMigration):
                 ('users', models.ManyToManyField(blank=True, to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'ordering': ['-creation_time'],
+                'ordering': ['-end'],
             },
         ),
         migrations.CreateModel(

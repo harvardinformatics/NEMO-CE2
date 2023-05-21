@@ -190,7 +190,7 @@
 			<label class="control-label col-sm-2" for="add_a_tool_qualification">Tool qualifications</label>
 			{% if not readonly %}
 				{% if qualification_levels %}
-					<div class="col-sm-4">
+					<div class="col-sm-3">
 						<select id="qualification_level" class="form-control" aria-label="Select a qualification level">
 							<option value="">Select a qualification level</option>
 							{% for ql in qualification_levels %}
@@ -199,7 +199,7 @@
 						</select>
 					</div>
 				{% endif %}
-				<div class="{% if qualification_levels %}col-sm-4{% else %}col-sm-4{% endif %}">
+				<div class="{% if qualification_levels %}col-sm-3{% else %}col-sm-4{% endif %}">
 					<input id="add_a_tool_qualification" type="text" autocomplete="off" class="form-control" placeholder="Select a tool and add a qualification" {% if qualification_levels %}disabled{% endif %}>
 				</div>
 		</div>

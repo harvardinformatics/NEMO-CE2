@@ -1,0 +1,22 @@
+{% extends 'training_new/training_base.html' %}
+{% load custom_tags_and_filters %}
+{% block tab_content %}
+	{% include 'training/training_recording.html' %}
+	<script>
+		{# Add training event id if provided, so the training can be marked as recorded #}
+		$('#training_session_form').append('<input type="hidden" name="training_event_id" value="{{ training_event.id }}"/>');
+        async function add_training_entries()
+        {
+            {% for trained_user in training_event.users.all %}
+				add_participant({"tool": "{{ training_event.tool_id }}", "duration": "{{ training_event.duration }}", "charge_type_id": "{% if training_event.users.count == 1 %}0{% else %}1{% endif %}", "technique_id": "{{ training_event.technique_id }}"});
+                {# We have to use this to wait until the resulting element is created (with twitter autocompletion), otherwise the counter of rows is not incremented in add_participant #}
+                await wait_for_element(".twitter-typeahead #user_textbox__{{ forloop.counter }}");
+                set_autocomplete_value({{ forloop.counter }}, '{{ trained_user.id }}', '{{ trained_user }}', 'user');
+                await wait_for_element(".twitter-typeahead #tool_textbox__{{ forloop.counter }}");
+                set_autocomplete_value({{ forloop.counter }}, '{{ training_event.tool_id }}', '{{ training_event.tool }}', 'tool');
+            {% endfor %}
+            remove_row(0);
+		}
+        if ('{{ training_event.id }}') add_training_entries();
+	</script>
+{% endblock %}

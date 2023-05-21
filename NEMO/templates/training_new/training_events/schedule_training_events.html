@@ -1,7 +1,7 @@
 {% extends 'training_new/training_base.html' %}
 {% load custom_tags_and_filters %}
 {% block tab_content %}
-	<div class="pull-right" style="margin-bottom: 15px;">
+	<div class="pull-right" {% if training_requests %}style="margin-bottom: 15px;"{% endif %}>
 		{% url "create_training_event" as create_training_event_url %}
 		{% button type="add" value="New training session" onclick="new_get_request('"|concat:create_training_event_url|concat:"')" %}
 	</div>
@@ -43,7 +43,7 @@
 			</table>
 		</div>
 	{% else %}
-		<div class="pull-left form-control-static"><i>You do not have any requests.</i></div>
+		<div class="pull-left form-control-static"><i>You do not have any pending training requests from users.</i></div>
 	{% endif %}
 	<script>
         {% for training_request in training_requests %}

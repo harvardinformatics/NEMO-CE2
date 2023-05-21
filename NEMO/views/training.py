@@ -3,7 +3,7 @@ from re import search
 
 from django.db.models import Count
 from django.http import HttpResponseBadRequest
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
@@ -14,11 +14,14 @@ from NEMO.models import (
 	QualificationLevel,
 	Tool,
 	ToolQualificationGroup,
+	TrainingEvent,
 	TrainingSession,
+	TrainingTechnique,
 	User,
 )
 from NEMO.policy import policy_class as policy
 from NEMO.utilities import quiet_int
+from NEMO.views.customization import TrainingCustomization
 from NEMO.views.qualifications import qualify
 
 training_logger = getLogger(__name__)
@@ -27,7 +30,13 @@ training_logger = getLogger(__name__)
 @staff_member_or_tool_superuser_required
 @require_GET
 def training(request):
-	""" Present a web page to allow staff or tool superusers to charge training and qualify users on particular tools. """
+	"""Present a web page to allow staff or tool superusers to charge training and qualify users on particular tools."""
+	if TrainingCustomization.get_bool("training_module_enabled"):
+		return redirect("record_training_events")
+	return render(request, "training/training.html", get_training_dictionary(request))
+
+
+def get_training_dictionary(request):
 	user: User = request.user
 	users = User.objects.filter(is_active=True).exclude(id=user.id)
 	tools = Tool.objects.filter(visible=True)
@@ -35,19 +44,35 @@ def training(request):
 	if not user.is_staff and user.is_tool_superuser:
 		tools = tools.filter(_superusers__in=[user])
 		# Superusers can only use groups if they are superusers for all those
-		tool_groups = tool_groups.annotate(num_tools=Count("tools")).filter(tools__in=tools).filter(num_tools=len(tools))
-	return render(request, 'training/training.html', {'users': users, 'tools': list(tools), 'tool_groups': list(tool_groups), 'charge_types': TrainingSession.Type.Choices, 'qualification_levels': QualificationLevel.objects.all()})
+		tool_groups = (
+			tool_groups.annotate(num_tools=Count("tools")).filter(tools__in=tools).filter(num_tools=len(tools))
+		)
+	return {
+		"users": users,
+		"tools": list(tools),
+		"tool_groups": list(tool_groups),
+		"charge_types": TrainingSession.Type.Choices,
+		"qualification_levels": QualificationLevel.objects.all(),
+		"techniques": TrainingTechnique.objects.all(),
+	}
 
 
 @staff_member_or_tool_superuser_required
 @require_GET
 def training_entry(request):
-	entry_number = int(request.GET['entry_number'])
-	return render(request, 'training/training_entry.html', {'entry_number': entry_number, 'charge_types': TrainingSession.Type.Choices, 'qualification_levels': QualificationLevel.objects.all()})
+	entry_number = int(request.GET["entry_number"])
+	dictionary = get_training_dictionary(request)
+	dictionary["entry_number"] = entry_number
+	# Pass in any eligible data to the training entry for prefilling
+	eligible_data = ["duration", "technique_id", "charge_type_id"]
+	for key, value in request.GET.items():
+		if key in eligible_data:
+			dictionary[key] = value
+	return render(request, "training/training_entry.html", dictionary)
 
 
 def is_valid_field(field):
-	return search("^(chosen_user|chosen_tool|chosen_project|duration|charge_type|qualify)__[0-9]+$", field) is not None
+	return search("^(chosen_user|chosen_tool|chosen_project|duration|charge_type|technique|qualify|comment)__[0-9]+$", field) is not None
 
 
 @staff_member_or_tool_superuser_required
@@ -68,7 +93,13 @@ def charge_training(request):
 				if attribute == "chosen_tool":
 					chosen_type = request.POST.get(f"chosen_type{separator}{index}", "tool")
 					identifier = to_int_or_negative(value)
-					setattr(charges[index], "qualify_tools", [Tool.objects.get(id=identifier)] if chosen_type == "tool" else ToolQualificationGroup.objects.get(id=identifier).tools.all())
+					setattr(
+						charges[index],
+						"qualify_tools",
+						[Tool.objects.get(id=identifier)]
+						if chosen_type == "tool"
+						else ToolQualificationGroup.objects.get(id=identifier).tools.all(),
+					)
 					# Even with a group of tools, we only charge training on the first one
 					charges[index].tool = next(iter(charges[index].qualify_tools))
 					if not trainer.is_staff and trainer.is_tool_superuser:
@@ -80,6 +111,10 @@ def charge_training(request):
 					charges[index].duration = int(value)
 				if attribute == "charge_type":
 					charges[index].type = int(value)
+				if attribute == "comment":
+					charges[index].comment = value
+				if attribute == "technique":
+					charges[index].technique_id = quiet_int(value, None)
 				if attribute == "qualify":
 					qualification_level_id = quiet_int(value, None)
 					setattr(charges[index], "qualification_level_id", qualification_level_id)
@@ -98,19 +133,25 @@ def charge_training(request):
 		return HttpResponseBadRequest("Please select a project from the list")
 	except Exception as e:
 		training_logger.exception(e)
-		return HttpResponseBadRequest('An error occurred while processing the training charges. None of the charges were committed to the database. Please review the form for errors and omissions then submit the form again.')
+		return HttpResponseBadRequest(
+			"An error occurred while processing the training charges. None of the charges were committed to the database. Please review the form for errors and omissions then submit the form again."
+		)
 	else:
 		for c in charges.values():
 			if c.qualified:
 				for tool in c.qualify_tools:
 					qualify(c.trainer, tool, c.trainee, c.qualification_level_id)
 			c.save()
+		if TrainingCustomization.get_bool("training_module_enabled"):
+			training_event = TrainingEvent.objects.filter(id=request.POST.get("training_event_id", None)).first()
+			if training_event:
+				training_event.finish(request.user)
 		dictionary = {
-			'title': 'Success!',
-			'content': 'Training charges were successfully saved.',
-			'redirect': reverse('landing'),
+			"title": "Success!",
+			"content": "Training charges were successfully saved.",
+			"redirect": reverse("training"),
 		}
-		return render(request, 'display_success_and_redirect.html', dictionary)
+		return render(request, "display_success_and_redirect.html", dictionary)
 
 
 def to_int_or_negative(value: str):
