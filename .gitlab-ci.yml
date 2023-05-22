@@ -58,6 +58,8 @@ NEMO-CE PyPI Release:
     - tags
 
 NEMO-CE dev deploy:
+  variables:
+    GIT_STRATEGY: none
   stage: deploy
   script:
     - sudo bash -c 'cd /opt/nemo/ && docker pull registry.gitlab.com/nemo-community/nemo-ce:dev'
