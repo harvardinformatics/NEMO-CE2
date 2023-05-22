@@ -1,6 +1,6 @@
 from abc import ABC
 from datetime import date, datetime
-from typing import Dict, Iterable
+from typing import Dict, Iterable, List
 
 from dateutil.relativedelta import relativedelta
 from django.contrib import messages
@@ -128,6 +128,10 @@ class CustomizationBase(ABC):
 		str_datetime = cls.get(name, raise_exception)
 		if str_datetime:
 			return datetime.strptime(str_datetime, datetime_input_format)
+
+	@classmethod
+	def get_list(cls, name: str, raise_exception=True) -> List:
+		return [item for item in cls.get(name, raise_exception).split(",") if item]
 
 	@classmethod
 	def set(cls, name: str, value):
@@ -364,6 +368,7 @@ class ToolCustomization(CustomizationBase):
 		"tool_qualification_expiration_days": "",
 		"tool_qualification_expiration_never_used_days": "",
 		"tool_qualification_cc": "",
+		"tool_grant_badge_access_emails": "",
 	}
 
 	def validate(self, name, value):
@@ -372,7 +377,7 @@ class ToolCustomization(CustomizationBase):
 		if name == "tool_qualification_reminder_days" and value:
 			# Check that we have an integer or a list of integers
 			validate_comma_separated_integer_list(value)
-		elif name == "tool_qualification_cc":
+		elif name == "tool_qualification_cc" or name == "tool_grant_badge_access_emails":
 			recipients = tuple([e for e in value.split(",") if e])
 			for email in recipients:
 				validate_email(email)
