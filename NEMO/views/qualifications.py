@@ -220,3 +220,4 @@ def send_email_grant_badge_reader_access():
 			)
 		last_event_date_read.value = today_date.isoformat()
 		last_event_date_read.save()
+	return HttpResponse()
