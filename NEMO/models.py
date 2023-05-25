@@ -3555,6 +3555,7 @@ class TrainingHistory(BaseModel):
 	training_invitation = models.ForeignKey(TrainingInvitation, null=True, blank=True, on_delete=models.CASCADE)
 	training_event = models.ForeignKey(TrainingEvent, null=True, blank=True, on_delete=models.CASCADE)
 	qualification = models.ForeignKey(MembershipHistory, null=True, blank=True, on_delete=models.CASCADE)
+	qualification_level = models.CharField(max_length=200, null=True, blank=True)
 	status = models.CharField(max_length=200, help_text="The new training item status")
 	time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the training item status was changed")
 	user = models.ForeignKey(User, null=True, blank=True, help_text="The user who changed the training item status", on_delete=models.CASCADE)
@@ -3607,8 +3608,9 @@ def fulfill_training_requests(tool: Tool, actor: User, users: Iterable[User]):
 		training_request.save_status(TrainingRequestStatus.FULFILLED, actor)
 
 
-def create_training_history(user, details=None, status=None, training_event=None, training_invitation=None, training_request=None, qualification=None):
-	TrainingHistory.objects.create(training_event=training_event, training_invitation=training_invitation, training_request=training_request, qualification=qualification, user=user, details=details, status=status)
+def create_training_history(user, details=None, status=None, training_event=None, training_invitation=None, training_request=None, qualification=None, qualification_level=None):
+	qualification_name = qualification_level.name if qualification_level else None
+	TrainingHistory.objects.create(training_event=training_event, training_invitation=training_invitation, training_request=training_request, qualification=qualification, user=user, details=details, qualification_level=qualification_name, status=status)
 
 
 class EmailLog(BaseModel):

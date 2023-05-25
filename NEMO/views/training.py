@@ -143,7 +143,9 @@ def charge_training(request):
 					qualify(c.trainer, tool, c.trainee, c.qualification_level_id)
 			c.save()
 		if TrainingCustomization.get_bool("training_module_enabled"):
-			training_event = TrainingEvent.objects.filter(id=request.POST.get("training_event_id", None)).first()
+			# Force to None if empty
+			training_event_id = request.POST.get("training_event_id", None) or None
+			training_event = TrainingEvent.objects.filter(id=training_event_id).first()
 			if training_event:
 				training_event.finish(request.user)
 		dictionary = {

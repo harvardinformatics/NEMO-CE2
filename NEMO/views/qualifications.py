@@ -137,7 +137,7 @@ def record_qualification(request_user: User, action: str, tools: Iterable[Tool],
 			if qualification.qualification_level:
 				entry.details = qualification.qualification_level.name
 			entry.save()
-			create_training_history(request_user, qualification=entry, details=entry.details, status="Qualified")
+			create_training_history(request_user, qualification=entry, status="Qualified", qualification_level=qualification.qualification_level)
 		# Updated level in qualification
 		for qualification in current_qualifications.union(original_qualifications):
 			for other_qualification in original_qualifications:
@@ -150,7 +150,7 @@ def record_qualification(request_user: User, action: str, tools: Iterable[Tool],
 					if qualification.qualification_level:
 						entry.details = qualification.qualification_level.name
 					entry.save()
-					create_training_history(request_user, qualification=entry, details=entry.details, status="Qualified")
+					create_training_history(request_user, qualification=entry, status="Qualified", qualification_level=qualification.qualification_level)
 		# Removed qualifications
 		removed_qualifications = original_qualifications - current_qualifications
 		for qualification in removed_qualifications:

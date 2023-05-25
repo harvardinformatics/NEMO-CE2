@@ -1692,8 +1692,8 @@ class TrainingTargetUserFilter(admin.SimpleListFilter):
 
 @register(TrainingHistory)
 class TrainingHistoryAdmin(admin.ModelAdmin):
-	list_display = ["time", "user", "status", "get_target_users", "get_training_item"]
-	list_filter = [("user", admin.RelatedOnlyFieldListFilter), TrainingTargetUserFilter, "status"]
+	list_display = ["time", "user", "status", "qualification_level", "get_target_users", "get_training_item"]
+	list_filter = [("user", admin.RelatedOnlyFieldListFilter), TrainingTargetUserFilter, "status", "qualification_level"]
 	date_hierarchy = "time"
 
 	@admin.display(description="Targeted users")

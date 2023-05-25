@@ -63,7 +63,7 @@
 										{% endfor %}
 									</td>
 									<td>
-										{{ training_history.status }}
+										{{ training_history.status }}{% if training_history.qualification_level %} ({{ training_history.qualification_level }}){% endif %}
 										{% if training_history.details %}<span title="{{ training_history.details }}" data-toggle="tooltip"><i class="primary-highlight glyphicon glyphicon-info-sign"></i></span>{% endif %}
 									</td>
 									{% if not action_mode %}
