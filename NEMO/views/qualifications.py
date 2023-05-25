@@ -186,11 +186,11 @@ def get_qualified_users(request):
 @login_required
 @permission_required("NEMO.trigger_timed_services", raise_exception=True)
 @require_GET
-def send_email_grant_badge_reader_access(request):
-	return email_grant_badge_reader_access()
+def email_grant_badge_reader_access(request):
+	return send_email_grant_badge_reader_access()
 
 
-def email_grant_badge_reader_access(request=None):
+def send_email_grant_badge_reader_access():
 	emails = ToolCustomization.get_list("tool_grant_badge_access_emails")
 	if emails:
 		today_date = datetime.date.today()

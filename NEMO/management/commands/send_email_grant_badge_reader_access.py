@@ -1,6 +1,6 @@
 from django.core.management import BaseCommand
 
-from NEMO.views.qualifications import email_grant_badge_reader_access
+from NEMO.views.qualifications import send_email_grant_badge_reader_access
 
 
 class Command(BaseCommand):
@@ -10,4 +10,4 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        email_grant_badge_reader_access()
+        send_email_grant_badge_reader_access()
