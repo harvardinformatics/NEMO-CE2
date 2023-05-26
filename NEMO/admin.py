@@ -463,8 +463,8 @@ class AreaAdmin(DraggableMPTTAdmin):
 
 @register(TrainingSession)
 class TrainingSessionAdmin(admin.ModelAdmin):
-	list_display = ("id", "trainer", "trainee", "tool", "project", "type", "date", "duration", "qualified")
-	list_filter = ("qualified", "date", "type", ("tool", admin.RelatedOnlyFieldListFilter), ("project", admin.RelatedOnlyFieldListFilter), ("trainer", admin.RelatedOnlyFieldListFilter), ("trainee", admin.RelatedOnlyFieldListFilter))
+	list_display = ("id", "trainer", "trainee", "tool", "project", "type", "date", "duration", "technique", "qualified")
+	list_filter = ("qualified", "date", "type", ("technique", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter), ("project", admin.RelatedOnlyFieldListFilter), ("trainer", admin.RelatedOnlyFieldListFilter), ("trainee", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "date"
 
 	def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -1692,8 +1692,8 @@ class TrainingTargetUserFilter(admin.SimpleListFilter):
 
 @register(TrainingHistory)
 class TrainingHistoryAdmin(admin.ModelAdmin):
-	list_display = ["time", "user", "status", "get_target_users", "get_training_item"]
-	list_filter = [("user", admin.RelatedOnlyFieldListFilter), TrainingTargetUserFilter, "status"]
+	list_display = ["time", "user", "status", "qualification_level", "get_target_users", "get_training_item"]
+	list_filter = [("user", admin.RelatedOnlyFieldListFilter), TrainingTargetUserFilter, "status", "qualification_level"]
 	date_hierarchy = "time"
 
 	@admin.display(description="Targeted users")

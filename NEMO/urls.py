@@ -362,12 +362,14 @@ urlpatterns += [
 		path("history/", training_new.history, name="training_history"),
 		path("events/schedule/", training_new.schedule_events, name="schedule_training_events"),
 		path("events/manage/", training_new.manage_events, name="manage_training_events"),
+		path("events/record/", training_new.record_events, name="record_training_events"),
 		path("events/create/", training_new.create_event, name="create_training_event"),
 		path("events/create/tool/<int:tool_id>/", training_new.create_event, name="create_training_event_for_tool"),
 		path("events/create/time/<int:request_time_id>/", training_new.create_event, name="create_training_event_for_time"),
 		path("events/<int:training_event_id>/edit/", training_new.create_event, name="edit_training_event"),
 		path("events/<int:training_event_id>/cancel/", training_new.cancel_training, name="cancel_training_event"),
 		path("events/<int:training_event_id>/register/", training_new.register_for_training, name="register_for_training"),
+		path("events/<int:training_event_id>/record/", training_new.record_events, name="record_training_event"),
 		path("tool_search/", training_new.tool_training_search, name="training_tool_search"),
 		path("user_search/", training_new.user_for_training_search, name="user_for_training_search"),
 	])),
@@ -404,6 +406,8 @@ if settings.ALLOW_CONDITIONAL_URLS:
 		path("email_user_access_expiration_reminders/", calendar.email_user_access_expiration_reminders, name="email_user_access_expiration_reminders"),
 		path("manage_tool_qualifications/", calendar.manage_tool_qualifications, name="manage_tool_qualifications"),
 		path("manage_recurring_charges/", calendar.manage_recurring_charges, name="manage_recurring_charges"),
+		# Reminders and periodic events - NEMO CE
+		path("email_grant_badge_reader_access/", qualifications.email_grant_badge_reader_access, name="email_grant_badge_reader_access"),
 
 		# Abuse:
 		path("abuse/", abuse.abuse, name="abuse"),

@@ -8,7 +8,7 @@
 					{% include "training_new/training_events/manage_training_events_table.html" with training_title="Upcoming training sessions" %}
 				{% endif %}
 				{% if past_training_events %}
-					{% include "training_new/training_events/manage_training_events_table.html" with training_events=past_training_events training_title="Past training sessions" hide_actions=True %}
+					{% include "training_new/training_events/manage_training_events_table.html" with training_events=past_training_events training_title="Past training sessions" past_events=True %}
 				{% endif %}
 			</table>
 		</div>

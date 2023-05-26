@@ -22,20 +22,19 @@
 			</div>
 		</div>
 	{% endblock %}
+	{% block pagination_header %}
+		<div class="pagination pull-left">
+			<div class="btn-group" role="group" style="display: inline-flex">
+				<button type="button" class="btn btn-default {% if not action_mode %}active{% endif %}" onclick="location.href = '?action_mode=False'" {% if not action_mode %}aria-pressed="true"{% endif %}>My history</button>
+				<button type="button" class="btn btn-default {% if action_mode %}active{% endif %}" onclick="location.href = '?action_mode=True'" {% if action_mode %}aria-pressed="true"{% endif %}>My actions</button>
+			</div>
+		</div>
+		<div class="pagination pull-right">
+			{% include "pagination/pagination_selector.html" %}
+		</div>
+	{% endblock %}
 	{% if page %}
 		{% with paginator=page.paginator %}
-            {% block pagination_header %}
-				<div class="pagination pull-left">
-					<div class="btn-group" role="group" style="display: inline-flex">
-						<button type="button" class="btn btn-default {% if not action_mode %}active{% endif %}" onclick="location.href = '?action_mode=False'" {% if not action_mode %}aria-pressed="true"{% endif %}>My history</button>
-						<button type="button" class="btn btn-default {% if action_mode %}active{% endif %}" onclick="location.href = '?action_mode=True'" {% if action_mode %}aria-pressed="true"{% endif %}>My actions</button>
-					</div>
-				</div>
-                <div class="pagination pull-right">
-                    {% include "pagination/pagination_selector.html" %}
-                </div>
-            {% endblock %}
-
             <div class="table-responsive" style="border: none; width: 100%">
 			    {% block pagination_content %}
 					<table class="table table-borderless table-align-middle" style="margin-bottom: 0">
@@ -63,7 +62,7 @@
 										{% endfor %}
 									</td>
 									<td>
-										{{ training_history.status }}
+										{{ training_history.status }}{% if training_history.qualification_level %} ({{ training_history.qualification_level }}){% endif %}
 										{% if training_history.details %}<span title="{{ training_history.details }}" data-toggle="tooltip"><i class="primary-highlight glyphicon glyphicon-info-sign"></i></span>{% endif %}
 									</td>
 									{% if not action_mode %}
@@ -85,7 +84,7 @@
             {% endblock %}
 		{% endwith %}
 	{% else %}
-		{% block table_empty_content %}<div class="pull-left form-control-static"><i>You do not have any requests.</i></div>{% endblock %}
+		{% block table_empty_content %}<div class="pull-left form-control-static" style="clear: both"><i>You do not have any training history.</i></div>{% endblock %}
 	{% endif %}
 	{% block after_pagination %}
 		<script>
