@@ -12,6 +12,7 @@ from django.views.decorators.http import require_GET
 from NEMO.models import Alert, LandingPageChoice, Reservation, Resource, UsageEvent, User
 from NEMO.views.alerts import delete_expired_alerts
 from NEMO.views.area_access import able_to_self_log_in_to_area, able_to_self_log_out_of_area
+from NEMO.views.charge_validation import charges_to_validate
 from NEMO.views.notifications import delete_expired_notifications
 
 
@@ -59,6 +60,7 @@ def landing(request):
 		"upcoming_reservations": upcoming_reservations,
 		"disabled_resources": Resource.objects.filter(available=False),
 		"landing_page_choices": landing_page_choices,
+		"unvalidated_charges": len(charges_to_validate(request.user)),
 		"self_log_in": able_to_self_log_in_to_area(request.user),
 		"self_log_out": able_to_self_log_out_of_area(request.user),
 	}

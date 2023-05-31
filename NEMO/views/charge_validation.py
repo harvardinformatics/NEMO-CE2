@@ -1,9 +1,23 @@
+from typing import Dict, List
+
+from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import staff_member_required
-from NEMO.models import StaffCharge, UsageEvent, AreaAccessRecord, Reservation, TrainingSession, ConsumableWithdraw
+from NEMO.models import (
+    AreaAccessRecord,
+    ConsumableWithdraw,
+    Reservation,
+    StaffCharge,
+    TrainingSession,
+    UsageEvent,
+    User,
+)
+from NEMO.views.adjustment_requests import adjustment_eligible_items
+from NEMO.views.customization import RemoteWorkCustomization, UserRequestsCustomization
 
 
 @staff_member_required
@@ -16,7 +30,7 @@ def validate_staff_charge(request, staff_charge_id):
     return HttpResponse()
 
 
-@staff_member_required
+@login_required
 @require_POST
 def validate_usage_event(request, usage_event_id):
     usage_event = get_object_or_404(UsageEvent, id=usage_event_id)
@@ -26,7 +40,7 @@ def validate_usage_event(request, usage_event_id):
     return HttpResponse()
 
 
-@staff_member_required
+@login_required
 @require_POST
 def validate_area_access_record(request, area_access_record_id):
     area_access = get_object_or_404(AreaAccessRecord, id=area_access_record_id)
@@ -36,7 +50,7 @@ def validate_area_access_record(request, area_access_record_id):
     return HttpResponse()
 
 
-@staff_member_required
+@login_required
 @require_POST
 def validate_missed_reservation(request, reservation_id):
     missed_reservation = get_object_or_404(Reservation, id=reservation_id, missed=True)
@@ -46,7 +60,7 @@ def validate_missed_reservation(request, reservation_id):
     return HttpResponse()
 
 
-@staff_member_required
+@login_required
 @require_POST
 def validate_training_session(request, training_session_id):
     training_session = get_object_or_404(TrainingSession, id=training_session_id)
@@ -56,11 +70,62 @@ def validate_training_session(request, training_session_id):
     return HttpResponse()
 
 
-@staff_member_required
+@login_required
 @require_POST
 def validate_consumable_withdrawal(request, consumable_withdraw_id):
     withdraw = get_object_or_404(ConsumableWithdraw, id=consumable_withdraw_id)
     withdraw.validated = True
     withdraw.validated_by = request.user
     withdraw.save()
+    return HttpResponse()
+
+
+@login_required
+@require_POST
+def validate_charge(request, item_type_id=None, item_id=None):
+    item_type = ContentType.objects.get_for_id(item_type_id)
+    model_instance = item_type.model_class()()
+    if isinstance(model_instance, UsageEvent):
+        return validate_usage_event(request, item_id)
+    elif isinstance(model_instance, AreaAccessRecord):
+        return validate_area_access_record(request, item_id)
+    elif isinstance(model_instance, TrainingSession):
+        return validate_training_session(request, item_id)
+    elif isinstance(model_instance, ConsumableWithdraw):
+        return validate_consumable_withdrawal(request, item_id)
+    elif isinstance(model_instance, StaffCharge):
+        return validate_staff_charge(request, item_id)
+    elif isinstance(model_instance, Reservation):
+        return validate_missed_reservation(request, item_id)
+    return HttpResponse()
+
+
+def charges_to_validate(user: User) -> List:
+    if UserRequestsCustomization.get_bool("charges_validation_enabled"):
+        staff_charges_allowed = RemoteWorkCustomization.get_bool("remote_work_validation")
+        date_limit = UserRequestsCustomization.get_date_limit()
+        charge_filter: Dict = {"end__gte": date_limit} if date_limit else {}
+        charge_filter["validated"] = False
+        return adjustment_eligible_items(staff_charges_allowed, charge_filter, user)
+    return []
+
+
+@login_required
+@require_GET
+@permission_required('NEMO.trigger_timed_services', raise_exception=True)
+def auto_validate_charges(request):
+    return do_auto_validate_charges()
+
+
+def do_auto_validate_charges():
+    if UserRequestsCustomization.get_bool("charges_validation_enabled"):
+        date_limit = UserRequestsCustomization.get_date_limit()
+        staff_charges_allowed = RemoteWorkCustomization.get_bool("remote_work_validation")
+        # We cannot auto-validate anything if there is no date limit
+        if date_limit:
+            charge_filter: Dict = {"end__lt": date_limit, "validated": False}
+            unvalidated_expired_charges = adjustment_eligible_items(staff_charges_allowed, charge_filter)
+            for unvalidated_charge in unvalidated_expired_charges:
+                unvalidated_charge.validated = True
+                unvalidated_charge.save(update_fields=["validated"])
     return HttpResponse()

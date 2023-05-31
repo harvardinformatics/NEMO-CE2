@@ -1,5 +1,6 @@
+from copy import deepcopy
 from datetime import timedelta
-from typing import List
+from typing import Dict, List
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
@@ -101,7 +102,7 @@ def create_adjustment_request(request, request_id=None, item_type_id=None, item_
 
     dictionary = {
         "change_times_allowed": change_times_allowed,
-        "eligible_items": adjustment_eligible_items(user, adjustment_request.item),
+        "eligible_items": user_adjustment_eligible_items(user, adjustment_request.item),
     }
 
     if request.method == "POST":
@@ -291,40 +292,64 @@ def can_change_times(item):
     return item and (not isinstance(item, Reservation) or can_change_reservation_times)
 
 
-def adjustment_eligible_items(user: User, current_item=None) -> List[BillableItemMixin]:
+def user_adjustment_eligible_items(user: User, current_item=None) -> List[BillableItemMixin]:
     item_number = UserRequestsCustomization.get_int("adjustment_requests_charges_display_number")
+    staff_charges_allowed = UserRequestsCustomization.get_bool("adjustment_requests_staff_staff_charges_enabled")
     date_limit = UserRequestsCustomization.get_date_limit()
-    end_filter = {"end__gte": date_limit} if date_limit else {}
+    charge_filter: Dict = {"end__gte": date_limit} if date_limit else {}
+    return adjustment_eligible_items(staff_charges_allowed, charge_filter, user, current_item, item_number)
+
+
+def adjustment_eligible_items(staff_charges_allowed: bool, charge_filter=None, user: User=None, current_item=None, item_number=None) -> List[BillableItemMixin]:
+    if charge_filter is None:
+        charge_filter = {}
     items: List[BillableItemMixin] = []
     if UserRequestsCustomization.get_bool("adjustment_requests_missed_reservation_enabled"):
+        missed_filter = deepcopy(charge_filter)
+        if user:
+            missed_filter["user_id"] = user.id
         items.extend(
-            Reservation.objects.filter(user=user, missed=True).filter(**end_filter).order_by("-end")[:item_number]
+            Reservation.objects.filter(missed=True).filter(**missed_filter).order_by("-end")[:item_number]
         )
     if UserRequestsCustomization.get_bool("adjustment_requests_tool_usage_enabled"):
+        tool_usage_filter = deepcopy(charge_filter)
+        if user:
+            tool_usage_filter["user_id"] = user.id
+            tool_usage_filter["operator_id"] = user.id
         items.extend(
-            UsageEvent.objects.filter(user=user, operator=user, end__isnull=False)
-            .filter(**end_filter)
+            UsageEvent.objects.filter(end__isnull=False)
+            .filter(**tool_usage_filter)
             .order_by("-end")[:item_number]
         )
     if UserRequestsCustomization.get_bool("adjustment_requests_area_access_enabled"):
+        area_access_filter = deepcopy(charge_filter)
+        if user:
+            area_access_filter["customer_id"] = user.id
         items.extend(
-            AreaAccessRecord.objects.filter(customer=user, end__isnull=False, staff_charge__isnull=True)
-            .filter(**end_filter)
+            AreaAccessRecord.objects.filter(end__isnull=False, staff_charge__isnull=True)
+            .filter(**area_access_filter)
             .order_by("-end")[:item_number]
         )
-    if user.is_staff and UserRequestsCustomization.get_bool("adjustment_requests_staff_staff_charges_enabled"):
+    if staff_charges_allowed:
         # Add all remote charges for staff to request for adjustment
+        remote_tool_usage_filter = deepcopy(charge_filter)
+        remote_area_access_filter = deepcopy(charge_filter)
+        remote_staff_time_filter = deepcopy(charge_filter)
+        if user:
+            remote_tool_usage_filter["operator_id"] = user.id
+            remote_area_access_filter["staff_charge__staff_member_id"] = user.id
+            remote_staff_time_filter["staff_member_id"] = user.id
         items.extend(
-            UsageEvent.objects.filter(remote_work=True, operator=user, end__isnull=False)
-            .filter(**end_filter)
+            UsageEvent.objects.filter(remote_work=True, end__isnull=False)
+            .filter(**remote_tool_usage_filter)
             .order_by("-end")[:item_number]
         )
         items.extend(
-            AreaAccessRecord.objects.filter(end__isnull=False, staff_charge__staff_member=user)
-            .filter(**end_filter)
+            AreaAccessRecord.objects.filter(end__isnull=False)
+            .filter(**remote_area_access_filter)
             .order_by("-end")[:item_number]
         )
-        items.extend(StaffCharge.objects.filter(end__isnull=False, staff_member=user).filter(**end_filter).order_by("-end")[:item_number])
+        items.extend(StaffCharge.objects.filter(end__isnull=False).filter(**remote_staff_time_filter).order_by("-end")[:item_number])
     if current_item and current_item in items:
         items.remove(current_item)
     # Remove already adjusted charges. filter by id first
