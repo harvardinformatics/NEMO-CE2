@@ -2,7 +2,7 @@
 <div class="panel-body">
     <form method="POST" action="{% url 'customize' 'requests' %}" class="form-horizontal">
         {% csrf_token %}
-        <h3 class="customization-section-title">Adjustment requests settings</h3>
+        <h3 class="customization-section-title">Charges adjustments and validation settings</h3>
         <div class="form-group">
             <label class="control-label col-md-4">Enable adjustment requests</label>
             <div class="col-md-8">
@@ -12,6 +12,17 @@
             </div>
             <div class="col-md-offset-4 col-md-8 help-block light-grey">
                 At least one user with the facility manager role needs to exist for approval.
+            </div>
+        </div>
+		<div class="form-group">
+            <label class="control-label col-md-4">Enable charges validation</label>
+            <div class="col-md-8">
+                <div class="checkbox">
+                    <label><input type="checkbox" name="charges_validation_enabled" {% if charges_validation_enabled %}checked{% endif %} value="enabled">Check this box to allow users to validate charges.</label><br/>
+                </div>
+            </div>
+            <div class="col-md-offset-4 col-md-8 help-block light-grey">
+                Charges validation uses the same charge types and time limit as adjustments.
             </div>
         </div>
         <div class="form-group">

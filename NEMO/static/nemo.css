@@ -895,10 +895,10 @@ li.area-tree-node a, li.area-tree-node a:hover, li.area-tree-node a:focus
 	right: -0.5em;
 }
 
-.active > a > .badge.badge-tab-top
+.active > a > .badge.badge-tab-top, .badge.active
 {
 	color: #fff !important;
-	background-color: red !important;
+	background-color: #ee0000 !important;
 }
 
 .nav-pills.nav-pills-spacer > li + li
@@ -1048,4 +1048,17 @@ li.area-tree-node a, li.area-tree-node a:hover, li.area-tree-node a:focus
 .adjustment-request-reply-textarea
 {
 	padding-top: 5px;
+}
+
+.usage-charge
+{
+	position: relative;
+}
+
+.usage-charge-adjustment-button
+{
+	position: absolute;
+	top: 15px;
+	right: 15px;
+	white-space: nowrap;
 }
