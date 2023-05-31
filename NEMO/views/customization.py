@@ -270,6 +270,7 @@ class UserRequestsCustomization(CustomizationBase):
 		"access_requests_minimum_users": "2",
 		"access_requests_display_max": "",
 		"adjustment_requests_enabled": "",
+		"charges_validation_enabled": "",
 		"adjustment_requests_tool_usage_enabled": "enabled",
 		"adjustment_requests_area_access_enabled": "enabled",
 		"adjustment_requests_missed_reservation_enabled": "enabled",

@@ -227,6 +227,8 @@ urlpatterns += [
 	path("validate_missed_reservation/<int:reservation_id>/", charge_validation.validate_missed_reservation, name="validate_missed_reservation"),
 	path("validate_training_session/<int:training_session_id>/", charge_validation.validate_training_session, name="validate_training_session"),
 	path("validate_consumable_withdraw/<int:consumable_withdraw_id>/", charge_validation.validate_consumable_withdrawal, name="validate_consumable_withdrawal"),
+	# Generic charge validation
+	path("validate_charge/<int:item_type_id>/<int:item_id>/", charge_validation.validate_charge, name="validate_charge"),
 
 	# Status dashboard:
 	path("status_dashboard/", status_dashboard.status_dashboard, name="status_dashboard"),
@@ -408,6 +410,7 @@ if settings.ALLOW_CONDITIONAL_URLS:
 		path("manage_recurring_charges/", calendar.manage_recurring_charges, name="manage_recurring_charges"),
 		# Reminders and periodic events - NEMO CE
 		path("email_grant_badge_reader_access/", qualifications.email_grant_badge_reader_access, name="email_grant_badge_reader_access"),
+		path("auto_validate_charges/", charge_validation.auto_validate_charges, name="auto_validate_charges"),
 
 		# Abuse:
 		path("abuse/", abuse.abuse, name="abuse"),

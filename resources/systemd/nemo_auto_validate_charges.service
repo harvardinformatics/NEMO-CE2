@@ -1,0 +1,6 @@
+[Unit]
+Description=Auto validate charges in NEMO
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec nemo django-admin auto_validate_charges
