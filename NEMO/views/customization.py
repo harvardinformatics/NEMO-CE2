@@ -153,6 +153,7 @@ class ApplicationCustomization(CustomizationBase):
 		"site_title": "NEMO-CE",
 		"self_log_in": "",
 		"self_log_out": "",
+		"area_logout_already_logged_in": "",
 		"calendar_login_logout": "",
 	}
 
