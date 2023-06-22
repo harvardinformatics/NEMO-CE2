@@ -23,7 +23,7 @@
 		</li>
 		{% url 'upcoming_training_events' as upcoming_events_url %}
 		<li class="nav-item{% if upcoming_events_url in request.path %} active{% endif %}">
-			<a class="nav-link" href="{{ upcoming_events_url }}">Upcoming trainings</a>
+			<a class="nav-link" href="{{ upcoming_events_url }}">Upcoming training sessions</a>
 		</li>
 		{% if user|is_trainer %}
 			{% url 'schedule_training_events' as schedule_training_events_url %}
