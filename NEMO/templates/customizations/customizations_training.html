@@ -12,6 +12,12 @@
 				</div>
 			</div>
         </div>
+		<div class="form-group">
+			<label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_technique_empty_label">Technique empty label</label>
+			<div class="col-lg-3 col-md-4 col-sm-5">
+				<input class="form-control" name="training_technique_empty_label" id="training_technique_empty_label" type="text" value="{{ training_technique_empty_label|default_if_none:'' }}">
+			</div>
+		</div>
 		<div class="customization-separation" style="margin-bottom: 15px"></div>
     	<h3 class="customization-section-title">Defaults</h3>
 		<div class="form-group{% if errors.training_event_default_duration %}has-error{% endif %}">

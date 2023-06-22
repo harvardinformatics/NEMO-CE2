@@ -75,7 +75,7 @@
 						<div class="row">
 							<div class="col-sm-5">
 								<select class="form-control" name="technique" id="technique">
-									<option value="">Basic training</option>
+									<option value="">{{ "training"|customization:"training_technique_empty_label" }}</option>
 									{% for technique in training_details.techniques.all %}
 										<option label="{{ technique.name }}" value="{{ technique.id }}" {% if form.technique.value|to_int == technique.id %}selected{% endif %}></option>
 									{% endfor %}

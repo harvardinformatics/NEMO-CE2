@@ -1,0 +1,61 @@
+{% extends 'training_new/training_base.html' %}
+{% load custom_tags_and_filters %}
+{% load training_tags %}
+{% block tab_content %}
+	{% if training_events or past_training_events %}
+		<div class="table-responsive" style="border: none; width: 100%">
+			<table class="table table-borderless table-align-middle" style="margin-bottom: 0">
+				<thead>
+					<tr>
+						<th colspan="6" style="font-size: 20px">{{ training_title }}</th>
+					</tr>
+					<tr>
+						<th>Tool</th>
+						<th>Technique</th>
+						<th>Trainer</th>
+						<th>Start</th>
+						<th>Duration</th>
+						<th class="text-center">Attendees</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					{% for training_event in training_events %}
+						<tr>
+							<td>{{ training_event.tool }}</td>
+							<td>{{ training_event.technique|default_if_none:"training"|customization:"training_technique_empty_label" }}</td>
+							<td>{{ training_event.trainer.get_name }}</td>
+							<td>{{ training_event.start }}</td>
+							<td>{{ training_event.duration }} minutes</td>
+							<td class="text-center">{{ training_event.current_capacity }}/{{ training_event.capacity }}</td>
+							<td class="text-right">
+								{% if user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
+									{% if training_event|training_event_invitations:request.user %}
+										{% for invite in training_event|training_event_invitations:request.user %}
+											{% url "decline_training_invitation" invite.id as decline_invitation_url %}
+											{% button type="delete" value="Decline" icon="glyphicon-ban-circle" onclick="confirm_action('"|concat:decline_invitation_url|concat:"', false, training_callback_success, 'declining', 'invitation', 'Decline')" data_toggle="modal" data_target="#confirm-actions" %}
+											{% url 'accept_training_invitation' invite.id as accept_training_invitation_url %}
+											{% button type="save" value="Accept training invitation" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:accept_training_invitation_url|concat:"');" %}
+										{% endfor %}
+									{% elif user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
+										{% url 'register_for_training' training_event.id as register_for_training_url %}
+										{% button type="save" submit="false" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:register_for_training_url|concat:"');" %}
+									{% endif %}
+								{% endif %}
+							</td>
+						</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	{% else %}
+		<div class="pull-left form-control-static"><i>There are currently no scheduled training sessions.</i></div>
+	{% endif %}
+	<script>
+		function register_accept_training_invitation(url)
+		{
+			let failure_dialog = ajax_failure_callback("Unable to register for this training");
+			ajax_post(url, undefined, training_callback_success, failure_dialog);
+		}
+	</script>
+{% endblock %}

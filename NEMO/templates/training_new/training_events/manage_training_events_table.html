@@ -30,7 +30,7 @@
 					{% endwith %}
 				{% else %}
 					{% if training_event.recorded %}
-						Recorded
+						<button class="btn btn-default btn-sm" disabled>Recorded</button>
 					{% elif training_event.users.all %}
 						{% url 'record_training_event' training_event.id as record_training_event_url %}
 						{% button type="save" size="small" value="Record" url=record_training_event_url %}

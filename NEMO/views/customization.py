@@ -423,6 +423,7 @@ class RemoteWorkCustomization(CustomizationBase):
 class TrainingCustomization(CustomizationBase):
 	variables = {
 		"training_module_enabled": "enabled",
+		"training_technique_empty_label": "Basic training",
 		"training_request_default_availability_allowed": "",
 		"training_event_default_duration": "",
 		"training_event_default_capacity": "",
