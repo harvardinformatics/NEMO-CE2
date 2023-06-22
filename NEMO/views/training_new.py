@@ -265,12 +265,12 @@ def export_training_history(user, training_histories) -> HttpResponse:
 
 @login_required
 @require_GET
-def available_events(request):
+def upcoming_events(request):
     mark_training_objects_expired()
     date_now = timezone.now()
     training_events = TrainingEvent.objects.filter(cancelled=False, end__gte=date_now).exclude(start__lte=date_now)
     dictionary = {"training_events": training_events}
-    return render(request, "training_new/training_events/available_training_events.html", dictionary)
+    return render(request, "training_new/training_events/upcoming_training_events.html", dictionary)
 
 
 @any_staff_or_trainer
