@@ -66,6 +66,4 @@ NEMO-CE dev deploy:
     - sudo bash -c 'cd /opt/nemo/ && docker compose up -d nemodev'
   only:
     - schedules
-  except:
-    - master
   tags: [centos-srv1-shell]
