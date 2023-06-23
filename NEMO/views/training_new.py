@@ -70,7 +70,7 @@ def requests(request):
     return render(request, "training_new/training_requests/training_requests.html", dictionary)
 
 
-@login_required()
+@login_required
 @require_http_methods(["GET", "POST"])
 def create_request(request, tool_id=None):
     training_request_form = TrainingRequestForm(request.POST or None)
