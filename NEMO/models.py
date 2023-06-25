@@ -3506,6 +3506,8 @@ class TrainingInvitation(BaseModel):
 		if self.status in [TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.INVITED]:
 			self.save_status(TrainingRequestStatus.ACCEPTED, user)
 			self.training_event.users.add(self.user)
+			from NEMO.views.training_new import send_ics
+			send_ics(self.training_event, self.user)
 			# Turn pending, reviewed and invited training requests for this tool to accepted
 			from NEMO.views.notifications import delete_notification
 			for training_request in TrainingRequest.objects.filter(user=self.user, tool=self.tool, status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED, TrainingRequestStatus.INVITED]):

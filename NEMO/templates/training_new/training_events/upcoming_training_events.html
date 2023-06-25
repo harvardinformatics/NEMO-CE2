@@ -23,7 +23,11 @@
 					{% for training_event in training_events %}
 						<tr>
 							<td>{{ training_event.tool }}</td>
-							<td>{{ training_event.technique|default_if_none:"training"|customization:"training_technique_empty_label" }}</td>
+							<td>
+								{% with default_technique_label="training"|customization:"training_technique_empty_label" %}
+									{{ training_event.technique|default_if_none:default_technique_label }}
+								{% endwith %}
+							</td>
 							<td>{{ training_event.trainer.get_name }}</td>
 							<td>{{ training_event.start }}</td>
 							<td>{{ training_event.duration }} minutes</td>

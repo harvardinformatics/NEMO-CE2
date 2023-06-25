@@ -34,6 +34,7 @@ from NEMO.policy import policy_class as policy
 from NEMO.utilities import (
     BasicDisplayTable,
     EmailCategory,
+    create_ics,
     distinct_qs_value_list,
     export_format_datetime,
     format_datetime,
@@ -382,7 +383,7 @@ def manage_events(request):
 
 @any_staff_or_trainer
 @require_GET
-def record_events(request, training_event_id = None):
+def record_events(request, training_event_id=None):
     mark_training_objects_expired()
     dictionary = get_training_dictionary(request)
     dictionary["training_event"] = TrainingEvent.objects.filter(id=training_event_id).first()
@@ -545,8 +546,24 @@ def send_email_training_invitation_declined(training_invitation: TrainingInvitat
 
 def send_email_training_session_cancelled(training_event: TrainingEvent, request=None):
     message = get_media_file_contents("training_session_cancelled_email.html")
-    if message:
-        for user in training_event.users.all():
+    sent_to_trainer = False
+    for user in training_event.users.all():
+        # Add ics for cancelled event in the same email
+        attachments = []
+        if user and user.get_preferences().attach_cancelled_reservation:
+            event_name = f"{training_event.tool.name} Training"
+            attachments = [
+                create_ics(
+                    training_event.id,
+                    event_name,
+                    training_event.start,
+                    training_event.end,
+                    user,
+                    organizer=training_event.trainer,
+                    cancelled=True,
+                )
+            ]
+        if message:
             content = render_email_template(message, {"training_session": training_event, "user": user}, request)
             subject = f"The {training_event.tool} training session was cancelled"
             user.email_user(
@@ -555,7 +572,14 @@ def send_email_training_session_cancelled(training_event: TrainingEvent, request
                 from_email=training_event.trainer.email,
                 email_notification=user.get_preferences().email_send_training_emails,
                 email_category=EmailCategory.TRAINING,
+                attachments=attachments,
             )
+        elif attachments:
+            send_ics(training_event, user, cancelled=True)
+            sent_to_trainer = True
+    if not sent_to_trainer:
+        # Send to trainer only as he didn't get it previously
+        send_ics(training_event, None, cancelled=True)
 
 
 def suggested_users_to_invite(tool: Tool) -> Set[User]:
@@ -612,3 +636,42 @@ def suggested_times_for_training(tool, duration) -> List[Tuple[Any, Set[User]]]:
     sorted_tuple_list = sorted(overlaps.items(), key=lambda item: len(item[1]), reverse=True)
     # Only return results where more than one user is available at the same time
     return [item for item in sorted_tuple_list if len(item[1]) > 1]
+
+
+def send_ics(training: TrainingEvent, user, cancelled=False):
+    event_name = f"{training.tool.name} Training"
+    trainer = training.trainer
+    if training.users.count() == 1 or cancelled:
+        # Send to trainer when first invitation is accepted or when training is cancelled
+        if should_send_ics(trainer, cancelled):
+            ics = create_ics(training.id, event_name, training.start, training.end, trainer, cancelled=cancelled)
+            trainer.email_user(
+                subject=event_name,
+                message="",
+                from_email=trainer.email,
+                email_notification=trainer.get_preferences().email_send_reservation_emails,
+                attachments=[ics],
+                email_category=EmailCategory.TRAINING,
+            )
+    if user and should_send_ics(user, cancelled):
+        # Now send to actual user with trainer as organizer
+        ics = create_ics(
+            training.id, event_name, training.start, training.end, user, organizer=trainer, cancelled=cancelled
+        )
+        user.email_user(
+            subject=event_name,
+            message="",
+            from_email=trainer.email,
+            email_notification=user.get_preferences().email_send_reservation_emails,
+            attachments=[ics],
+            email_category=EmailCategory.TRAINING,
+        )
+
+
+def should_send_ics(user: User, cancelled: bool = False):
+    return (
+        cancelled
+        and user.get_preferences().attach_cancelled_reservation
+        or not cancelled
+        and user.get_preferences().attach_created_reservation
+    )
