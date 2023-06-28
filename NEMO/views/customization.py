@@ -370,6 +370,7 @@ class ToolCustomization(CustomizationBase):
 	variables = {
 		"tool_phone_number_required": "enabled",
 		"tool_location_required": "enabled",
+		"tool_task_updates_facility_managers": "enabled",
 		"tool_control_hide_data_history_users": "",
 		"tool_control_configuration_setting_template": "{{ current_setting }}",
 		"tool_control_ongoing_reservation_force_off": "",
