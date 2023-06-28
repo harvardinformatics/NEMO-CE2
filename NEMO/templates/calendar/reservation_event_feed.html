@@ -44,7 +44,7 @@
 	{% endfor %}
 	{% for training in trainings %}
 	{
-		{% if personal_schedule %}
+		{% if personal_schedule or all_tools or all_areastools %}
 			"title": "{{ training.tool.name }} training by {{ training.trainer.get_name }}",
 		{% else %}
 			"title": "Training by {{ training.trainer.get_name }}",

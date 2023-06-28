@@ -226,8 +226,11 @@ def reservation_event_feed(request, start, end):
 	item_type = request.GET.get('item_type')
 	if all_tools:
 		events = events.filter(area=None)
+		trainings = TrainingEvent.objects.filter(cancelled=False)
 	elif all_areas:
 		events = events.filter(tool=None)
+	elif all_areastools:
+		trainings = TrainingEvent.objects.filter(cancelled=False)
 	if item_type:
 		item_type = ReservationItemType(item_type)
 		item_id = request.GET.get('item_id')
