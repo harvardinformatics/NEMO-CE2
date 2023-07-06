@@ -369,6 +369,7 @@ urlpatterns += [
 		path("events/create/", training_new.create_event, name="create_training_event"),
 		path("events/create/tool/<int:tool_id>/", training_new.create_event, name="create_training_event_for_tool"),
 		path("events/create/time/<int:request_time_id>/", training_new.create_event, name="create_training_event_for_time"),
+		path("events/create/request/<int:training_request_id>/", training_new.create_event, name="create_training_event_for_training_request"),
 		path("events/<int:training_event_id>/edit/", training_new.create_event, name="edit_training_event"),
 		path("events/<int:training_event_id>/cancel/", training_new.cancel_training, name="cancel_training_event"),
 		path("events/<int:training_event_id>/register/", training_new.register_for_training, name="register_for_training"),

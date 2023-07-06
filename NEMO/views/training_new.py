@@ -289,11 +289,12 @@ def schedule_events(request):
 
 @any_staff_or_trainer
 @require_http_methods(["GET", "POST"])
-def create_event(request, tool_id=None, training_event_id=None, request_time_id=None):
+def create_event(request, tool_id=None, training_event_id=None, request_time_id=None, training_request_id=None):
     selected_tool = Tool.objects.filter(pk=request.POST.get("tool") or tool_id).first()
 
     try:
-        training_request_id = TrainingRequestTime.objects.get(id=request_time_id).training_request.id
+        if request_time_id:
+            training_request_id = TrainingRequestTime.objects.get(id=request_time_id).training_request.id
         training_request = TrainingRequest.objects.get(id=training_request_id)
         selected_tool = training_request.tool
     except (TrainingRequest.DoesNotExist, TrainingRequestTime.DoesNotExist):
@@ -327,10 +328,11 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
             else TrainingCustomization.get_int("training_event_default_capacity"),
         }
     if training_request:
-        request_start = TrainingRequestTime.objects.get(id=request_time_id)
         invited_user_ids.add(training_request.user_id)
-        if request_start:
-            initial["start"] = request_start.start_time
+        if request_time_id:
+            request_start = TrainingRequestTime.objects.get(id=request_time_id)
+            if request_start:
+                initial["start"] = request_start.start_time
     training_event_form = TrainingEventForm(request.POST or None, instance=training_event, initial=initial)
     invited_users = set(User.objects.in_bulk(submitted_user_ids_to_invite or invited_user_ids).values())
     invalid_times = invalid_times_for_training(selected_tool, timezone.now(), timezone.now() + timedelta(weeks=3))
