@@ -38,7 +38,6 @@ from NEMO.utilities import (
     distinct_qs_value_list,
     export_format_datetime,
     format_datetime,
-    get_email_from_settings,
     is_trainer,
     parse_parameter_string,
     queryset_search_filter,
@@ -509,7 +508,7 @@ def send_email_training_request_received(training_request: TrainingRequest, requ
             subject=subject,
             content=content,
             to=recipients,
-            from_email=get_email_from_settings(),
+            from_email=training_request.user.email,
             email_category=EmailCategory.TRAINING,
         )
 
