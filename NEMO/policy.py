@@ -636,6 +636,22 @@ class NEMOPolicy:
                 "Your reservation coincides with a scheduled outage. Please choose a different time."
             )
 
+        # The user may not create, move, or resize a reservation to coincide with trainings.
+        if new_reservation.reservation_item_type == ReservationItemType.TOOL:
+            coincident_events = TrainingEvent.objects.filter(tool=new_reservation.tool)
+        else:
+            coincident_events = TrainingEvent.objects.none()
+        # Exclude events for which the following is true:
+        # The event starts and ends before the time-window, and...
+        # The event starts and ends after the time-window.
+        coincident_events = coincident_events.exclude(start__lt=new_reservation.start,
+                                                      end__lte=new_reservation.start)
+        coincident_events = coincident_events.exclude(start__gte=new_reservation.end, end__gt=new_reservation.end)
+        if coincident_events.count() > 0:
+            policy_problems.append(
+                "Your reservation coincides with a training. Please choose a different time."
+            )
+
     def should_enforce_reservation_policy(self, reservation: Reservation) -> bool:
         """Returns whether the policy rules should be enforced."""
         should_enforce = True
@@ -868,6 +884,19 @@ class NEMOPolicy:
         coincident_events = coincident_events.exclude(start__gte=outage.end, end__gt=outage.end)
         if coincident_events.count() > 0:
             return "Your scheduled outage coincides with a reservation that already exists. Please choose a different time."
+
+        # The user may not create, move, or resize an outage to coincide with trainings.
+        if outage.tool:
+            coincident_events = TrainingEvent.objects.filter(tool=outage.tool)
+        else:
+            coincident_events = TrainingEvent.objects.none()
+        # Exclude events for which the following is true:
+        # The event starts and ends before the time-window, and...
+        # The event starts and ends after the time-window.
+        coincident_events = coincident_events.exclude(start__lt=outage.start, end__lte=outage.start)
+        coincident_events = coincident_events.exclude(start__gte=outage.end, end__gt=outage.end)
+        if coincident_events.count() > 0:
+            return "Your scheduled outage coincides with a training. Please choose a different time."
 
         # No policy issues! The outage can be created...
         return None
