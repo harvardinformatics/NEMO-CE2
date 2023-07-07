@@ -115,6 +115,7 @@
 	</div>
 </div>
 <script>
+	$("#invited_search").autocomplete('users', select_invited_user, '{% url 'user_for_training_search' %}', true);
 	function select_invited_user(jquery_event, search_selection, dataset_name)
 	{
 		$(this).typeahead('val', '').focus();
