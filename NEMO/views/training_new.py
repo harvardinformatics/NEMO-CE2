@@ -356,7 +356,15 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
             if policy_problems:
                 training_event_form.add_error(NON_FIELD_ERRORS, [policy_problem for policy_problem in policy_problems])
             else:
-                training_event = training_event_form.save()
+                old_training_event = TrainingEvent.objects.filter(pk=training_event_form.instance.id).first()
+                training_event: TrainingEvent = training_event_form.save()
+                if training_event_form.instance.id and training_event.users.exists():
+                    # This is an edit with attendees, check for changes in dates
+                    if training_event.start != old_training_event.start or training_event.end != old_training_event.end:
+                        # Sent to trainer then to all users
+                        send_ics(training_event, None, updated=True)
+                        for user in training_event.users.all():
+                            send_ics(training_event, user, updated=True)
                 user_ids_to_add = submitted_user_ids_to_invite.difference(invited_user_ids)
                 user_ids_to_remove = invited_user_ids.difference(submitted_user_ids_to_invite)
                 # Invite new people
@@ -639,10 +647,10 @@ def suggested_times_for_training(tool, duration) -> List[Tuple[Any, Set[User]]]:
     return [item for item in sorted_tuple_list if len(item[1]) > 1]
 
 
-def send_ics(training: TrainingEvent, user, cancelled=False):
+def send_ics(training: TrainingEvent, user, cancelled=False, updated=False):
     event_name = f"{training.tool.name} Training"
     trainer = training.trainer
-    if training.users.count() == 1 or cancelled:
+    if (training.users.count() == 1 or cancelled) and not updated or (updated and not user):
         # Send to trainer when first invitation is accepted or when training is cancelled
         if should_send_ics(trainer, cancelled):
             ics = create_ics(training.id, event_name, training.start, training.end, trainer, cancelled=cancelled)
