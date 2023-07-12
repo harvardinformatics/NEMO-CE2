@@ -395,7 +395,7 @@ def record_events(request, training_event_id=None):
 @require_POST
 def cancel_training(request, training_event_id):
     training = get_object_or_404(TrainingEvent, id=training_event_id, cancelled=False)
-    if training and training.end < timezone.now():
+    if training.users.exists() and training.end < timezone.now():
         return HttpResponseBadRequest("You cannot cancel past training sessions")
     if not request.user.is_staff and not request.user == training.trainer:
         return HttpResponseBadRequest("You are not allowed to cancel this training")

@@ -33,6 +33,8 @@
 							<td>{{ training_event.duration }} minutes</td>
 							<td class="text-center">{{ training_event.current_capacity }}/{{ training_event.capacity }}</td>
 							<td class="text-right">
+								{% url 'training_event_details' training_event.id as view_training_details %}
+								{% button type="view" value="View" onclick="new_get_request('"|concat:view_training_details|concat:"?popup_view=true')"  %}
 								{% if user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
 									{% if training_event|training_event_invitations:request.user %}
 										{% for invite in training_event|training_event_invitations:request.user %}

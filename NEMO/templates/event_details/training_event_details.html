@@ -43,8 +43,29 @@
 		</tr>
 		<tr>
 			<th>Attendees</th>
-			<td>{{ training.current_capacity }}/{{ training.capacity }}</td>
+			<td>{{ training.current_capacity }}/{{ training.capacity }}
+				{% if training.users.all %}
+					{% if user.is_staff or user|is_trainer:training.tool %}
+						{% for attendee in training.users.all %}
+							<br>{{ attendee }}
+						{% endfor %}
+					{% endif %}
+				{% endif %}
+			</td>
 		</tr>
+		{% if training.pending_invitations.all %}
+			{% if user.is_staff or user|is_trainer:training.tool %}
+				<tr>
+					<th>Invitations</th>
+					<td>
+						{% for invite in training.pending_invitations.all %}
+							{{ invite.user }}
+							{% if not forloop.last %}<br>{% endif %}
+						{% endfor %}
+					</td>
+				</tr>
+			{% endif %}
+		{% endif %}
 		<tr>
 			<th>Identifier</th>
 			<td>{{ training.id }}</td>
