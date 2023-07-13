@@ -638,7 +638,7 @@ class NEMOPolicy:
 
         # The user may not create, move, or resize a reservation to coincide with trainings.
         if new_reservation.reservation_item_type == ReservationItemType.TOOL:
-            coincident_events = TrainingEvent.objects.filter(tool=new_reservation.tool)
+            coincident_events = TrainingEvent.objects.filter(tool=new_reservation.tool, cancelled=False)
         else:
             coincident_events = TrainingEvent.objects.none()
         # Exclude events for which the following is true:
@@ -887,7 +887,7 @@ class NEMOPolicy:
 
         # The user may not create, move, or resize an outage to coincide with trainings.
         if outage.tool:
-            coincident_events = TrainingEvent.objects.filter(tool=outage.tool)
+            coincident_events = TrainingEvent.objects.filter(tool=outage.tool, cancelled=False)
         else:
             coincident_events = TrainingEvent.objects.none()
         # Exclude events for which the following is true:
