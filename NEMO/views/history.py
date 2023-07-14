@@ -75,7 +75,7 @@ def history(request, item_type, item_id):
 		filename = f"{item_type}_history_{name}_{export_format_datetime()}.csv"
 		response["Content-Disposition"] = f'attachment; filename="{filename}"'
 		return response
-	has_details = any(row["details"] for row in action_list.rows)
+	has_details = any(row.get("details") for row in action_list.rows)
 	return render(request, "history.html", {"action_list": action_list, "name": str(item), "has_details": has_details})
 
 
