@@ -1378,7 +1378,7 @@ def do_manage_tool_qualifications(request=None):
 			qualification_expiration_days = quiet_int(qualification_expiration_days, None)
 			qualification_expiration_never_used = quiet_int(qualification_expiration_never_used, None)
 			# Only applies if there is no qualification level or the qualification level has qualify_user set to True
-			for qualification in Qualification.objects.filter(user__is_active=True, user__is_staff=False).filter(Q(qualification_level__isnull=True)|Q(qualification_level__qualify_user=True)).prefetch_related("tool", "user"):
+			for qualification in Qualification.objects.filter(user__is_active=True, user__is_staff=False, tool___qualifications_never_expire=False).filter(Q(qualification_level__isnull=True)|Q(qualification_level__qualify_user=True)).prefetch_related("tool", "user"):
 				user = qualification.user
 				tool = qualification.tool
 				last_tool_use = None
