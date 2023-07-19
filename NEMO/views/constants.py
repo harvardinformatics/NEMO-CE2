@@ -5,3 +5,12 @@ ADDITIONAL_INFORMATION_MAXIMUM_LENGTH = 3000
 FEEDBACK_MAXIMUM_LENGTH = 5000
 
 SYSTEM_USER_DISPLAY = "System"
+
+# Maximum length for Char fields to work with every db type
+CHAR_FIELD_MAXIMUM_LENGTH = 255
+
+# Name of the parameter to indicate which view to redirect to
+NEXT_PARAMETER_NAME = "next"
+
+# Name of the media folder under which only staff can see files
+MEDIA_PROTECTED = "protected"

@@ -130,8 +130,18 @@ class CustomizationBase(ABC):
 			return datetime.strptime(str_datetime, datetime_input_format)
 
 	@classmethod
-	def get_list(cls, name: str, raise_exception=True) -> List:
-		return [item for item in cls.get(name, raise_exception).split(",") if item]
+	def get_list(cls, name: str, raise_exception=True) -> List[str]:
+		return [item.strip() for item in cls.get(name, raise_exception).split(",") if item]
+
+	@classmethod
+	def get_list_int(cls, name: str, raise_exception=True) -> List[int]:
+		result = []
+		for item in cls.get_list(name, raise_exception):
+			if item:
+				integer = quiet_int(item.strip(), None)
+				if integer:
+					result.append(integer)
+		return result
 
 	@classmethod
 	def set(cls, name: str, value):
@@ -156,6 +166,7 @@ class ApplicationCustomization(CustomizationBase):
 		"calendar_login_logout": "",
 		"area_logout_already_logged_in": "",
 		"default_badge_reader_id": "",
+		"consumable_user_self_checkout": "",
 	}
 
 	def context(self) -> Dict:
@@ -254,6 +265,9 @@ class StatusDashboardCustomization(CustomizationBase):
 		"dashboard_staff_status_check_future_status": "",
 		"dashboard_staff_status_user_view": "",
 		"dashboard_staff_status_staff_view": "",
+		"dashboard_staff_status_absence_view_staff": "",
+		"dashboard_staff_status_absence_view_user_office": "",
+		"dashboard_staff_status_absence_view_accounting_officer": "",
 	}
 
 
