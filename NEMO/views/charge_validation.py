@@ -27,6 +27,9 @@ def validate_staff_charge(request, staff_charge_id):
     staff_charge.validated = True
     staff_charge.validated_by = request.user
     staff_charge.save()
+    # Validate associated area access records
+    for area_access_record in staff_charge.areaaccessrecord_set.all():
+        validate_area_access_record(request, area_access_record.id)
     return HttpResponse()
 
 

@@ -7,13 +7,13 @@
 		<label class="control-label col-sm-2 col-md-1" for="user_textbox__{{ entry_number }}">Trainee</label>
 		<div class="col-sm-4 col-md-2">
 			<input type="text" class="form-control input-sm" id="user_textbox__{{ entry_number }}" name="chosen_user__{{ entry_number }}" data-row="{{ entry_number }}">
-			<input type="button" class="btn btn-sm btn-default" style="display:none" id="user_button__{{ entry_number }}" onclick="purge_trainee({{ entry_number }})">
+			<input type="button" class="btn btn-sm btn-default" style="display:none" id="user_button__{{ entry_number }}" onclick="purge_trainee({{ entry_number }})" value="user">
 		</div>
 		<label class="control-label col-sm-2 col-md-1" for="tool_textbox__{{ entry_number }}">Tool</label>
 		<div class="col-sm-4 col-md-2">
 			<input type="text" class="form-control input-sm" id="tool_textbox__{{ entry_number }}" name="chosen_tool__{{ entry_number }}" data-row="{{ entry_number }}">
 			<input type="hidden" id="tool_textbox_type__{{ entry_number }}" name="chosen_type__{{ entry_number }}" data-row="{{ entry_number }}">
-			<input type="button" class="btn btn-sm btn-default" style="display:none" id="tool_button__{{ entry_number }}" onclick="purge_tool({{ entry_number }})">
+			<input type="button" class="btn btn-sm btn-default" style="display:none" id="tool_button__{{ entry_number }}" onclick="purge_tool({{ entry_number }})" value="tool">
 		</div>
 		<label class="control-label col-sm-2 col-md-1" for="project__{{ entry_number }}">Project</label>
 		<div class="col-sm-4 col-md-2" id="project__{{ entry_number }}" style="min-height: 30px; vertical-align: middle;"></div>

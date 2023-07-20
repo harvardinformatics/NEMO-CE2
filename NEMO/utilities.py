@@ -79,6 +79,11 @@ date_input_js_format = convert_py_format_to_js(date_input_format)
 datetime_input_js_format = convert_py_format_to_js(datetime_input_format)
 
 
+supported_embedded_video_extensions = [".mp4", ".ogv", ".webm", ".3gp"]
+supported_embedded_pdf_extensions = [".pdf"]
+supported_embedded_extensions = supported_embedded_pdf_extensions + supported_embedded_video_extensions
+
+
 class EmptyHttpRequest(HttpRequest):
 	def __init__(self):
 		super().__init__()
@@ -500,13 +505,6 @@ def get_tool_image_filename(tool, filename):
 	return f"tool_images/{tool_name}{ext}"
 
 
-def get_tool_document_filename(tool_documents, filename):
-	from django.template.defaultfilters import slugify
-
-	tool_name = slugify(tool_documents.tool.name)
-	return f"tool_documents/{tool_name}/{filename}"
-
-
 def get_hazard_logo_filename(category, filename):
 	from django.template.defaultfilters import slugify
 
@@ -522,25 +520,8 @@ def get_chemical_document_filename(chemical, filename):
 	return f"chemical_documents/{chemical_name}/{filename}"
 
 
-def get_project_document_filename(project_documents, filename):
-	from django.template.defaultfilters import slugify
-
-	project_name = slugify(project_documents.project.name)
-	return f"project_documents/{project_name}/{filename}"
-
-
-def get_user_document_filename(user_documents, filename):
-	from django.template.defaultfilters import slugify
-
-	username = slugify(user_documents.user.username)
-	return f"user_documents/{username}/{filename}"
-
-
-def get_safety_document_filename(safety_documents, filename):
-	from django.template.defaultfilters import slugify
-
-	item_name = slugify(safety_documents.safety_item.name)
-	return f"safety_item/{item_name}/{filename}"
+def document_filename_upload(instance, filename):
+	return instance.get_filename_upload(filename)
 
 
 def resize_image(image: InMemoryUploadedFile, max: int, quality=85) -> InMemoryUploadedFile:
@@ -691,6 +672,20 @@ def get_class_from_settings(setting_name: str, default_value: str):
 	return ret()
 
 
+def is_trainer(user, tool = None) -> bool:
+	from NEMO.models import Tool
+	tool_qs = Tool.objects.filter(visible=True)
+	if tool:
+		tool_qs = tool_qs.filter(id=tool.id)
+	if tool_qs.filter(_primary_owner=user).exists():
+		return True
+	elif tool_qs.filter(_backup_owners__in=[user]).exists():
+		return True
+	elif tool_qs.filter(_superusers__in=[user]).exists():
+		return True
+	return False
+
+
 def create_ics(identifier, event_name, start: datetime, end: datetime, user, organizer=None, cancelled: bool = False):
 	from NEMO.views.customization import ApplicationCustomization
 
@@ -732,16 +727,3 @@ def create_ics(identifier, event_name, start: datetime, end: datetime, user, org
 	attachment = create_email_attachment(ics, maintype="text", subtype="calendar", method=method_name)
 	return attachment
 
-
-def is_trainer(user, tool = None) -> bool:
-	from NEMO.models import Tool
-	tool_qs = Tool.objects.filter(visible=True)
-	if tool:
-		tool_qs = tool_qs.filter(id=tool.id)
-	if tool_qs.filter(_primary_owner=user).exists():
-		return True
-	elif tool_qs.filter(_backup_owners__in=[user]).exists():
-		return True
-	elif tool_qs.filter(_superusers__in=[user]).exists():
-		return True
-	return False
