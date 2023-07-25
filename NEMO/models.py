@@ -2711,7 +2711,7 @@ class LandingPageChoice(BaseModel):
 
 
 class Customization(BaseModel):
-	name = models.CharField(primary_key=True, max_length=50)
+	name = models.CharField(primary_key=True, max_length=100)
 	value = models.TextField()
 
 	class Meta:

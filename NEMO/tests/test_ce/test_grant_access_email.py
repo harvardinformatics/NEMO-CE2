@@ -28,7 +28,6 @@ class GrantAccessEmailTest(TestCase):
         tool.grant_badge_reader_access_upon_qualification = "Cleanroom access"
         tool.save()
         call_command("send_email_grant_badge_reader_access")
-        # No grant access set, nothing should be sent
         self.assertEqual(EmailLog.objects.count(), 1)
         # Try again without resetting the customization date, nothing should happen
         call_command("send_email_grant_badge_reader_access")

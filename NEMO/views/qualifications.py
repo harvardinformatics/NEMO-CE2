@@ -208,12 +208,19 @@ def send_email_grant_badge_reader_access():
 			for access, users in badge_reader_user.items():
 				message += f"{access}:\n<ul>\n"
 				for user in users:
+					details = []
+					if user.badge_number:
+						details.append(f"badge number: {user.badge_number}")
 					try:
-						# Trying grabbing employee id from NEMO user details to add it
-						employee_id = f" ({user.details.employee_id})"
+						# Try grabbing employee id from NEMO user details to add it
+						if user.details.employee_id:
+							details.append(f"employee id: {user.details.employee_id}")
 					except:
-						employee_id = ''
-					message += f"<li>{user}{employee_id}</li>\n"
+						pass
+					message += f"<li>{user}"
+					if details:
+						message += " (" + ", ".join(details) + ")"
+					message += "</li>\n"
 				message += "</ul>\n"
 			subject = f"Grant badge reader access - {format_datetime(today_date, 'SHORT_DATE_FORMAT')}"
 			send_mail(
