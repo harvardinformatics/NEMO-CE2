@@ -1,10 +1,10 @@
 from copy import deepcopy
 from datetime import timedelta
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import linebreaksbr
@@ -36,11 +36,7 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
 )
-from NEMO.views.customization import (
-    EmailsCustomization,
-    UserRequestsCustomization,
-    get_media_file_contents,
-)
+from NEMO.views.customization import (EmailsCustomization, UserRequestsCustomization, get_media_file_contents)
 from NEMO.views.notifications import (
     create_adjustment_request_notification,
     create_request_message_notification,
@@ -151,14 +147,27 @@ def create_adjustment_request(request, request_id=None, item_type_id=None, item_
 
             form.instance.last_updated_by = user
             new_adjustment_request = form.save()
-            create_adjustment_request_notification(new_adjustment_request)
+
+            # Create the list of facility managers to notify. If the adjustment request has a tool and no one added that
+            # tool to their adjustment request list, send to everyone (otherwise nobody would see it)
+            managers_to_notify: Set[User] = set()
+            tool = getattr(adjustment_request.item, "tool", None) if adjustment_request.item else None
+            reviewers: QuerySet = User.objects.filter(is_active=True, is_facility_manager=True)
+            if tool:
+                reviewers_filter = reviewers.filter(Q(preferences__tool_adjustment_notifications__isnull=True) | Q(preferences__tool_adjustment_notifications__in=[tool]))
+                if reviewers_filter.exists():
+                    # Only limit managers if at least one person will receive the notification.
+                    reviewers = reviewers_filter
+            managers_to_notify.update(list(reviewers))
+
+            create_adjustment_request_notification(new_adjustment_request, managers_to_notify)
             if edit:
                 # remove notification for current user and other facility managers
                 delete_notification(Notification.Types.ADJUSTMENT_REQUEST, adjustment_request.id, [user])
                 if user.is_facility_manager:
                     managers = User.objects.filter(is_active=True, is_facility_manager=True)
                     delete_notification(Notification.Types.ADJUSTMENT_REQUEST, adjustment_request.id, managers)
-            send_request_received_email(request, new_adjustment_request, edit)
+            send_request_received_email(request, new_adjustment_request, edit, managers_to_notify)
             return redirect("user_requests", "adjustment")
         else:
             item_type = form.cleaned_data.get("item_type")
@@ -220,16 +229,11 @@ def delete_adjustment_request(request, request_id):
     return redirect("user_requests", "adjustment")
 
 
-def send_request_received_email(request, adjustment_request: AdjustmentRequest, edit):
+def send_request_received_email(request, adjustment_request: AdjustmentRequest, edit, facility_managers: Set[User]):
     user_office_email = EmailsCustomization.get("user_office_email_address")
     adjustment_request_notification_email = get_media_file_contents("adjustment_request_notification_email.html")
     if user_office_email and adjustment_request_notification_email:
         # cc facility managers
-        tool = getattr(adjustment_request.item, "tool", None) if adjustment_request.item else None
-        facility_managers_qs = User.objects.filter(is_active=True, is_facility_manager=True)
-        if tool:
-            facility_managers_qs = facility_managers_qs.filter(Q(preferences__tool_adjustment_notifications__isnull=True)|Q(preferences__tool_adjustment_notifications__in=[tool]))
-        facility_managers: List[User] = list(facility_managers_qs)
         manager_emails = [
             email
             for user in facility_managers
