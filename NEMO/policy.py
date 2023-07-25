@@ -41,6 +41,7 @@ from NEMO.models import (
     UsageEvent,
     User,
 )
+from NEMO.typing import QuerySetType
 from NEMO.utilities import (
     EmailCategory,
     distinct_qs_value_list,
@@ -152,10 +153,13 @@ class NEMOPolicy:
                     )
                 )
 
-        # Users may not enable a tool if reservation_required is True and the user doesn't have a reservation
+        # Users may not enable a tool if
+        # reservation_required is True and
+        # the user doesn't have a reservation
+        # or doesn't have a training event
         if tool.reservation_required and not operator.is_staff and not operator.is_service_personnel:
             tolerance = timedelta(minutes=15)
-            if not Reservation.objects.filter(
+            reservation_for_user: QuerySetType[Reservation] = Reservation.objects.filter(
                 start__lt=timezone.now() + tolerance,
                 end__gt=timezone.now(),
                 cancelled=False,
@@ -163,9 +167,16 @@ class NEMOPolicy:
                 shortened=False,
                 user=operator,
                 tool=tool,
-            ).exists():
+            )
+            training_for_trainer: QuerySetType[TrainingEvent] = TrainingEvent.objects.filter(
+                start__lt=timezone.now() + tolerance,
+                end__gt=timezone.now(),
+                cancelled=False,
+                trainer=operator,
+                tool=tool,
+            )
+            if not (reservation_for_user.exists() or training_for_trainer.exists()):
                 return HttpResponseBadRequest("You must have a current reservation to operate this tool.")
-
 
         # Staff may only charge staff time for one user at a time.
         if staff_charge and operator.charging_staff_time():
