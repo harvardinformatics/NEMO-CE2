@@ -213,7 +213,8 @@ def send_email_grant_badge_reader_access():
 						details.append(f"badge number: {user.badge_number}")
 					try:
 						# Try grabbing employee id from NEMO user details to add it
-						details.append(f"employee id: {user.details.employee_id}")
+						if user.details.employee_id:
+							details.append(f"employee id: {user.details.employee_id}")
 					except:
 						pass
 					message += f"<li>{user}"
