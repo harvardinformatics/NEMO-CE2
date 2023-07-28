@@ -73,8 +73,9 @@ def get_tools_dictionary():
 
 
 def get_occupancy_dictionary(request):
+	reservations_can_expire = Area.objects.filter(requires_reservation=True)
 	area_items, no_occupants = process_area_access_record_with_parents(request.user)
-	return {"area_items": area_items, "no_occupants": no_occupants}
+	return {"area_items": area_items, "no_occupants": no_occupants, "reservations_can_expire": reservations_can_expire}
 
 
 def get_staff_status(request, csv_export=False) -> Union[Dict, HttpResponse]:
@@ -218,7 +219,8 @@ def staff_absences_dict(staffs, days, start, end):
 			# non-working days should not count as absence
 			staff_works_this_day = staff_absence.staff_member.weekly_availability()[day.weekday()]
 			if staff_works_this_day and staff_absence.start_date <= day.date() <= staff_absence.end_date:
-				dictionary[staff_absence.staff_member.id][day.day] = staff_absence
+				if staff_absence.staff_member.id in dictionary:
+					dictionary[staff_absence.staff_member.id][day.day] = staff_absence
 	return dictionary
 
 
@@ -461,6 +463,8 @@ def merge(tools, tasks, unavailable_resources, usage_events, scheduled_outages, 
 			result[event.tool.tool_or_parent_id()]["user"] += " on behalf of " + str(event.user)
 		result[event.tool.tool_or_parent_id()]["in_use"] = True
 		result[event.tool.tool_or_parent_id()]["in_use_since"] = event.start
+		result[event.tool.tool_or_parent_id()]["operator_is_any_part_of_staff"] = event.operator.is_any_part_of_staff
+		result[event.tool.tool_or_parent_id()]["operator_is_service_personnel"] = event.operator.is_service_personnel
 	for resource in unavailable_resources:
 		for tool in resource.fully_dependent_tools.filter(visible=True):
 			result[tool.id]["required_resource_is_unavailable"] = True
