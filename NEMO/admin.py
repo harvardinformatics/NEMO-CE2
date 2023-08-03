@@ -119,8 +119,8 @@ from NEMO.models import (
 	record_remote_many_to_many_changes_and_save,
 )
 from NEMO.utilities import admin_get_item, format_daterange
-from NEMO.views.customization import ProjectsAccountsCustomization, TrainingCustomization
 from NEMO.views.constants import NEXT_PARAMETER_NAME
+from NEMO.views.customization import ProjectsAccountsCustomization, TrainingCustomization
 from NEMO.widgets.dynamic_form import DynamicForm, PostUsageFloatFieldQuestion, PostUsageNumberFieldQuestion
 
 
@@ -279,7 +279,7 @@ class ToolAdmin(admin.ModelAdmin):
 		"has_post_usage_questions",
 		"id",
 	)
-	filter_horizontal = ("_backup_owners", "_superusers")
+	filter_horizontal = ("_backup_owners", "_superusers", "_grant_access_for_qualification_levels")
 	search_fields = ("name", "_description", "_serial")
 	list_filter = ("visible", "_operational", "_category", "_location", ("_requires_area_access", admin.RelatedOnlyFieldListFilter))
 	readonly_fields = ("_post_usage_preview",)
@@ -338,6 +338,7 @@ class ToolAdmin(admin.ModelAdmin):
 					"_requires_area_access",
 					"_grant_physical_access_level_upon_qualification",
 					"_grant_badge_reader_access_upon_qualification",
+					"_grant_access_for_qualification_levels",
 					"_interlock",
 					"_allow_delayed_logoff",
 					"_reservation_required",

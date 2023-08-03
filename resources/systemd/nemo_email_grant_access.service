@@ -1,0 +1,6 @@
+[Unit]
+Description=Send the grant access email in NEMO
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec nemo django-admin send_email_grant_access

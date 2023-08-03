@@ -70,19 +70,27 @@
             </div>
         </div>
         <div class="customization-separation" style="margin-bottom: 15px"></div>
-        <h3 class="customization-section-title">Tool grant badge reader access email</h3>
-		<div class="form-group {% if errors.tool_grant_badge_access_emails %}has-error{% endif %}">
-            <label class="control-label col-md-3" for="tool_grant_badge_access_emails">Send email to</label>
+        <h3 class="customization-section-title">Tool grant access email</h3>
+		<div class="form-group {% if errors.tool_grant_access_emails %}has-error{% endif %}">
+            <label class="control-label col-md-3" for="tool_grant_access_emails">Send email to</label>
             <div class="col-md-7">
-                <input type="text" id="tool_grant_badge_access_emails" name="tool_grant_badge_access_emails" class="form-control" value="{% if errors.tool_grant_badge_access_emails %}{{ errors.tool_grant_badge_access_emails.value }}{% else %}{{ tool_grant_badge_access_emails }}{% endif %}" placeholder="information@example.org"/>
+                <input type="text" id="tool_grant_access_emails" name="tool_grant_access_emails" class="form-control" value="{% if errors.tool_grant_access_emails %}{{ errors.tool_grant_access_emails.value }}{% else %}{{ tool_grant_access_emails }}{% endif %}" placeholder="information@example.org"/>
             </div>
             <div class="col-md-offset-3 col-md-9 help-block light-grey">
-                {% if errors.tool_grant_badge_access_emails %}
-                    {{ errors.tool_grant_badge_access_emails.error }}
+                {% if errors.tool_grant_access_emails %}
+                    {{ errors.tool_grant_access_emails.error }}
                 {% else %}
                     A comma-separated list can be used.<br>
-					This email is sent by the timed service <b>send_email_grant_badge_reader_access</b> when users are qualified on tools which have the <b>grant_badge_reader_access_upon_qualification</b> set.
+					This email is sent by the timed service <b>send_email_grant_access</b> when users are qualified on tools which have the <b>grant_badge_reader_access_upon_qualification</b> set.
                 {% endif %}
+            </div>
+        </div>
+		<div class="form-group {% if errors.tool_grant_access_emails %}has-error{% endif %}">
+            <label class="control-label col-md-3" for="tool_grant_access_include_physical_access">Include physical access</label>
+            <div class="col-sm-8 col-md-9">
+                <div class="checkbox">
+                    <label><input type="checkbox" id="tool_grant_access_include_physical_access" name="tool_grant_access_include_physical_access" {% if tool_grant_access_include_physical_access %}checked{% endif %} value="enabled"> Check this box to include users who were granted physical access </label>
+                </div>
             </div>
         </div>
 		<div class="customization-separation" style="margin-bottom: 15px"></div>

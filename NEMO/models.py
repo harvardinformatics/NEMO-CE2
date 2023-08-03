@@ -833,6 +833,7 @@ class Tool(SerializationByNameModel):
 	_requires_area_access = TreeForeignKey('Area', db_column="requires_area_access_id", null=True, blank=True, help_text="Indicates that this tool is physically located in a billable area and requires an active area access record in order to be operated.", on_delete=models.PROTECT)
 	_grant_physical_access_level_upon_qualification = models.ForeignKey('PhysicalAccessLevel', db_column="grant_physical_access_level_upon_qualification_id", null=True, blank=True, help_text="The designated physical access level is granted to the user upon qualification for this tool.", on_delete=models.PROTECT)
 	_grant_badge_reader_access_upon_qualification = models.CharField(db_column="grant_badge_reader_access_upon_qualification", max_length=100, null=True, blank=True, help_text="Badge reader access is granted to the user upon qualification for this tool.")
+	_grant_access_for_qualification_levels = models.ManyToManyField("QualificationLevel", blank=True, help_text="Granting physical access or badge reader access will only apply to the selected qualification levels. If left empty it will apply to all qualification levels.")
 	_reservation_horizon = models.PositiveIntegerField(db_column="reservation_horizon", default=14, null=True, blank=True, help_text="Users may create reservations this many days in advance. Leave this field blank to indicate that no reservation horizon exists for this tool.")
 	_minimum_usage_block_time = models.PositiveIntegerField(db_column="minimum_usage_block_time", null=True, blank=True, help_text="The minimum amount of time (in minutes) that a user must reserve this tool for a single reservation. Leave this field blank to indicate that no minimum usage block time exists for this tool.")
 	_maximum_usage_block_time = models.PositiveIntegerField(db_column="maximum_usage_block_time", null=True, blank=True, help_text="The maximum amount of time (in minutes) that a user may reserve this tool for a single reservation. Leave this field blank to indicate that no maximum usage block time exists for this tool.")
@@ -996,6 +997,15 @@ class Tool(SerializationByNameModel):
 		self._grant_badge_reader_access_upon_qualification = value
 
 	@property
+	def grant_access_for_qualification_levels(self):
+		return self.parent_tool.grant_access_for_qualification_levels if self.is_child_tool() else self._grant_access_for_qualification_levels
+
+	@grant_access_for_qualification_levels.setter
+	def grant_access_for_qualification_levels(self, value):
+		self.raise_setter_error_if_child_tool("grant_access_for_qualification_levels")
+		self._grant_access_for_qualification_levels = value
+
+	@property
 	def reservation_horizon(self):
 		return self.parent_tool.reservation_horizon if self.is_child_tool() else self._reservation_horizon
 
@@ -1129,6 +1139,13 @@ class Tool(SerializationByNameModel):
 	def tool_calendar_color(self, value):
 		self.raise_setter_error_if_child_tool("tool_calendar_color")
 		self._tool_calendar_color = value
+
+	def apply_grant_access(self, qualification_level: QualificationLevel = None) -> bool:
+		return (
+			not self.grant_access_for_qualification_levels.exists()
+			or qualification_level
+			and qualification_level in self.grant_access_for_qualification_levels.all()
+		)
 
 	def name_or_child_in_use_name(self, parent_ids=None) -> str:
 		""" This method returns the tool name unless one of its children is in use."""

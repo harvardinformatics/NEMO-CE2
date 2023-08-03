@@ -418,7 +418,7 @@ if settings.ALLOW_CONDITIONAL_URLS:
 		path("manage_tool_qualifications/", calendar.manage_tool_qualifications, name="manage_tool_qualifications"),
 		path("manage_recurring_charges/", calendar.manage_recurring_charges, name="manage_recurring_charges"),
 		# Reminders and periodic events - NEMO CE
-		path("email_grant_badge_reader_access/", qualifications.email_grant_badge_reader_access, name="email_grant_badge_reader_access"),
+		path("email_grant_access/", qualifications.email_grant_access, name="email_grant_access"),
 		path("auto_validate_charges/", charge_validation.auto_validate_charges, name="auto_validate_charges"),
 
 		# Abuse:

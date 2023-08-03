@@ -394,7 +394,8 @@ class ToolCustomization(CustomizationBase):
 		"tool_qualification_expiration_days": "",
 		"tool_qualification_expiration_never_used_days": "",
 		"tool_qualification_cc": "",
-		"tool_grant_badge_access_emails": "",
+		"tool_grant_access_emails": "",
+		"tool_grant_access_include_physical_access": "",
 	}
 
 	def validate(self, name, value):
@@ -403,7 +404,7 @@ class ToolCustomization(CustomizationBase):
 		if name == "tool_qualification_reminder_days" and value:
 			# Check that we have an integer or a list of integers
 			validate_comma_separated_integer_list(value)
-		elif name == "tool_qualification_cc" or name == "tool_grant_badge_access_emails":
+		elif name == "tool_qualification_cc" or name == "tool_grant_access_emails":
 			recipients = tuple([e for e in value.split(",") if e])
 			for email in recipients:
 				validate_email(email)
