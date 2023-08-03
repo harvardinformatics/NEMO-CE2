@@ -211,7 +211,7 @@ def send_email_grant_access():
 			if physical_access_users:
 				message += "The following physical access levels have been granted:<br><br>\n\n"
 				message += add_access_list(physical_access_users)
-			subject = f"Grant badge reader access - {format_datetime(today_date, 'SHORT_DATE_FORMAT')}"
+			subject = f"Grant access - {format_datetime(today_date, 'SHORT_DATE_FORMAT')}"
 			send_mail(
 				subject=subject,
 				content=message,
