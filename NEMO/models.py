@@ -1805,6 +1805,11 @@ class Project(SerializationByNameModel):
 	class Meta:
 		ordering = ["name"]
 
+	def display_with_pis(self):
+		pis = ", ".join([pi.get_name() for pi in self.manager_set.all()])
+		pis = f" (PI{'s' if self.manager_set.count() > 1 else ''}: {pis})" if pis else ""
+		return f"{self.name}{pis}"
+
 	def __str__(self):
 		return str(self.name)
 
