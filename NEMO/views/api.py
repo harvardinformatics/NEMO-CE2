@@ -295,6 +295,7 @@ class ReservationViewSet(ModelViewSet):
 		"cancelled": ["exact"],
 		"missed": ["exact"],
 		"validated": ["exact"],
+		"validated_by": ["exact", "in", "isnull"],
 		"question_data": ["isempty"],
 	}
 
@@ -312,6 +313,7 @@ class UsageEventViewSet(ModelViewSet):
 		"operator_id": ["exact", "in"],
 		"tool_id": ["exact", "in"],
 		"validated": ["exact"],
+		"validated_by": ["exact", "in", "isnull"],
 	}
 
 
@@ -328,6 +330,7 @@ class AreaAccessRecordViewSet(ModelViewSet):
 		"area_id": ["exact", "in"],
 		"staff_charge_id": ["exact", "isnull", "in"],
 		"validated": ["exact"],
+		"validated_by": ["exact", "in", "isnull"],
 	}
 
 
@@ -381,6 +384,7 @@ class StaffChargeViewSet(ModelViewSet):
 		"start": ["month", "year", "day", "gte", "gt", "lte", "lt"],
 		"end": ["month", "year", "day", "gte", "gt", "lte", "lt", "isnull"],
 		"validated": ["exact"],
+		"validated_by": ["exact", "in", "isnull"],
 		"note": ["contains"],
 	}
 
@@ -400,6 +404,7 @@ class TrainingSessionViewSet(ModelViewSet):
 		"date": ["month", "year", "day", "gte", "gt", "lte", "lt"],
 		"qualified": ["exact"],
 		"validated": ["exact"],
+		"validated_by": ["exact", "in", "isnull"],
 	}
 
 
@@ -438,6 +443,7 @@ class ConsumableWithdrawViewSet(ModelViewSet):
 		"quantity": ["exact", "gte", "lte", "gt", "lt"],
 		"date": ["month", "year", "day", "gte", "gt", "lte", "lt"],
 		"validated": ["exact"],
+		"validated_by": ["exact", "in", "isnull"],
 	}
 
 
