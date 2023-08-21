@@ -115,7 +115,7 @@ def record_qualification(request_user: User, action: str, tools: Iterable[Tool],
 				entry.save()
 			if get_identity_service().get("available", False):
 				for t in tools:
-					tool = Tool.objects.get(id=t)
+					tool = Tool.objects.get(id=t.id)
 					if tool.grant_badge_reader_access_upon_qualification and t.apply_grant_access(qualification_level):
 						parameters = {
 							"username": user.username,
