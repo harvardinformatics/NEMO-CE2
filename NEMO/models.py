@@ -3297,6 +3297,18 @@ class TrainingEvent(BaseModel):
 		if errors:
 			raise ValidationError(errors)
 
+	def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+		old_training_event = TrainingEvent.objects.filter(pk=self.id).first()
+		super().save(force_insert, force_update, using, update_fields)
+		dates_changed = old_training_event and (self.start != old_training_event.start or self.end != old_training_event.end)
+		# If this is new or dates have changed, send ics
+		if not old_training_event or dates_changed:
+			# Sent to trainer then to all users
+			from NEMO.views.training_new import send_ics
+			send_ics(self, self.trainer)
+			for user in self.users.all():
+				send_ics(self, user)
+
 	@transaction.atomic
 	def cancel(self, user: User, reason: Optional[str] = None, request=None):
 		self.cancelled = True

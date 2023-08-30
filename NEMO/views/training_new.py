@@ -356,15 +356,7 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
             if policy_problems:
                 training_event_form.add_error(NON_FIELD_ERRORS, [policy_problem for policy_problem in policy_problems])
             else:
-                old_training_event = TrainingEvent.objects.filter(pk=training_event_form.instance.id).first()
                 training_event: TrainingEvent = training_event_form.save()
-                if training_event_form.instance.id and training_event.users.exists():
-                    # This is an edit with attendees, check for changes in dates
-                    if training_event.start != old_training_event.start or training_event.end != old_training_event.end:
-                        # Sent to trainer then to all users
-                        send_ics(training_event, None, updated=True)
-                        for user in training_event.users.all():
-                            send_ics(training_event, user, updated=True)
                 user_ids_to_add = submitted_user_ids_to_invite.difference(invited_user_ids)
                 user_ids_to_remove = invited_user_ids.difference(submitted_user_ids_to_invite)
                 # Invite new people
@@ -555,24 +547,25 @@ def send_email_training_invitation_declined(training_invitation: TrainingInvitat
 
 def send_email_training_session_cancelled(training_event: TrainingEvent, request=None):
     message = get_media_file_contents("training_session_cancelled_email.html")
-    sent_to_trainer = False
+    # Send to trainer, and then to all users
+    send_ics(training_event, training_event.trainer, cancelled=True)
     for user in training_event.users.all():
-        # Add ics for cancelled event in the same email
-        attachments = []
-        if user and user.get_preferences().attach_cancelled_reservation:
-            event_name = f"{training_event.tool.name} Training"
-            attachments = [
-                create_ics(
-                    training_event.id,
-                    event_name,
-                    training_event.start,
-                    training_event.end,
-                    user,
-                    organizer=training_event.trainer,
-                    cancelled=True,
-                )
-            ]
+        # If there is a message, add ics in the same email
         if message:
+            attachments = []
+            if should_send_ics(user, cancelled=True):
+                event_name = f"{training_event.tool.name} Training"
+                attachments = [
+                    create_ics(
+                        training_event.id,
+                        event_name,
+                        training_event.start,
+                        training_event.end,
+                        user,
+                        organizer=training_event.trainer,
+                        cancelled=True,
+                    )
+                ]
             content = render_email_template(message, {"training_session": training_event, "user": user}, request)
             subject = f"The {training_event.tool} training session was cancelled"
             user.email_user(
@@ -583,12 +576,9 @@ def send_email_training_session_cancelled(training_event: TrainingEvent, request
                 email_category=EmailCategory.TRAINING,
                 attachments=attachments,
             )
-        elif attachments:
+        # Otherwise just send the ics
+        elif should_send_ics(user, cancelled=True):
             send_ics(training_event, user, cancelled=True)
-            sent_to_trainer = True
-    if not sent_to_trainer:
-        # Send to trainer only as he didn't get it previously
-        send_ics(training_event, None, cancelled=True)
 
 
 def suggested_users_to_invite(tool: Tool) -> Set[User]:
@@ -647,26 +637,14 @@ def suggested_times_for_training(tool, duration) -> List[Tuple[Any, Set[User]]]:
     return [item for item in sorted_tuple_list if len(item[1]) > 1]
 
 
-def send_ics(training: TrainingEvent, user, cancelled=False, updated=False):
+def send_ics(training: TrainingEvent, user, cancelled=False):
     event_name = f"{training.tool.name} Training"
     trainer = training.trainer
-    if (training.users.count() == 1 or cancelled) and not updated or (updated and not user):
-        # Send to trainer when first invitation is accepted or when training is cancelled
-        if should_send_ics(trainer, cancelled):
-            ics = create_ics(training.id, event_name, training.start, training.end, trainer, cancelled=cancelled)
-            trainer.email_user(
-                subject=event_name,
-                message="",
-                from_email=trainer.email,
-                email_notification=trainer.get_preferences().email_send_reservation_emails,
-                attachments=[ics],
-                email_category=EmailCategory.TRAINING,
-            )
-    if user and should_send_ics(user, cancelled):
-        # Now send to actual user with trainer as organizer
-        ics = create_ics(
-            training.id, event_name, training.start, training.end, user, organizer=trainer, cancelled=cancelled
-        )
+    ics = create_ics(training.id, event_name, training.start, training.end, user, organizer=trainer, cancelled=cancelled)
+    # Check if this is sent to the trainer by himself, in which case we need to remove him as organizer in ICS
+    if user == trainer:
+        ics = create_ics(training.id, event_name, training.start, training.end, trainer, cancelled=cancelled)
+    if should_send_ics(user, cancelled):
         user.email_user(
             subject=event_name,
             message="",
