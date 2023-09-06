@@ -396,6 +396,7 @@ class ToolCustomization(CustomizationBase):
 		"tool_qualification_cc": "",
 		"tool_problem_max_image_size_pixels": "750",
 		"tool_problem_send_to_all_qualified_users": "",
+		"tool_reservation_policy_superusers_bypass": "",
 		"tool_grant_access_emails": "",
 		"tool_grant_access_include_physical_access": "",
 	}

@@ -8,54 +8,54 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.utils import timezone
 
 from NEMO.exceptions import (
-    InactiveUserError,
-    ItemNotAllowedForProjectException,
-    MaximumCapacityReachedError,
-    NoAccessiblePhysicalAccessUserError,
-    NoActiveProjectsForUserError,
-    NoPhysicalAccessUserError,
-    NotAllowedToChargeProjectException,
-    PhysicalAccessExpiredUserError,
-    ProjectChargeException,
-    ReservationRequiredUserError,
-    ScheduledOutageInProgressError,
-    UnavailableResourcesUserError,
+	InactiveUserError,
+	ItemNotAllowedForProjectException,
+	MaximumCapacityReachedError,
+	NoAccessiblePhysicalAccessUserError,
+	NoActiveProjectsForUserError,
+	NoPhysicalAccessUserError,
+	NotAllowedToChargeProjectException,
+	PhysicalAccessExpiredUserError,
+	ProjectChargeException,
+	ReservationRequiredUserError,
+	ScheduledOutageInProgressError,
+	UnavailableResourcesUserError,
 )
 from NEMO.models import (
-    Area,
-    AreaAccessRecord,
-    ClosureTime,
-    Consumable,
-    ConsumableWithdraw,
-    PhysicalAccessLevel,
-    Project,
-    Qualification,
-    Reservation,
-    ReservationItemType,
-    ScheduledOutage,
-    StaffCharge,
-    Tool,
-    ToolAccessory,
-    TrainingEvent,
-    TrainingInvitation,
-    UsageEvent,
-    User,
+	Area,
+	AreaAccessRecord,
+	ClosureTime,
+	Consumable,
+	ConsumableWithdraw,
+	PhysicalAccessLevel,
+	Project,
+	Qualification,
+	Reservation,
+	ReservationItemType,
+	ScheduledOutage,
+	StaffCharge,
+	Tool,
+	ToolAccessory,
+	TrainingEvent,
+	TrainingInvitation,
+	UsageEvent,
+	User,
 )
 from NEMO.typing import QuerySetType
 from NEMO.utilities import (
-    EmailCategory,
-    distinct_qs_value_list,
-    format_daterange,
-    format_datetime,
-    get_class_from_settings,
-    render_email_template,
-    send_mail,
+	EmailCategory,
+	distinct_qs_value_list,
+	format_daterange,
+	format_datetime,
+	get_class_from_settings,
+	render_email_template,
+	send_mail,
 )
 from NEMO.views.customization import (
-    ApplicationCustomization,
-    EmailsCustomization,
-    ToolCustomization,
-    get_media_file_contents,
+	ApplicationCustomization,
+	EmailsCustomization,
+	ToolCustomization,
+	get_media_file_contents,
 )
 
 
@@ -490,11 +490,18 @@ class NEMOPolicy:
             policy_problems, user_creating_reservation, cancelled_reservation, new_reservation
         )
 
+        # Tool superusers can be exempt from reservation policy rules if customization is set
+        user_exempt = (
+            item_type == ReservationItemType.TOOL
+            and user in new_reservation.tool.superusers.all()
+            and ToolCustomization.get_bool("tool_reservation_policy_superusers_bypass")
+        )
+
         # The reservation start time may not exceed the item's reservation horizon.
-        # Staff may break this rule.
+        # Staff or tool superusers may break this rule.
         # An explicit policy override allows this rule to be broken.
         item = new_reservation.reservation_item
-        if item.reservation_horizon is not None:
+        if not user_exempt and item.reservation_horizon is not None:
             reservation_horizon = timedelta(days=item.reservation_horizon)
             if new_reservation.start > timezone.now() + reservation_horizon:
                 policy_problems.append(
@@ -503,9 +510,9 @@ class NEMOPolicy:
                     + f" days from now for this {item_type.value}."
                 )
 
-        # Check item policy rules
+        # Check item policy rules, tool superusers may be exempt
         item_policy_problems = []
-        if self.should_enforce_reservation_policy(new_reservation):
+        if not user_exempt and self.should_enforce_reservation_policy(new_reservation):
             item_policy_problems = self.check_reservation_policy_for_item(
                 user_creating_reservation, new_reservation, cancelled_reservation
             )
