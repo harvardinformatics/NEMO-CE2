@@ -56,6 +56,7 @@ from NEMO.views.customization import (
 	EmailsCustomization,
 	InterlockCustomization,
 	RemoteWorkCustomization,
+	ToolCustomization,
 	get_media_file_contents,
 )
 from NEMO.widgets.configuration_editor import ConfigurationEditor
@@ -93,7 +94,10 @@ def tool_status(request, tool_id):
 	tool = get_object_or_404(Tool, id=tool_id, visible=True)
 	qualification_levels = QualificationLevel.objects.all()
 	qualifications = Qualification.objects.filter(tool=tool)
-
+	user_is_qualified = tool.user_set.filter(id=request.user.id).exists()
+	user_is_staff = request.user.is_staff
+	broadcast_upcoming_reservation_enabled = ToolCustomization.get_bool("tool_control_broadcast_upcoming_reservation")
+	broadcast_qualified_user_enabled = ToolCustomization.get_bool("tool_control_broadcast_qualified_users")
 	dictionary = {
 		"tool": tool,
 		"tool_rate": rate_class.get_tool_rate(tool),
@@ -105,7 +109,8 @@ def tool_status(request, tool_id):
 		"configs": get_tool_full_config_history(tool),
 		"qualification_levels": qualification_levels,
 		"qualifications": qualifications,
-
+		"show_broadcast_qualified_for_regular_user": not user_is_staff and user_is_qualified and broadcast_qualified_user_enabled,
+		"show_broadcast_upcoming_reservation": user_is_staff or (user_is_qualified and broadcast_upcoming_reservation_enabled),
 	}
 
 	try:

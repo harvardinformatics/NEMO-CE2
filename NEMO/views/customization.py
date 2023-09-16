@@ -390,6 +390,7 @@ class ToolCustomization(CustomizationBase):
 		"tool_control_configuration_setting_template": "{{ current_setting }}",
 		"tool_control_ongoing_reservation_force_off": "",
 		"tool_control_broadcast_qualified_users": "",
+		"tool_control_broadcast_upcoming_reservation": "",
 		"tool_qualification_reminder_days": "",
 		"tool_qualification_expiration_days": "",
 		"tool_qualification_expiration_never_used_days": "",

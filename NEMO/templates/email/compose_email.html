@@ -113,6 +113,7 @@
             $('#default_client_email_wrapper').tooltip();
             updated_email_link();
         });
+        {% if user.is_any_part_of_staff %}
         function export_user_emails()
         {
             let export_url = "{% url 'export_email_addresses' %}?"
@@ -125,9 +126,13 @@
             {% endfor %}
             window.open(export_url);
         }
+        {%  endif %}
         function updated_email_link()
         {
-            email_using_client('{{ user.email }}', '{{ user_emails }}', '{{ active_user_emails }}')
+            {# If the user is not staff member, the email link is not visible, this function will be a NO OP #}
+            {% if user.is_any_part_of_staff %}
+                email_using_client('{{ user.email }}', '{{ user_emails }}', '{{ active_user_emails }}')
+            {%  endif %}
         }
 		function update_preview()
         {
@@ -139,6 +144,7 @@
 			    $('#email_preview').html(response);
 			}
         }
+        {% if user.is_any_part_of_staff %}
         function email_using_client(user_email, user_emails, active_user_emails)
         {
             let only_active = $('input[name=only_active_users]')[0].checked;
@@ -184,5 +190,6 @@
             let mailto_link = $('#email_client_link')[0];
             mailto_link.href = mailto;
         }
+        {%  endif %}
 	</script>
 {% endblock %}
