@@ -96,6 +96,14 @@
                 </div>
             </div>
         </div>
+        <div class="form-group">
+            <label class="control-label col-sm-4 col-md-3">Email other users with upcoming reservation</label>
+            <div class="col-sm-8 col-md-9">
+                <div class="checkbox">
+                    <label><input type="checkbox" id="tool_control_broadcast_upcoming_reservation" name="tool_control_broadcast_upcoming_reservation" {% if tool_control_broadcast_upcoming_reservation %}checked{% endif %} value="enabled"> Allow qualified users on a tool to send a broadcast email to users with an upcoming reservation</label>
+                </div>
+            </div>
+        </div>
         <div class="customization-separation" style="margin-bottom: 15px"></div>
         <h3 class="customization-section-title">Tool grant access email</h3>
 		<div class="form-group {% if errors.tool_grant_access_emails %}has-error{% endif %}">

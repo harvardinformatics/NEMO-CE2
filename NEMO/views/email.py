@@ -10,12 +10,13 @@ from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import any_staff_required
 from NEMO.forms import EmailBroadcastForm
-from NEMO.models import Account, Area, Project, Tool, User, UserType
+from NEMO.models import Account, Area, Project, Reservation, Tool, User, UserType
 from NEMO.typing import QuerySetType
 from NEMO.utilities import (
 	EmailCategory,
@@ -90,7 +91,7 @@ def send_email(request):
 @require_GET
 def email_broadcast(request, audience=""):
 	dictionary = {}
-	if audience == "tool":
+	if audience == "tool" or audience == "tool-reservation":
 		dictionary["search_base"] = Tool.objects.filter(visible=True)
 	elif audience == "area":
 		dictionary["search_base"] = Area.objects.all()
@@ -114,11 +115,19 @@ def compose_email(request):
 	try:
 		audience = request.GET["audience"]
 		selection = request.GET.getlist("selection")
+		# Check if the user is allowed to broadcast email
+		error = check_user_allowed(request.user, audience, selection)
+		if error:
+			return HttpResponseBadRequest(error)
 		no_type = request.GET.get("no_type") == "on"
 		users, topic = get_users_for_email(audience, selection, no_type)
 	except:
 		dictionary = {"error": "You specified an invalid audience parameter"}
-		return render(request, "email/email_broadcast.html", dictionary)
+		# Only render the email_broadcast page when user is staff member
+		if request.user.is_any_part_of_staff:
+			return render(request, "email/email_broadcast.html", dictionary)
+		else:
+			return HttpResponseBadRequest("You specified an invalid audience parameter")
 	# Check if the user is allowed to broadcast email
 	error = check_user_allowed(user, audience, selection)
 	if error:
@@ -183,7 +192,7 @@ def send_broadcast_email(request):
 	# Check if the user is allowed to broadcast email
 	error = check_user_allowed(request.user, form.cleaned_data["audience"], form.cleaned_data["selection"])
 	if error:
-		return render(request, "email/compose_email.html", {"form": form, "error": error})
+		return HttpResponseBadRequest(error)
 	dictionary = {
 		"title": form.cleaned_data["title"],
 		"greeting": form.cleaned_data["greeting"],
@@ -267,6 +276,11 @@ def get_users_for_email(audience: str, selection: List, no_type: bool) -> (Query
 		users = User.objects.filter(qualifications__id__in=selection).distinct()
 		if len(selection) == 1:
 			topic = Tool.objects.filter(pk=selection[0]).first().name
+	elif audience == "tool-reservation":
+		upcoming_reservations = Reservation.objects.filter(cancelled=False, missed=False, shortened=False, tool__in=selection, end__gte=timezone.now())
+		users = User.objects.filter(reservation_user__in=upcoming_reservations).distinct()
+		if len(selection) == 1:
+			topic = Tool.objects.filter(pk=selection[0]).first().name
 	elif audience == "area":
 		areas: QuerySetType[Area] = Area.objects.filter(pk__in=selection)
 		access_levels = [access_level for area in areas for access_level in area.get_physical_access_levels()]
@@ -302,7 +316,8 @@ def get_users_for_email(audience: str, selection: List, no_type: bool) -> (Query
 def check_user_allowed(user: User, audience: str, selection: str) -> Optional[str]:
 	if not user.is_any_part_of_staff:
 		tool_qualified_broadcast = ToolCustomization.get_bool("tool_control_broadcast_qualified_users")
-		if not tool_qualified_broadcast or audience != "tool":
+		upcoming_reservation_broadcast = ToolCustomization.get_bool("tool_control_broadcast_upcoming_reservation")
+		if not (tool_qualified_broadcast and audience == "tool") and not (upcoming_reservation_broadcast and audience == "tool-reservation"):
 			return "You may not broadcast email to this audience"
 		else:
 			tool = Tool.objects.filter(id__in=selection).first()
