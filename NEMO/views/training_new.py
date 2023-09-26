@@ -420,6 +420,8 @@ def cancel_training(request, training_event_id):
 def register_for_training(request, training_event_id):
     user: User = request.user
     training_event = get_object_or_404(TrainingEvent, id=training_event_id, cancelled=False)
+    if training_event.invitation_only and not training_event.pending_invitations(user):
+        return HttpResponseBadRequest("This training is by invitation only. Submit a request or contract the trainer directly")
     # Create new training invitation
     invitation = TrainingInvitation()
     invitation.training_event = training_event

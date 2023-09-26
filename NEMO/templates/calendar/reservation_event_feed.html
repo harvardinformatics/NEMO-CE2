@@ -53,6 +53,9 @@
 		{% else %}
 			"title": "Training by {{ training.trainer.get_name }}",
 		{% endif %}
+		{% if training.invitation_only and user not in training.users.all and not training|training_event_invitations:user or training.current_capacity >= training.capacity %}
+			"before": "<span class='pull-right glyphicon glyphicon-lock'></span>",
+		{% endif %}
 		"id": "Training {{ training.id }}",
 		"color": "#BF00FFFF",
 		"start": "{{ training.start|date:"c" }}",

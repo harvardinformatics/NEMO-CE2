@@ -44,8 +44,10 @@
 											{% button type="save" value="Accept training invitation" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:accept_training_invitation_url|concat:"');" %}
 										{% endfor %}
 									{% elif user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
-										{% url 'register_for_training' training_event.id as register_for_training_url %}
-										{% button type="save" submit="false" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:register_for_training_url|concat:"');" %}
+										{% if not training_event.invitation_only %}
+											{% url 'register_for_training' training_event.id as register_for_training_url %}
+											{% button type="save" submit="false" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:register_for_training_url|concat:"');" %}
+										{% endif %}
 									{% endif %}
 								{% endif %}
 							</td>

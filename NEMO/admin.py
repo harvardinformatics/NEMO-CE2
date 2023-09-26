@@ -1682,8 +1682,8 @@ class TrainingInvitationAdmin(admin.ModelAdmin):
 
 @register(TrainingEvent)
 class TrainingEventAdmin(admin.ModelAdmin):
-	list_display = ["tool", "start", "end", "trainer", "technique", "get_capacity", "cancelled"]
-	list_filter = ["cancelled", ("trainer", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter)]
+	list_display = ["tool", "start", "end", "trainer", "technique", "get_capacity", "invitation_only", "cancelled"]
+	list_filter = ["cancelled", "invitation_only", ("trainer", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter)]
 	date_hierarchy = "start"
 	filter_horizontal = ["users"]
 

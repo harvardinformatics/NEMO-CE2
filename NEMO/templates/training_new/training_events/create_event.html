@@ -106,6 +106,19 @@
 					</div>
 				{% endif %}
 			</div>
+			<div class="form-group">
+				<label class="col-sm-3 col-md-2 control-label" for="invitation_only">Invitation only</label>
+				<div class="col-sm-5 col-md-4">
+					<div class="checkbox">
+						<label><input type="checkbox" name="invitation_only" id="invitation_only" {% if form.invitation_only.value %}checked{% endif %}>Only invited users can register</label>
+					</div>
+				</div>
+				{% if form.invitation_only.errors %}
+					<div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+						{{ form.invitation_only.errors|striptags }}
+					</div>
+				{% endif %}
+			</div>
 			{% if form.instance.id and form.instance.users.all %}
 				<div class="form-group">
 					<label class="control-label col-sm-3 col-md-2" for="_search">Attendees</label>

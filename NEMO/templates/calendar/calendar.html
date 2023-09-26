@@ -234,9 +234,11 @@ function submit_event_with_more_information(ajax_post, success_callback)
 function event_render(event, element)
 {
 	if ('tooltip' in event)
-		element.attr('title', event.tooltip)
+		element.attr('title', event.tooltip);
 	else if ('title' in event)
-		element.attr('title', event.title)
+		element.attr('title', event.title);
+	if ('before' in event)
+        element.prepend(event.before);
 }
 
 function event_after_all_render()
