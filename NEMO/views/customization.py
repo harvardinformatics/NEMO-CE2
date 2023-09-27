@@ -20,7 +20,7 @@ from django.views.decorators.http import require_GET, require_POST
 from NEMO import init_admin_site
 from NEMO.decorators import administrator_required, customization
 from NEMO.exceptions import InvalidCustomizationException
-from NEMO.models import BadgeReader, ConsumableCategory, Customization, Project, RecurringConsumableCharge
+from NEMO.models import BadgeReader, ConsumableCategory, Customization, Notification, Project, RecurringConsumableCharge
 from NEMO.utilities import RecurrenceFrequency, date_input_format, datetime_input_format, quiet_int
 
 
@@ -346,6 +346,17 @@ class UserRequestsCustomization(CustomizationBase):
 			except Exception as e:
 				raise ValidationError(str(e))
 
+	@classmethod
+	def set(cls, name: str, value):
+		if name == "adjustment_requests_enabled" and value != "enabled":
+			# If adjustment requests are being disabled, remove all notifications
+			previously_enabled = cls.get_bool("adjustment_requests_enabled")
+			if previously_enabled:
+				Notification.objects.filter(
+					notification_type__in=[Notification.Types.ADJUSTMENT_REQUEST, Notification.Types.ADJUSTMENT_REQUEST_REPLY]
+				).delete()
+		super().set(name, value)
+
 
 @customization(key="recurring_charges", title="Recurring charges")
 class RecurringChargesCustomization(CustomizationBase):
@@ -453,6 +464,17 @@ class TrainingCustomization(CustomizationBase):
 	def validate(self, name, value):
 		if name in ["training_event_default_duration", "training_event_default_capacity"] and value:
 			validate_integer(value)
+
+	@classmethod
+	def set(cls, name: str, value):
+		if name == "training_module_enabled" and value != "enabled":
+			# If training is being disabled, remove all notifications
+			previously_enabled = cls.get_bool("training_module_enabled")
+			if previously_enabled:
+				Notification.objects.filter(
+					notification_type__in=[Notification.Types.TRAINING_INVITATION, Notification.Types.TRAINING_REQUEST,Notification.Types.TRAINING_ALL]
+				).delete()
+		super().set(name, value)
 
 
 @customization(key="templates", title="File & email templates")
