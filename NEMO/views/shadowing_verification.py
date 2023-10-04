@@ -289,12 +289,16 @@ def send_request_received_email(
 			},
 		)
 		if status in ["received", "updated"]:
+			ccs: List[str] = creator_emails
+			if status == "received":
+				# Add shadowed user as cc when request is first created
+				ccs.append(shadowing_verification_request.shadowed_qualified_user.email)
 			send_mail(
 				subject=f"Shadowing verification for the {shadowing_verification_request.tool.name} {status}",
 				content=message,
 				from_email=shadowing_verification_request.creator.email,
 				to=manager_emails,
-				cc=creator_emails,
+				cc=ccs,
 				email_category=EmailCategory.SHADOWING_VERIFICATION_REQUESTS,
 			)
 		else:
