@@ -104,7 +104,7 @@ def create_access_request_notification(access_request: TemporaryPhysicalAccessRe
 	request_end = access_request.end_time
 	expiration = end_of_the_day(datetime(request_end.year, request_end.month, request_end.day))
 
-	reviewers: List[User] = User.objects.filter(is_active=True, is_facility_manager=True)
+	reviewers: Iterable[User] = access_request.reviewers()
 
 	users_to_notify: Set[User] = set(access_request.other_users.all())
 	users_to_notify.update(reviewers)

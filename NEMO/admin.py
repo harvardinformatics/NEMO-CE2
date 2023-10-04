@@ -14,7 +14,6 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.db.models.fields.files import FieldFile
 from django.forms import BaseInlineFormSet
-from django.shortcuts import redirect
 from django.template.defaultfilters import linebreaksbr, urlencode
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -32,6 +31,7 @@ from NEMO.actions import (
 	unlock_selected_interlocks,
 )
 from NEMO.forms import BuddyRequestForm, RecurringConsumableChargeForm, TrainingRequestForm, UserPreferencesForm
+from NEMO.mixins import ModelAdminRedirectMixin, ObjPermissionAdminMixin
 from NEMO.models import (
 	Account,
 	AccountType,
@@ -122,27 +122,8 @@ from NEMO.models import (
 	record_remote_many_to_many_changes_and_save,
 )
 from NEMO.utilities import admin_get_item, format_daterange
-from NEMO.views.constants import NEXT_PARAMETER_NAME
 from NEMO.views.customization import ProjectsAccountsCustomization, TrainingCustomization
 from NEMO.widgets.dynamic_form import DynamicForm, PostUsageFloatFieldQuestion, PostUsageNumberFieldQuestion
-
-
-# Admin class to allow redirect after add or change
-class ModelAdminRedirect(admin.ModelAdmin):
-
-	def response_post_save_add(self, request, obj):
-		return self.response_redirect(request, super().response_post_save_add(request, obj))
-
-	def response_post_save_change(self, request, obj):
-		return self.response_redirect(request, super().response_post_save_change(request, obj))
-
-	def response_delete(self, request, obj_display, obj_id):
-		return self.response_redirect(request, super().response_delete(request, obj_display, obj_id))
-
-	def response_redirect(self, request, original_response):
-		if NEXT_PARAMETER_NAME in request.GET:
-			return redirect(request.GET[NEXT_PARAMETER_NAME])
-		return original_response
 
 
 # Formset to require at least one inline form
@@ -293,7 +274,7 @@ class ToolAdmin(admin.ModelAdmin):
 		"has_post_usage_questions",
 		"id",
 	)
-	filter_horizontal = ("_backup_owners", "_superusers", "_grant_access_for_qualification_levels", "_shadowing_verification_request_qualification_levels")
+	filter_horizontal = ("_backup_owners", "_superusers", "_adjustment_request_reviewers", "_grant_access_for_qualification_levels", "_shadowing_verification_request_qualification_levels")
 	search_fields = ("name", "_description", "_serial")
 	list_filter = ("visible", "_operational", "_category", "_location", ("_requires_area_access", admin.RelatedOnlyFieldListFilter))
 	readonly_fields = ("_post_usage_preview",)
@@ -328,6 +309,7 @@ class ToolAdmin(admin.ModelAdmin):
 				)
 			},
 		),
+		("Approval", {"fields": ("_adjustment_request_reviewers",)}),
 		("Reservation", {"fields": ("_reservation_horizon", "_missed_reservation_threshold")}),
 		(
 			"Usage policy",
@@ -446,6 +428,7 @@ class AreaAdmin(DraggableMPTTAdmin):
 		"buddy_system_allowed",
 		"id",
 	)
+	filter_horizontal = ["adjustment_request_reviewers", "access_request_reviewers"]
 	fieldsets = (
 		(None, {"fields": ("name", "parent_area", "category", "reservation_email", "abuse_email")}),
 		("Additional Information", {"fields": ("area_calendar_color",)}),
@@ -464,6 +447,7 @@ class AreaAdmin(DraggableMPTTAdmin):
 				)
 			},
 		),
+		("Approval", {"fields": ("adjustment_request_reviewers", "access_request_reviewers")}),
 		("Reservation", {"fields": ("reservation_horizon", "missed_reservation_threshold")}),
 		(
 			"Policy",
@@ -507,7 +491,7 @@ class AreaAdmin(DraggableMPTTAdmin):
 
 
 @register(TrainingSession)
-class TrainingSessionAdmin(admin.ModelAdmin):
+class TrainingSessionAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.ModelAdmin):
 	list_display = ("id", "trainer", "trainee", "tool", "project", "type", "date", "duration", "technique", "qualified")
 	list_filter = ("qualified", "date", "type", ("technique", admin.RelatedOnlyFieldListFilter), ("tool", admin.RelatedOnlyFieldListFilter), ("project", admin.RelatedOnlyFieldListFilter), ("trainer", admin.RelatedOnlyFieldListFilter), ("trainee", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "date"
@@ -520,14 +504,14 @@ class TrainingSessionAdmin(admin.ModelAdmin):
 
 
 @register(StaffCharge)
-class StaffChargeAdmin(ModelAdminRedirect):
+class StaffChargeAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.ModelAdmin):
 	list_display = ("id", "staff_member", "customer", "start", "end")
 	list_filter = ("start", ("customer", admin.RelatedOnlyFieldListFilter), ("staff_member", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "start"
 
 
 @register(AreaAccessRecord)
-class AreaAccessRecordAdmin(ModelAdminRedirect):
+class AreaAccessRecordAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.ModelAdmin):
 	list_display = ("id", "customer", "area", "project", "start", "end")
 	list_filter = (("area", TreeRelatedFieldListFilter), "start")
 	date_hierarchy = "start"
@@ -643,7 +627,7 @@ class ProjectAdmin(admin.ModelAdmin):
 
 
 @register(Reservation)
-class ReservationAdmin(ModelAdminRedirect):
+class ReservationAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.ModelAdmin):
 	list_display = (
 		"id",
 		"user",
@@ -748,7 +732,7 @@ class ReservationQuestionsAdmin(admin.ModelAdmin):
 
 
 @register(UsageEvent)
-class UsageEventAdmin(ModelAdminRedirect):
+class UsageEventAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.ModelAdmin):
 	list_display = ("id", "tool", "user", "operator", "project", "start", "end", "duration", "remote_work")
 	list_filter = ("remote_work", "start", "end", ("tool", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "start"
@@ -768,7 +752,7 @@ class ConsumableCategoryAdmin(admin.ModelAdmin):
 
 
 @register(ConsumableWithdraw)
-class ConsumableWithdrawAdmin(admin.ModelAdmin):
+class ConsumableWithdrawAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.ModelAdmin):
 	list_display = ("id", "customer", "merchant", "consumable", "quantity", "project", "date")
 	list_filter = ("date", ("consumable", admin.RelatedOnlyFieldListFilter))
 	date_hierarchy = "date"
@@ -970,7 +954,7 @@ class UserTypeAdmin(admin.ModelAdmin):
 class UserPreferencesAdmin(admin.ModelAdmin):
 	list_display = ("user",)
 	search_fields = ["user_preferences__user__first_name", "user_preferences__user__last_name", "user_preferences__user__username"]
-	filter_horizontal = ["tool_freed_time_notifications", "tool_adjustment_notifications", "area_adjustment_notifications"]
+	filter_horizontal = ["tool_freed_time_notifications", "tool_task_notifications"]
 	form = UserPreferencesForm
 
 

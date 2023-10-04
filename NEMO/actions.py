@@ -80,6 +80,7 @@ def duplicate_tool_configuration(model_admin, request, queryset):
 				old_nonrequired_resources = tool.nonrequired_resource_set.all()
 				old_backup_users = tool.backup_owners.all()
 				old_superusers = tool.superusers.all()
+				old_reviewers = tool.adjustment_request_reviewers.all()
 				old_shadowing_verification_request_qualification_levels = tool.shadowing_verification_request_qualification_levels.all()
 				old_id = tool.pk
 				tool.pk = None
@@ -95,6 +96,7 @@ def duplicate_tool_configuration(model_admin, request, queryset):
 				tool.nonrequired_resource_set.set(old_nonrequired_resources)
 				tool.backup_owners.set(old_backup_users)
 				tool.superusers.set(old_superusers)
+				tool.adjustment_request_reviewers.set(old_reviewers)
 				tool.shadowing_verification_request_qualification_levels.set(old_shadowing_verification_request_qualification_levels)
 				for user in User.objects.filter(qualifications__id=old_id).distinct():
 					qualification_level = Qualification.objects.get(user=user, tool__id=old_id).qualification_level
