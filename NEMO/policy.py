@@ -8,54 +8,54 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.utils import timezone
 
 from NEMO.exceptions import (
-	InactiveUserError,
-	ItemNotAllowedForProjectException,
-	MaximumCapacityReachedError,
-	NoAccessiblePhysicalAccessUserError,
-	NoActiveProjectsForUserError,
-	NoPhysicalAccessUserError,
-	NotAllowedToChargeProjectException,
-	PhysicalAccessExpiredUserError,
-	ProjectChargeException,
-	ReservationRequiredUserError,
-	ScheduledOutageInProgressError,
-	UnavailableResourcesUserError,
+    InactiveUserError,
+    ItemNotAllowedForProjectException,
+    MaximumCapacityReachedError,
+    NoAccessiblePhysicalAccessUserError,
+    NoActiveProjectsForUserError,
+    NoPhysicalAccessUserError,
+    NotAllowedToChargeProjectException,
+    PhysicalAccessExpiredUserError,
+    ProjectChargeException,
+    ReservationRequiredUserError,
+    ScheduledOutageInProgressError,
+    UnavailableResourcesUserError,
 )
 from NEMO.models import (
-	Area,
-	AreaAccessRecord,
-	ClosureTime,
-	Consumable,
-	ConsumableWithdraw,
-	PhysicalAccessLevel,
-	Project,
-	Qualification,
-	Reservation,
-	ReservationItemType,
-	ScheduledOutage,
-	StaffCharge,
-	Tool,
-	ToolAccessory,
-	TrainingEvent,
-	TrainingInvitation,
-	UsageEvent,
-	User,
+    Area,
+    AreaAccessRecord,
+    ClosureTime,
+    Consumable,
+    ConsumableWithdraw,
+    PhysicalAccessLevel,
+    Project,
+    Qualification,
+    Reservation,
+    ReservationItemType,
+    ScheduledOutage,
+    StaffCharge,
+    Tool,
+    ToolAccessory,
+    TrainingEvent,
+    TrainingInvitation,
+    UsageEvent,
+    User,
 )
 from NEMO.typing import QuerySetType
 from NEMO.utilities import (
-	EmailCategory,
-	distinct_qs_value_list,
-	format_daterange,
-	format_datetime,
-	get_class_from_settings,
-	render_email_template,
-	send_mail,
+    EmailCategory,
+    distinct_qs_value_list,
+    format_daterange,
+    format_datetime,
+    get_class_from_settings,
+    render_email_template,
+    send_mail,
 )
 from NEMO.views.customization import (
-	ApplicationCustomization,
-	EmailsCustomization,
-	ToolCustomization,
-	get_media_file_contents,
+    ApplicationCustomization,
+    EmailsCustomization,
+    ToolCustomization,
+    get_media_file_contents,
 )
 
 
@@ -1099,7 +1099,7 @@ def accessory_conflicts_for_reservation(reservation: Reservation, accessories: L
         reservation_qs = reservation_qs.exclude(start__lt=reservation.start, end__lte=reservation.start)
         reservation_qs = reservation_qs.exclude(start__gte=reservation.end, end__gt=reservation.end)
         if cancelled_reservation:
-            reservation_qs.exclude(id=cancelled_reservation.id)
+            reservation_qs = reservation_qs.exclude(id=cancelled_reservation.id)
         if reservation_qs.exists():
             conflicts[accessory.name] = list(reservation_qs.order_by("start"))
     return conflicts
