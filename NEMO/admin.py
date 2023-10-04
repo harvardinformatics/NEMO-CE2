@@ -274,7 +274,7 @@ class ToolAdmin(admin.ModelAdmin):
 		"has_post_usage_questions",
 		"id",
 	)
-	filter_horizontal = ("_backup_owners", "_superusers", "_adjustment_request_reviewers", "_grant_access_for_qualification_levels", "_shadowing_verification_request_qualification_levels")
+	filter_horizontal = ("_backup_owners", "_superusers", "_adjustment_request_reviewers", "_shadowing_verification_reviewers", "_grant_access_for_qualification_levels", "_shadowing_verification_request_qualification_levels")
 	search_fields = ("name", "_description", "_serial")
 	list_filter = ("visible", "_operational", "_category", "_location", ("_requires_area_access", admin.RelatedOnlyFieldListFilter))
 	readonly_fields = ("_post_usage_preview",)
@@ -309,7 +309,7 @@ class ToolAdmin(admin.ModelAdmin):
 				)
 			},
 		),
-		("Approval", {"fields": ("_adjustment_request_reviewers",)}),
+		("Approval", {"fields": ("_adjustment_request_reviewers", "_shadowing_verification_reviewers")}),
 		("Reservation", {"fields": ("_reservation_horizon", "_missed_reservation_threshold")}),
 		(
 			"Usage policy",

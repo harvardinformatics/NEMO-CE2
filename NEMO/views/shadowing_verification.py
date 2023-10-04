@@ -11,7 +11,6 @@ from django.views.decorators.http import require_GET, require_http_methods
 from NEMO.decorators import staff_member_or_manager_required
 from NEMO.forms import ShadowingVerificationRequestForm
 from NEMO.models import (Notification, QualificationLevel, RequestStatus, ShadowingVerificationRequest, Tool, User)
-from NEMO.typing import QuerySetType
 from NEMO.utilities import (
 	BasicDisplayTable,
 	EmailCategory,
@@ -45,13 +44,25 @@ def shadowing_verification_requests(request):
 	shadowing_verification_request_title = ShadowingVerificationCustomization.get(
 		"shadowing_verification_request_title"
 	)
-	requests = ShadowingVerificationRequest.objects.filter(deleted=False)
-	if not user.is_facility_manager and not user.is_staff:
-		requests = requests.filter(creator=user)
+	shadowing_verifications = ShadowingVerificationRequest.objects.filter(deleted=False)
+	my_requests = shadowing_verifications.filter(creator=user)
+
+	user_is_reviewer = is_user_a_reviewer(user)
+	user_is_staff = user.is_facility_manager or user.is_staff
+	if not user_is_reviewer and not user_is_staff:
+		shadowing_verifications = my_requests
+	elif user_is_reviewer:
+		# show all requests the user can review (+ his requests), exclude the rest
+		exclude = []
+		for shadowing_verification in shadowing_verifications:
+			if user != shadowing_verification.creator and user not in shadowing_verification.reviewers():
+				exclude.append(shadowing_verification.pk)
+		shadowing_verifications = shadowing_verifications.exclude(pk__in=exclude)
 
 	allowed_tools_exist = get_tools_and_qualification_levels().exists()
 	facility_managers_exist = User.objects.filter(is_active=True, is_facility_manager=True).exists()
-	feature_enabled = facility_managers_exist and (allowed_tools_exist or requests.exists)
+	reviewers_exist = facility_managers_exist or Tool.objects.filter(_shadowing_verification_reviewers__isnull=False).exists()
+	feature_enabled = shadowing_verifications.exists() or allowed_tools_exist and reviewers_exist
 	dictionary = {
 		"feature_enabled": feature_enabled,
 		"shadowing_verification_request_title": shadowing_verification_request_title,
@@ -59,24 +70,20 @@ def shadowing_verification_requests(request):
 	if feature_enabled:
 		qualification_levels_exist = QualificationLevel.objects.exists()
 		dictionary.update({
-			"pending_requests": requests.filter(status=RequestStatus.PENDING)[:max_requests],
-			"approved_requests": requests.filter(status=RequestStatus.APPROVED)[:max_requests],
-			"denied_requests": requests.filter(status=RequestStatus.DENIED)[:max_requests],
+			"pending_requests": shadowing_verifications.filter(status=RequestStatus.PENDING)[:max_requests],
+			"approved_requests": shadowing_verifications.filter(status=RequestStatus.APPROVED)[:max_requests],
+			"denied_requests": shadowing_verifications.filter(status=RequestStatus.DENIED)[:max_requests],
 			"feature_description": ShadowingVerificationCustomization.get("shadowing_verification_request_description"),
-			"request_notifications": get_notifications(
-				request.user,
-				Notification.Types.SHADOWING_VERIFICATION_REQUEST,
-				delete=not user.is_facility_manager,
-			),
+			"request_notifications": get_notifications(request.user, Notification.Types.SHADOWING_VERIFICATION_REQUEST, delete=False),
 			"qualification_levels_exist": qualification_levels_exist,
 			"allowed_tools_exist": allowed_tools_exist,
-			"table_col_number": 4 + (1 if user.is_facility_manager else 0) + (1 if qualification_levels_exist else 0),
+			"table_col_number": 4 + (1 if user_is_reviewer else 0) + (1 if qualification_levels_exist else 0),
+			"user_is_reviewer": user_is_reviewer
 		})
-	return render(
-		request,
-		"shadowing_verification/shadowing_verification_requests.html",
-		dictionary,
-	)
+
+	# Delete notifications for seen requests
+	Notification.objects.filter(user=request.user, notification_type=Notification.Types.SHADOWING_VERIFICATION_REQUEST, object_id__in=my_requests).delete()
+	return render(request,"shadowing_verification/shadowing_verification_requests.html", dictionary)
 
 
 @login_required
@@ -107,7 +114,7 @@ def create_shadowing_verification_request(request, request_id=None):
 		if form.is_valid():
 			if not edit:
 				form.instance.creator = user
-			if edit and user.is_facility_manager:
+			if edit and user in shadowing_verification_request.reviewers():
 				handle_decision(request, user, shadowing_verification_request)
 
 			form.instance.last_updated_by = user
@@ -173,8 +180,8 @@ def create_request_post_form(request, user, edit, shadowing_verification_request
 			errors.append("You are not allowed to edit deleted requests.")
 		if shadowing_verification_request.status != RequestStatus.PENDING:
 			errors.append("Only pending requests can be modified.")
-		if shadowing_verification_request.creator != user and not user.is_facility_manager:
-			errors.append("You are not allowed to edit a request you didn't create.")
+		if shadowing_verification_request.creator != user and not user in shadowing_verification_request.reviewers():
+			errors.append("You are not allowed to edit this request.")
 
 	# add errors to the form for better display
 	for error in errors:
@@ -202,9 +209,9 @@ def handle_decision(request, user, shadowing_verification_request):
 
 
 def handle_emails_and_notifications(request, edit, user, shadowing_verification_request):
-	managers_to_notify: Set[User] = set(list(managers_for_request()))
+	reviewers: Set[User] = set(shadowing_verification_request.reviewers())
 
-	create_shadowing_verification_request_notification(shadowing_verification_request, managers_to_notify)
+	create_shadowing_verification_request_notification(shadowing_verification_request)
 
 	if edit:
 		# remove notification for current user and other facility managers
@@ -213,14 +220,13 @@ def handle_emails_and_notifications(request, edit, user, shadowing_verification_
 			shadowing_verification_request.id,
 			[user],
 		)
-		if user.is_facility_manager:
-			managers = User.objects.filter(is_active=True, is_facility_manager=True)
+		if user in reviewers:
 			delete_notification(
 				Notification.Types.SHADOWING_VERIFICATION_REQUEST,
 				shadowing_verification_request.id,
-				managers,
+				reviewers,
 			)
-	send_request_received_email(request, shadowing_verification_request, edit, managers_to_notify)
+	send_request_received_email(request, shadowing_verification_request, edit, reviewers)
 
 
 @login_required
@@ -243,16 +249,16 @@ def send_request_received_email(
 		request,
 		shadowing_verification_request: ShadowingVerificationRequest,
 		edit,
-		facility_managers: Set[User],
+		reviewers: Set[User],
 ):
 	shadowing_verification_request_notification_email = get_media_file_contents(
 		"shadowing_verification_notification_email.html"
 	)
 	if shadowing_verification_request_notification_email:
 		# reviewers
-		manager_emails = [
+		reviewer_emails = [
 			email
-			for user in facility_managers
+			for user in reviewers
 			for email in user.get_emails(
 				user.get_preferences().email_send_shadowing_verification_updates
 			)
@@ -297,7 +303,7 @@ def send_request_received_email(
 				subject=f"Shadowing verification for the {shadowing_verification_request.tool.name} {status}",
 				content=message,
 				from_email=shadowing_verification_request.creator.email,
-				to=manager_emails,
+				to=reviewer_emails,
 				cc=ccs,
 				email_category=EmailCategory.SHADOWING_VERIFICATION_REQUESTS,
 			)
@@ -307,7 +313,7 @@ def send_request_received_email(
 				content=message,
 				from_email=shadowing_verification_request.reviewer.email,
 				to=creator_emails,
-				cc=manager_emails,
+				cc=reviewer_emails,
 				email_category=EmailCategory.SHADOWING_VERIFICATION_REQUESTS,
 			)
 
@@ -353,5 +359,6 @@ def shadowing_verification_requests_csv_export(request_list: List[ShadowingVerif
 	return response
 
 
-def managers_for_request() -> QuerySetType[User]:
-	return User.objects.filter(is_active=True, is_facility_manager=True)
+def is_user_a_reviewer(user: User) -> bool:
+	is_reviewer_on_any_tool = Tool.objects.filter(_shadowing_verification_reviewers__in=[user]).exists()
+	return user.is_facility_manager or is_reviewer_on_any_tool

@@ -457,9 +457,8 @@ class TemporaryPhysicalAccessRequest(BaseModel):
 	def reviewers(self) -> QuerySetType[User]:
 		# Create the list of users to notify/show request to. If the physical access request area's
 		# list of reviewers is empty, send/show to all facility managers
-		area: Area = self.physical_access_level.area
 		facility_managers = User.objects.filter(is_active=True, is_facility_manager=True)
-		area_reviewers = area.access_request_reviewers.filter(is_active=True)
+		area_reviewers = self.physical_access_level.area.access_request_reviewers.filter(is_active=True)
 		return area_reviewers or facility_managers
 
 	def clean(self):
@@ -610,27 +609,6 @@ class User(BaseModel, PermissionsMixin):
 					"is_service_personnel": "A user cannot be both staff and service personnel. Please choose one or the other.",
 				}
 			)
-
-	def has_perm(self, perm, obj=None):
-		"""
-		Returns True if the user has each of the specified permissions. If
-		object is passed, it checks if the user has all required perms for this object.
-		"""
-
-		# Active administrators have all permissions.
-		if self.is_active and self.is_superuser:
-			return True
-
-		# Otherwise we need to check the backends.
-		for backend in auth.get_backends():
-			if hasattr(backend, "has_perm"):
-				if obj is not None:
-					if backend.has_perm(self, perm, obj):
-						return True
-				else:
-					if backend.has_perm(self, perm):
-						return True
-		return False
 
 	def has_perms(self, perm_list, obj=None):
 		for perm in perm_list:
@@ -804,19 +782,6 @@ class User(BaseModel, PermissionsMixin):
 				return self in adjustment_request.reviewers()
 		return general_permission
 
-	def has_perm(self, perm, obj=None):
-		# By default we don't use the actual object, similar to django admin
-		general_permission = super().has_perm(perm)
-		if general_permission:
-			return True
-		# For charges, the reviewer of an adjustment request for that charge can also edit it
-		if obj and issubclass(type(obj), BillableItemMixin):
-			# If there is an approved adjustment request for this charge, check if the user is a reviewer
-			adjustment_request: AdjustmentRequest = AdjustmentRequest.objects.filter(status=RequestStatus.APPROVED, deleted=False, item_id=obj.id, item_type=ContentType.objects.get_for_model(obj)).first()
-			if adjustment_request:
-				return self in adjustment_request.reviewers()
-		return general_permission
-
 	@classmethod
 	def get_email_field_name(cls):
 		return 'email'
@@ -889,6 +854,7 @@ class Tool(SerializationByNameModel):
 	# Shadowing Verification Request fields:
 	_allow_user_shadowing_verification_request = models.BooleanField(default=False, help_text="Allow users to request qualification on this tool through shadowing verification.")
 	_shadowing_verification_request_qualification_levels = models.ManyToManyField('QualificationLevel', default=False, blank=True, related_name="shadowing_verification_request_qualification_levels", help_text="Qualification Levels that users can request on this tool through shadowing verification.")
+	_shadowing_verification_reviewers = models.ManyToManyField(User, db_table='NEMO_tool_shadowing_verification_reviewers', blank=True, related_name="shadowing_verification_reviewer_on_tools", help_text="Users who can approve/deny shadowing verification for this tool. Defaults to facility managers if left blank.")
 
 	class Meta:
 		ordering = ["name"]
@@ -1207,6 +1173,15 @@ class Tool(SerializationByNameModel):
 	def shadowing_verification_request_qualification_levels(self, value):
 		self.raise_setter_error_if_child_tool("shadowing_verification_request_qualification_levels")
 		self._shadowing_verification_request_qualification_levels = value
+
+	@property
+	def shadowing_verification_reviewers(self):
+		return self.parent_tool._shadowing_verification_reviewers if self.is_child_tool() else self._shadowing_verification_reviewers
+
+	@shadowing_verification_reviewers.setter
+	def shadowing_verification_reviewers(self, value):
+		self.raise_setter_error_if_child_tool("shadowing_verification_reviewers")
+		self._shadowing_verification_reviewers = value
 
 	def apply_grant_access(self, qualification_level: QualificationLevel = None) -> bool:
 		return (
@@ -2776,7 +2751,7 @@ class Notification(BaseModel):
 			(ADJUSTMENT_REQUEST_REPLY, 'New adjustment request reply - notifies request creator and users who have replied'),
 			(TEMPORARY_ACCESS_REQUEST, 'New access request - notifies other users on request and reviewers'),
 			(TRAINING_REQUEST, 'New training request - notifies trainers only'),
-			(SHADOWING_VERIFICATION_REQUEST, 'New shadowing verification request - notifies facility managers only'),
+			(SHADOWING_VERIFICATION_REQUEST, 'New shadowing verification request - notifies reviewers only'),
 			(TRAINING_INVITATION, 'New training invitation - notifies invited users'),
 			(TRAINING_ALL, 'All training notifications')
 		)
@@ -3039,7 +3014,7 @@ class AdjustmentRequest(BaseModel):
 		area: Area = getattr(self.item, "area", None) if self.item else None
 		facility_managers = User.objects.filter(is_active=True, is_facility_manager=True)
 		if tool:
-			tool_reviewers = tool._adjustment_request_reviewers.filter(is_active=True)
+			tool_reviewers = tool.adjustment_request_reviewers.filter(is_active=True)
 			return tool_reviewers or facility_managers
 		if area:
 			area_reviewers = area.adjustment_request_reviewers.filter(is_active=True)
@@ -3077,6 +3052,13 @@ class ShadowingVerificationRequest(BaseModel):
 	status = models.IntegerField(choices=RequestStatus.choices_without_expired(), default=RequestStatus.PENDING)
 	reviewer = models.ForeignKey("User", null=True, blank=True, related_name='qualification_requests_reviewed', on_delete=models.CASCADE)
 	deleted = models.BooleanField(default=False, help_text="Indicates the request has been deleted and won't be shown anymore.")
+
+	def reviewers(self) -> QuerySetType[User]:
+		# Create the list of users to notify/show request to. If the shadowing tool's
+		# list of reviewers is empty, send/show to all facility managers
+		facility_managers = User.objects.filter(is_active=True, is_facility_manager=True)
+		tool_shadow_reviewers = self.tool.shadowing_verification_reviewers.filter(is_active=True)
+		return tool_shadow_reviewers or facility_managers
 
 	def clean(self):
 		errors = {}

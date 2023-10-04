@@ -17,7 +17,7 @@
                     {{ form.non_field_errors }}
                 </div>
             {% endif %}
-            {% if instance_id and user.is_facility_manager %}
+            {% if instance_id and user in form.instance.reviewers %}
                 <div class="form-group">
                     <div class="row">
                         <div class="col-sm-6">
@@ -51,7 +51,7 @@
             </div>
             <div class="text-right">
                 {% if form.instance.get_status_display == "Pending" %}
-                    {% if instance_id and user.is_facility_manager %}
+                    {% if instance_id and user in form.instance.reviewers %}
                         {% button type="save" submit=False name="approve_request" title="Approve request" icon="glyphicon-ok-circle" value="Approve" onclick="confirm_review_dialog(this);" %}
                         {% button type="delete" submit=False name="deny_request" title="Deny request" icon="glyphicon-ban-circle" value="Deny" onclick="confirm_review_dialog(this);" %}
                     {% endif %}
