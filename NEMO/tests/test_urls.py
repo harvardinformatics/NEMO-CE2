@@ -142,6 +142,12 @@ urls_to_skip += [
 	"review_training_request",
 	"decline_training_request",
 ]
+# Skip shadowing verification URLs that need the feature to be enabled or a request to exist
+urls_to_skip += [
+	"create_shadowing_verification",
+	"edit_shadowing_verification",
+	"delete_shadowing_verification"
+]
 
 
 class URLsTestCase(TestCase):

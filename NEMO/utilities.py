@@ -164,6 +164,7 @@ class EmailCategory(object):
 	SENSORS = 10
 	ADJUSTMENT_REQUESTS = 11
 	TRAINING = 12
+	SHADOWING_VERIFICATION_REQUESTS = 1001
 	Choices = (
 		(GENERAL, "General"),
 		(SYSTEM, "System"),
@@ -178,6 +179,7 @@ class EmailCategory(object):
 		(SENSORS, "Sensors"),
 		(ADJUSTMENT_REQUESTS, "Adjustment Requests"),
 		(TRAINING, "Training"),
+		(SHADOWING_VERIFICATION_REQUESTS, "Shadowing Verification Requests"),
 	)
 
 

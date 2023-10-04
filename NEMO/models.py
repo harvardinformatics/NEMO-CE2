@@ -40,9 +40,11 @@ from NEMO.utilities import (
 	EmailCategory,
 	RecurrenceFrequency,
 	as_timezone,
+	beginning_of_the_day,
 	bootstrap_primary_color,
 	distinct_qs_value_list,
 	document_filename_upload,
+	end_of_the_day,
 	format_daterange,
 	format_datetime,
 	get_chemical_document_filename,
@@ -287,6 +289,7 @@ class UserPreferences(BaseModel):
 	email_send_buddy_request_replies = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Buddy request replies")
 	email_send_access_request_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Access request updates")
 	email_send_adjustment_request_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Adjustment request updates")
+	email_send_shadowing_verification_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Shadowing verification updates")
 	email_send_broadcast_emails = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Broadcast emails")
 	email_send_task_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Task updates")
 	email_send_access_expiration_emails = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Access expiration reminders")
@@ -848,6 +851,9 @@ class Tool(SerializationByNameModel):
 	_policy_off_start_time = models.TimeField(db_column="policy_off_start_time", null=True, blank=True, help_text="The start time when policy rules should NOT be enforced")
 	_policy_off_end_time = models.TimeField(db_column="policy_off_end_time", null=True, blank=True, help_text="The end time when policy rules should NOT be enforced")
 	_policy_off_weekend = models.BooleanField(db_column="policy_off_weekend", default=False, help_text="Whether or not policy rules should be enforced on weekends")
+	# Shadowing Verification Request fields:
+	_allow_user_shadowing_verification_request = models.BooleanField(default=False, help_text="Allow users to request qualification on this tool through shadowing verification.")
+	_shadowing_verification_request_qualification_levels = models.ManyToManyField('QualificationLevel', default=False, blank=True, related_name="shadowing_verification_request_qualification_levels", help_text="Qualification Levels that users can request on this tool through shadowing verification.")
 
 	class Meta:
 		ordering = ["name"]
@@ -1139,6 +1145,24 @@ class Tool(SerializationByNameModel):
 	def tool_calendar_color(self, value):
 		self.raise_setter_error_if_child_tool("tool_calendar_color")
 		self._tool_calendar_color = value
+
+	@property
+	def allow_user_shadowing_verification_request(self):
+		return self.parent_tool._allow_user_shadowing_verification_request if self.is_child_tool() else self._allow_user_shadowing_verification_request
+
+	@allow_user_shadowing_verification_request.setter
+	def allow_user_shadowing_verification_request(self, value):
+		self.raise_setter_error_if_child_tool("allow_user_shadowing_verification_request")
+		self._allow_user_shadowing_verification_request = value
+
+	@property
+	def shadowing_verification_request_qualification_levels(self):
+		return self.parent_tool._shadowing_verification_request_qualification_levels if self.is_child_tool() else self._shadowing_verification_request_qualification_levels
+
+	@shadowing_verification_request_qualification_levels.setter
+	def shadowing_verification_request_qualification_levels(self, value):
+		self.raise_setter_error_if_child_tool("shadowing_verification_request_qualification_levels")
+		self._shadowing_verification_request_qualification_levels = value
 
 	def apply_grant_access(self, qualification_level: QualificationLevel = None) -> bool:
 		return (
@@ -2692,6 +2716,7 @@ class Notification(BaseModel):
 		ADJUSTMENT_REQUEST_REPLY = 'adjustmentrequestmessage'
 		TEMPORARY_ACCESS_REQUEST = 'temporaryphysicalaccessrequest'
 		TRAINING_REQUEST = 'trainingrequest'
+		SHADOWING_VERIFICATION_REQUEST = 'shadowingverificationnrequest'
 		TRAINING_INVITATION = 'traininginvitation'
 		TRAINING_ALL = 'trainingall'
 		Choices = (
@@ -2703,6 +2728,7 @@ class Notification(BaseModel):
 			(ADJUSTMENT_REQUEST_REPLY, 'New adjustment request reply - notifies request creator and users who have replied'),
 			(TEMPORARY_ACCESS_REQUEST, 'New access request - notifies other users on request and reviewers'),
 			(TRAINING_REQUEST, 'New training request - notifies trainers only'),
+			(SHADOWING_VERIFICATION_REQUEST, 'New shadowing verification request - notifies facility managers only'),
 			(TRAINING_INVITATION, 'New training invitation - notifies invited users'),
 			(TRAINING_ALL, 'All training notifications')
 		)
@@ -2975,6 +3001,48 @@ class AdjustmentRequest(BaseModel):
 
 	class Meta:
 		ordering = ['-creation_time']
+
+
+class ShadowingVerificationRequest(BaseModel):
+	creation_time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the request was created.")
+	creator = models.ForeignKey("User", related_name='qualification_requests_created', on_delete=models.CASCADE)
+	last_updated = models.DateTimeField(auto_now=True, help_text="The last time this request was modified.")
+	last_updated_by = models.ForeignKey("User", null=True, blank=True, related_name="qualification_requests_updated", help_text="The last user who modified this request.", on_delete=models.SET_NULL)
+	description = models.TextField(null=False, blank=False, help_text="The description of the request.")
+	tool = models.ForeignKey(Tool, help_text="The tool that the user is requesting a shadowing verification for.", on_delete=models.CASCADE)
+	qualification_level = models.ForeignKey(QualificationLevel, null=True, blank=True, help_text="The qualification level that the user is requesting.", on_delete=models.PROTECT)
+	event_date = models.DateField(help_text="The date of the shadowing event.")
+	shadowed_qualified_user = models.ForeignKey("User", related_name="qualification_requests_shadowed_qualified_user", help_text="The qualified user who was shadowed.", on_delete=models.CASCADE)
+	status = models.IntegerField(choices=RequestStatus.choices_without_expired(), default=RequestStatus.PENDING)
+	reviewer = models.ForeignKey("User", null=True, blank=True, related_name='qualification_requests_reviewed', on_delete=models.CASCADE)
+	deleted = models.BooleanField(default=False, help_text="Indicates the request has been deleted and won't be shown anymore.")
+
+	def clean(self):
+		errors = {}
+		# Check tool
+		if self.tool_id and not self.tool.allow_user_shadowing_verification_request:
+			errors['tool'] = 'This tool does not allow shadowing verification.'
+		# Check qualification level
+		if QualificationLevel.objects.exists():
+			if not self.qualification_level:
+				if self.tool.shadowing_verification_request_qualification_levels.exists():
+					errors['qualification_level'] = 'Qualification level is required.'
+				else:
+					errors['tool'] = 'This tool does not allow shadowing verification.'
+			elif hasattr(self, 'tool') and not self.tool.shadowing_verification_request_qualification_levels.filter(id=self.qualification_level.id).exists():
+				errors['qualification_level'] = 'This qualification level cannot be requested for tool.'
+		if self.tool_id and self.shadowed_qualified_user and self.event_date:
+			event_datetime = datetime.datetime(self.event_date.year, self.event_date.month, self.event_date.day)
+			# Filter usages by shadowed user and too
+			usages = UsageEvent.objects.filter(user=self.shadowed_qualified_user, tool=self.tool)
+			# Exclude all the usages that started after the shadowing date
+			usages = usages.exclude(start__gt=end_of_the_day(event_datetime))
+			# Exclude all the usages that ended before the shadowing date
+			usages = usages.exclude(end__lte=beginning_of_the_day(event_datetime))
+			if not usages.exists():
+				errors['shadowed_qualified_user'] = '%s did not use the %s on %s' % (self.shadowed_qualified_user.get_name(), self.tool.name, format_datetime(self.event_date, "DATE_FORMAT"))
+		if len(errors) != 0:
+			raise ValidationError(errors)
 
 
 class RequestMessage(BaseModel):

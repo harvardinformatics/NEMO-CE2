@@ -48,6 +48,7 @@ from NEMO.views import (
 	remote_work,
 	resources,
 	safety,
+	shadowing_verification,
 	sidebar,
 	status_dashboard,
 	tasks,
@@ -175,6 +176,13 @@ urlpatterns += [
 	path("adjustment_request_reply/<int:request_id>/", adjustment_requests.adjustment_request_reply, name="adjustment_request_reply"),
 	path("export_adjustment_requests/", adjustment_requests.csv_export, name="export_adjustment_requests"),
 	path("delete_adjustment_request/<int:request_id>/", adjustment_requests.delete_adjustment_request, name="delete_adjustment_request"),
+
+	# Shadowing Verification requests
+	path("shadowing_verifications/", shadowing_verification.shadowing_verification_requests, name="shadowing_verifications"),
+	path("create_shadowing_verification/", shadowing_verification.create_shadowing_verification_request, name="create_shadowing_verification"),
+	path("edit_shadowing_verification/<int:request_id>/", shadowing_verification.create_shadowing_verification_request, name="edit_shadowing_verification"),
+	path("export_shadowing_verification/", shadowing_verification.csv_export, name="export_shadowing_verification"),
+	path("delete_shadowing_verification/<int:request_id>/", shadowing_verification.delete_shadowing_verification_request, name="delete_shadowing_verification"),
 
 	# Tasks:
 	path("create_task/", tasks.create, name="create_task"),

@@ -6,6 +6,7 @@ from django.utils.safestring import mark_safe
 from NEMO.models import Area, Interlock, Qualification, Tool, User
 from NEMO.views.access_requests import access_csv_export
 from NEMO.views.adjustment_requests import adjustments_csv_export
+from NEMO.views.shadowing_verification import shadowing_verification_requests_csv_export
 
 
 @admin.action(description="Lock selected interlocks")
@@ -79,7 +80,8 @@ def duplicate_tool_configuration(model_admin, request, queryset):
 				old_nonrequired_resources = tool.nonrequired_resource_set.all()
 				old_backup_users = tool.backup_owners.all()
 				old_superusers = tool.superusers.all()
-				old_qualified_users = User.objects.filter(qualifications__id=tool.pk).distinct()
+				old_shadowing_verification_request_qualification_levels = tool.shadowing_verification_request_qualification_levels.all()
+				old_id = tool.pk
 				tool.pk = None
 				tool.interlock = None
 				tool.visible = False
@@ -93,8 +95,9 @@ def duplicate_tool_configuration(model_admin, request, queryset):
 				tool.nonrequired_resource_set.set(old_nonrequired_resources)
 				tool.backup_owners.set(old_backup_users)
 				tool.superusers.set(old_superusers)
-				for user in old_qualified_users:
-					qualification_level = Qualification.objects.get(user=user, tool=tool).qualification_level
+				tool.shadowing_verification_request_qualification_levels.set(old_shadowing_verification_request_qualification_levels)
+				for user in User.objects.filter(qualifications__id=old_id).distinct():
+					qualification_level = Qualification.objects.get(user=user, tool__id=old_id).qualification_level
 					user.add_qualification(tool, qualification_level)
 				messages.success(
 					request,
@@ -121,3 +124,8 @@ def adjustment_requests_export_csv(modeladmin, request, queryset):
 @admin.action(description="Export selected access requests in CSV")
 def access_requests_export_csv(modeladmin, request, queryset):
 	return access_csv_export(queryset.all())
+
+
+@admin.action(description="Export selected shadowing verification requests in CSV")
+def shadowing_verification_requests_export_csv(modeladmin, request, queryset):
+	return shadowing_verification_requests_csv_export(queryset.all())

@@ -9,6 +9,7 @@ from NEMO.models import (
 	BuddyRequest,
 	Notification,
 	RequestMessage,
+	ShadowingVerificationRequest,
 	TemporaryPhysicalAccessRequest,
 	TrainingInvitation,
 	TrainingRequest,
@@ -155,3 +156,21 @@ def create_training_invitation_notification(training_invitation: TrainingInvitat
 		notification_type=Notification.Types.TRAINING_INVITATION,
 		defaults={"expiration": expiration}
 	)
+
+
+def create_shadowing_verification_request_notification(
+	request: ShadowingVerificationRequest, users_to_notify: Set[User]
+):
+	users_to_notify.add(request.creator)
+	expiration = timezone.now() + timedelta(days=30)  # 30 days for shadowing verification requests to expire
+
+	for user in users_to_notify:
+		# Only update users other than the one who last updated it
+		if not request.last_updated_by or request.last_updated_by != user:
+			Notification.objects.get_or_create(
+				user=user,
+				notification_type=Notification.Types.SHADOWING_VERIFICATION_REQUEST,
+				content_type=ContentType.objects.get_for_model(request),
+				object_id=request.id,
+				defaults={"expiration": expiration},
+			)
