@@ -10,6 +10,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.db.models.fields.files import FieldFile
 from django.forms import BaseInlineFormSet
@@ -26,6 +27,7 @@ from NEMO.actions import (
 	duplicate_tool_configuration,
 	lock_selected_interlocks,
 	rebuild_area_tree,
+	shadowing_verification_requests_export_csv,
 	synchronize_with_tool_usage,
 	unlock_selected_interlocks,
 )
@@ -84,6 +86,7 @@ from NEMO.models import (
 	SafetyTraining,
 	ScheduledOutage,
 	ScheduledOutageCategory,
+	ShadowingVerificationRequest,
 	StaffAbsence,
 	StaffAbsenceType,
 	StaffAvailability,
@@ -189,6 +192,15 @@ class ToolAdminForm(forms.ModelForm):
 	def clean(self):
 		cleaned_data = super().clean()
 		image = cleaned_data.get("_image")
+		errors = {}
+
+		# Validate shadowing verification attributes
+		if QualificationLevel.objects.exists():
+			if cleaned_data['_allow_user_shadowing_verification_request'] and not cleaned_data['_shadowing_verification_request_qualification_levels'].exists():
+				errors["_shadowing_verification_request_qualification_levels"] = "Qualification levels are required."
+			elif not cleaned_data['_allow_user_shadowing_verification_request'] and cleaned_data['_shadowing_verification_request_qualification_levels'].exists():
+				errors["_allow_user_shadowing_verification_request"] = "You cannot set qualification levels without allowing user shadowing verification."
+				errors["_shadowing_verification_request_qualification_levels"] = "You cannot set qualification levels without allowing user shadowing verification."
 
 		# only resize if an image is present and has changed
 		if image and not isinstance(image, FieldFile):
@@ -197,6 +209,8 @@ class ToolAdminForm(forms.ModelForm):
 			# resize image to 500x500 maximum
 			cleaned_data["_image"] = resize_image(image, 500)
 
+		if len(errors) != 0:
+			raise ValidationError(errors)
 		return cleaned_data
 
 
@@ -279,7 +293,7 @@ class ToolAdmin(admin.ModelAdmin):
 		"has_post_usage_questions",
 		"id",
 	)
-	filter_horizontal = ("_backup_owners", "_superusers", "_grant_access_for_qualification_levels")
+	filter_horizontal = ("_backup_owners", "_superusers", "_grant_access_for_qualification_levels", "_shadowing_verification_request_qualification_levels")
 	search_fields = ("name", "_description", "_serial")
 	list_filter = ("visible", "_operational", "_category", "_location", ("_requires_area_access", admin.RelatedOnlyFieldListFilter))
 	readonly_fields = ("_post_usage_preview",)
@@ -346,6 +360,15 @@ class ToolAdmin(admin.ModelAdmin):
 			},
 		),
 		("Dependencies", {"fields": ("required_resources", "nonrequired_resources")}),
+		(
+			"Shadowing Verification",
+			{
+				"fields": (
+					"_allow_user_shadowing_verification_request",
+					"_shadowing_verification_request_qualification_levels"
+				)
+			}
+		)
 	)
 
 	@admin.display(description="Questions", ordering="post_usage_questions", boolean=True)
@@ -1527,6 +1550,14 @@ class AdjustmentRequestAdmin(admin.ModelAdmin):
 	@admin.display(description="Item")
 	def get_item(self, adjustment_request: AdjustmentRequest):
 		return admin_get_item(adjustment_request.item_type, adjustment_request.item_id)
+
+
+@register(ShadowingVerificationRequest)
+class ShadowingVerificationRequestAdmin(admin.ModelAdmin):
+	list_display = ("creator", "last_updated", "tool", "qualification_level", "event_date", "shadowed_qualified_user", "get_status_display", "deleted")
+	list_filter = ("status", "deleted", ("creator", admin.RelatedOnlyFieldListFilter), ("reviewer", admin.RelatedOnlyFieldListFilter))
+	date_hierarchy = "last_updated"
+	actions = [shadowing_verification_requests_export_csv]
 
 
 @register(StaffAbsenceType)

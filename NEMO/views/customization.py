@@ -281,6 +281,16 @@ class InterlockCustomization(CustomizationBase):
 	}
 
 
+@customization(key="shadowing_verification", title="Shadowing Verification")
+class ShadowingVerificationCustomization(CustomizationBase):
+	variables = {
+		"shadowing_verification_request_title": "Shadowing Verifications",
+		"shadowing_verification_request_display_max": "",
+		"shadowing_verification_request_description_placeholder": "Please describe techniques used, processed, tool mode etc",
+		"shadowing_verification_request_description": "",
+	}
+
+
 @customization(key="requests", title="User requests")
 class UserRequestsCustomization(CustomizationBase):
 	frequencies = [RecurrenceFrequency.DAILY, RecurrenceFrequency.WEEKLY, RecurrenceFrequency.MONTHLY]
@@ -514,6 +524,7 @@ class TemplatesCustomization(CustomizationBase):
 		("reservation_cancelled_user_email", ".html"),
 		("weekend_access_email", ".html"),
 		("recurring_charges_reminder_email", ".html"),
+		("shadowing_verification_notification_email", ".html"),
 	]
 
 

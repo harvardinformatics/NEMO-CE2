@@ -29,6 +29,7 @@ from NEMO.models import (
 	Consumable,
 	ConsumableWithdraw,
 	Project,
+	ShadowingVerificationRequest,
 	RecurringConsumableCharge,
 	ReservationItemType,
 	SafetyIssue,
@@ -448,6 +449,12 @@ class TemporaryPhysicalAccessRequestForm(ModelForm):
 class AdjustmentRequestForm(ModelForm):
 	class Meta:
 		model = AdjustmentRequest
+		exclude = ["creation_time", "creator", "last_updated", "last_updated_by", "status", "reviewer", "deleted"]
+
+
+class ShadowingVerificationRequestForm(ModelForm):
+	class Meta:
+		model = ShadowingVerificationRequest
 		exclude = ["creation_time", "creator", "last_updated", "last_updated_by", "status", "reviewer", "deleted"]
 
 
