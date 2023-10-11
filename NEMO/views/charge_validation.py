@@ -1,20 +1,20 @@
 from typing import Dict, List
 
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_POST
 
 from NEMO.decorators import staff_member_required
 from NEMO.models import (
-    AreaAccessRecord,
-    ConsumableWithdraw,
-    Reservation,
-    StaffCharge,
-    TrainingSession,
-    UsageEvent,
-    User,
+	AreaAccessRecord,
+	ConsumableWithdraw,
+	Reservation,
+	StaffCharge,
+	TrainingSession,
+	UsageEvent,
+	User,
 )
 from NEMO.views.adjustment_requests import adjustment_eligible_items
 from NEMO.views.customization import RemoteWorkCustomization, UserRequestsCustomization
@@ -111,24 +111,3 @@ def charges_to_validate(user: User) -> List:
         charge_filter["validated"] = False
         return adjustment_eligible_items(staff_charges_allowed, charge_filter, user)
     return []
-
-
-@login_required
-@require_GET
-@permission_required('NEMO.trigger_timed_services', raise_exception=True)
-def auto_validate_charges(request):
-    return do_auto_validate_charges()
-
-
-def do_auto_validate_charges():
-    if UserRequestsCustomization.get_bool("charges_validation_enabled"):
-        date_limit = UserRequestsCustomization.get_date_limit()
-        staff_charges_allowed = RemoteWorkCustomization.get_bool("remote_work_validation")
-        # We cannot auto-validate anything if there is no date limit
-        if date_limit:
-            charge_filter: Dict = {"end__lt": date_limit, "validated": False}
-            unvalidated_expired_charges = adjustment_eligible_items(staff_charges_allowed, charge_filter)
-            for unvalidated_charge in unvalidated_expired_charges:
-                unvalidated_charge.validated = True
-                unvalidated_charge.save(update_fields=["validated"])
-    return HttpResponse()

@@ -116,7 +116,7 @@ def compose_email(request):
 		audience = request.GET["audience"]
 		selection = request.GET.getlist("selection")
 		# Check if the user is allowed to broadcast email
-		error = check_user_allowed(request.user, audience, selection)
+		error = check_user_allowed(user, audience, selection)
 		if error:
 			return HttpResponseBadRequest(error)
 		no_type = request.GET.get("no_type") == "on"
@@ -124,14 +124,10 @@ def compose_email(request):
 	except:
 		dictionary = {"error": "You specified an invalid audience parameter"}
 		# Only render the email_broadcast page when user is staff member
-		if request.user.is_any_part_of_staff:
+		if user.is_any_part_of_staff:
 			return render(request, "email/email_broadcast.html", dictionary)
 		else:
 			return HttpResponseBadRequest("You specified an invalid audience parameter")
-	# Check if the user is allowed to broadcast email
-	error = check_user_allowed(user, audience, selection)
-	if error:
-		return HttpResponseBadRequest(error)
 	generic_email_sample = get_media_file_contents("generic_email.html")
 	dictionary = {
 		"audience": audience,

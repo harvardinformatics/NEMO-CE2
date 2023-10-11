@@ -13,14 +13,13 @@ from re import match
 from typing import Iterable, List, Optional, Set, Union
 
 from django.conf import settings
-from django.contrib import auth
 from django.contrib.auth.models import BaseUserManager, Group, Permission, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.validators import MinValueValidator
 from django.db import connections, models, transaction
-from django.db.models import Q, QuerySet
+from django.db.models import Q
 from django.db.models.manager import Manager
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
@@ -147,7 +146,7 @@ class BaseCategory(SerializationByNameModel):
 
 
 class BaseDocumentModel(BaseModel):
-	document = models.FileField(null=True, blank=True, upload_to=document_filename_upload, verbose_name='Document')
+	document = models.FileField(max_length=CHAR_FIELD_MAXIMUM_LENGTH, null=True, blank=True, upload_to=document_filename_upload, verbose_name='Document')
 	url = models.CharField(null=True, blank=True, max_length=200, verbose_name='URL')
 	name = models.CharField(null=True, blank=True, max_length=200, help_text="The optional name to display for this document")
 	uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -449,7 +448,7 @@ class TemporaryPhysicalAccessRequest(BaseModel):
 	reviewer = models.ForeignKey("User", null=True, blank=True, related_name='access_requests_reviewed', on_delete=models.CASCADE)
 	deleted = models.BooleanField(default=False, help_text="Indicates the request has been deleted and won't be shown anymore.")
 
-	def creator_and_other_users(self) -> Set:
+	def creator_and_other_users(self) -> Set[User]:
 		result = {self.creator}
 		result.update(self.other_users.all())
 		return result
@@ -474,7 +473,7 @@ class Closure(BaseModel):
 	alert_days_before = models.PositiveIntegerField(null=True, blank=True, help_text="Enter the number of days before the closure when an alert should automatically be created. Leave blank for no alert.")
 	alert_template = models.TextField(null=True, blank=True, help_text=mark_safe("The template to create the alert with. The following variables are provided (when applicable): <b>name</b>, <b>start_time</b>, <b>end_time</b>, <b>areas</b>."))
 	notify_managers_last_occurrence = models.BooleanField(default=True, help_text="Check this box to notify facility managers on the last occurrence of this closure.")
-	staff_absent = models.BooleanField(default=True, help_text="Check this box and all staff members will be marked absent during this closure in staff status.")
+	staff_absent = models.BooleanField(verbose_name="Staff absent entire day", default=True, help_text="Check this box and all staff members will be marked absent during this closure in staff status.")
 	physical_access_levels = models.ManyToManyField('PhysicalAccessLevel', blank=True, help_text="Select access levels this closure applies to.")
 
 	def __str__(self):
@@ -610,27 +609,6 @@ class User(BaseModel, PermissionsMixin):
 				}
 			)
 
-	def has_perms(self, perm_list, obj=None):
-		for perm in perm_list:
-			if not self.has_perm(perm, obj):
-				return False
-		return True
-
-	def has_module_perms(self, app_label):
-		"""
-		Returns True if the user has any permissions in the given app label.
-		Uses pretty much the same logic as has_perm, above.
-		"""
-		# Active administrators have all permissions.
-		if self.is_active and self.is_superuser:
-			return True
-
-		for backend in auth.get_backends():
-			if hasattr(backend, "has_module_perms"):
-				if backend.has_module_perms(self, app_label):
-					return True
-		return False
-
 	def check_password(self, raw_password):
 		return False
 
@@ -683,6 +661,11 @@ class User(BaseModel, PermissionsMixin):
 
 	def get_name(self):
 		return self.first_name + ' ' + self.last_name
+
+	def get_initials(self):
+		first_name_initial = self.first_name[0] if self.first_name else ""
+		last_name_initial = self.last_name[0] if self.last_name else ""
+		return first_name_initial + last_name_initial
 
 	def add_qualification(self, tool: Tool, qualification_level: QualificationLevel = None):
 		Qualification.objects.update_or_create(user=self, tool=tool, defaults={"qualification_level": qualification_level})
@@ -1381,7 +1364,7 @@ class Tool(SerializationByNameModel):
 		content = escape(loader.render_to_string("snippets/tool_info.html", {"tool": self}))
 		return f'<a href="javascript:;" data-title="{content}" data-tooltip-id="tooltip-tool-{self.id}" data-placement="bottom" class="tool-info-tooltip info-tooltip-container"><span class="glyphicon glyphicon-send small-icon"></span>{self.name_or_child_in_use_name()}</a>'
 
-	def trainers(self) -> QuerySet:
+	def trainers(self) -> QuerySetType[User]:
 		return User.objects.filter(Q(primary_tool_owner__in=[self])|Q(backup_for_tools__in=[self])|Q(superuser_for_tools__in=[self]))
 
 	def clean(self):
@@ -1391,7 +1374,7 @@ class Tool(SerializationByNameModel):
 				errors["parent_tool"] = "You cannot select the parent to be the tool itself."
 		else:
 			from NEMO.views.customization import ToolCustomization
-			from NEMO.widgets.dynamic_form import DynamicForm
+			from NEMO.widgets.dynamic_form import validate_dynamic_form_model
 			if not self._category:
 				errors["_category"] = "This field is required."
 			if not self._location and ToolCustomization.get_bool("tool_location_required"):
@@ -1403,15 +1386,9 @@ class Tool(SerializationByNameModel):
 
 			# Validate _post_usage_questions JSON format
 			if self._post_usage_questions:
-				try:
-					loads(self._post_usage_questions)
-				except ValueError:
-					errors["_post_usage_questions"] = "This field needs to be a valid JSON string"
-				try:
-					DynamicForm(self._post_usage_questions).validate("tool_usage_group_question", self.id)
-				except Exception:
-					error_info = sys.exc_info()
-					errors["_post_usage_questions"] = error_info[0].__name__ + ": " + str(error_info[1])
+				dynamic_form_errors = validate_dynamic_form_model(self._post_usage_questions, "tool_usage_group_question", self.id)
+				if dynamic_form_errors:
+					errors["_post_usage_questions"] = dynamic_form_errors
 
 			if self._policy_off_between_times and (not self._policy_off_start_time or not self._policy_off_end_time):
 				if not self._policy_off_start_time:
@@ -1674,6 +1651,7 @@ class Area(MPTTModel):
 	welcome_message = models.TextField(null=True, blank=True, help_text='The welcome message will be displayed on the tablet login page. You can use HTML and JavaScript.')
 	requires_reservation = models.BooleanField(default=False, help_text="Check this box to require a reservation for this area before a user can login.")
 	logout_grace_period = models.PositiveIntegerField(null=True, blank=True, help_text="Number of minutes users have to logout of this area after their reservation expired before being flagged and abuse email is sent.")
+	auto_logout_time = models.PositiveIntegerField(null=True, blank=True, help_text="Number of minutes after which users will be automatically logged out of this area.")
 	buddy_system_allowed = models.BooleanField(default=False, help_text="Check this box if the buddy system is allowed in this area.")
 
 	# Capacity
@@ -2035,11 +2013,11 @@ class Consumable(BaseModel):
 	quantity = models.IntegerField(help_text="The number of items currently in stock.")
 	reusable = models.BooleanField(default=False, help_text="Check this box if this item is reusable. The quantity of reusable items will not decrease when orders are made (storage bins for example).")
 	visible = models.BooleanField(default=True)
+	allow_self_checkout = models.BooleanField(default=True, help_text="Allow users to self checkout this consumable, only applicable when self checkout customization is enabled.")
+	notes = models.TextField(null=True, blank=True, help_text="Notes about the consumable.")
 	reminder_threshold = models.IntegerField(null=True, blank=True, help_text="More of this item should be ordered when the quantity falls below this threshold.")
 	reminder_email = models.EmailField(null=True, blank=True, help_text="An email will be sent to this address when the quantity of this item falls below the reminder threshold.")
 	reminder_threshold_reached = models.BooleanField(default=False)
-	allow_self_checkout = models.BooleanField(default=True, help_text="Allow users to self checkout this consumable, only applicable when self checkout customization is enabled.")
-	notes = models.TextField(null=True, blank=True, help_text="Notes about the consumable.")
 
 	class Meta:
 		ordering = ["name"]
@@ -2094,12 +2072,16 @@ class ConsumableWithdraw(BaseModel, BillableItemMixin):
 	quantity = models.PositiveIntegerField()
 	project = models.ForeignKey(Project, help_text="The withdraw will be billed to this project.", on_delete=models.CASCADE)
 	date = models.DateTimeField(default=timezone.now, help_text="The date and time when the user withdrew the consumable.")
-	tool_usage = models.BooleanField(default=False, help_text="Whether this withdraw is from tool usage")
+	usage_event = models.ForeignKey(UsageEvent, null=True, blank=True, help_text="Whether this withdraw is from tool usage", on_delete=models.CASCADE)
 	validated = models.BooleanField(default=False)
 	validated_by = models.ForeignKey(User, null=True, blank=True, related_name="consumable_withdrawal_validated_set", on_delete=models.CASCADE)
 
 	class Meta:
 		ordering = ['-date']
+
+	@property
+	def tool_usage(self) -> bool:
+		return bool(self.usage_event)
 
 	def clean(self):
 		errors = {}
@@ -3014,7 +2996,7 @@ class AdjustmentRequest(BaseModel):
 		area: Area = getattr(self.item, "area", None) if self.item else None
 		facility_managers = User.objects.filter(is_active=True, is_facility_manager=True)
 		if tool:
-			tool_reviewers = tool.adjustment_request_reviewers.filter(is_active=True)
+			tool_reviewers = tool._adjustment_request_reviewers.filter(is_active=True)
 			return tool_reviewers or facility_managers
 		if area:
 			area_reviewers = area.adjustment_request_reviewers.filter(is_active=True)

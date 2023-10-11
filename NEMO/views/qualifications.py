@@ -1,22 +1,16 @@
-import datetime
-from collections import defaultdict
-from typing import Dict, Iterable, Set
+from typing import Iterable
 from urllib.parse import urljoin
 
 import requests
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.contenttypes.models import ContentType
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import staff_member_required
 from NEMO.models import (
-	Customization,
 	MembershipHistory,
-	PhysicalAccessLevel,
 	Qualification,
 	QualificationLevel,
 	Tool,
@@ -24,9 +18,6 @@ from NEMO.models import (
 	User,
 	create_training_history,
 )
-from NEMO.typing import QuerySetType
-from NEMO.utilities import EmailCategory, format_datetime, get_email_from_settings, localize, send_mail
-from NEMO.views.customization import ToolCustomization
 from NEMO.views.users import get_identity_service
 
 
@@ -184,96 +175,3 @@ def get_qualified_users(request):
 	qualifications_by_tool = Qualification.objects.filter(tool=tool)
 	dictionary = {"tool": tool, "users": users, "qualification_levels": QualificationLevel.objects.all(), "qualifications": qualifications_by_tool, "expanded": True}
 	return render(request, "tool_control/qualified_users.html", dictionary)
-
-
-@login_required
-@permission_required("NEMO.trigger_timed_services", raise_exception=True)
-@require_GET
-def email_grant_access(request):
-	return send_email_grant_access()
-
-
-def send_email_grant_access():
-	emails = ToolCustomization.get_list("tool_grant_access_emails")
-	if emails:
-		today_date = datetime.date.today()
-		last_event_date_read, created = Customization.objects.get_or_create(
-			name="tool_email_grant_access_since", defaults={"value": (today_date - datetime.timedelta(days=1)).isoformat()}
-		)
-		qualification_since = datetime.datetime.fromisoformat(last_event_date_read.value).date()
-		badge_reader_users = get_granted_badge_reader_access(qualification_since, today_date)
-		physical_access_users = get_granted_physical_access(qualification_since, today_date)
-		if badge_reader_users or physical_access_users:
-			message = "Hello,<br>\n"
-			if badge_reader_users:
-				message += "The following badge reader access have been granted:<br><br>\n\n"
-				message += add_access_list(badge_reader_users)
-			if physical_access_users:
-				message += "The following physical access levels have been granted:<br><br>\n\n"
-				message += add_access_list(physical_access_users)
-			subject = f"Grant access - {format_datetime(today_date, 'SHORT_DATE_FORMAT')}"
-			send_mail(
-				subject=subject,
-				content=message,
-				from_email=get_email_from_settings(),
-				to=emails,
-				email_category=EmailCategory.TIMED_SERVICES,
-			)
-		last_event_date_read.value = today_date.isoformat()
-		last_event_date_read.save()
-	return HttpResponse()
-
-
-def add_access_list(access_dict: Dict[str, Set[User]]) -> str:
-	message = ""
-	for access, users in access_dict.items():
-		message += f"{access}:\n<ul>\n"
-		for user in users:
-			details = []
-			if user.badge_number:
-				details.append(f"badge number: {user.badge_number}")
-			try:
-				# Try grabbing employee id from NEMO user details to add it
-				if user.details.employee_id:
-					details.append(f"employee id: {user.details.employee_id}")
-			except:
-				pass
-			message += f"<li>{user}"
-			if details:
-				message += " (" + ", ".join(details) + ")"
-			message += "</li>\n"
-		message += "</ul>\n<br><br>"
-	return message
-
-
-def get_granted_badge_reader_access(qualification_since: datetime.date, today_date: datetime.date) -> Dict[str, Set[User]]:
-	new_qualifications: QuerySetType[Qualification] = Qualification.objects.filter(
-		tool___grant_badge_reader_access_upon_qualification__isempty=False, qualified_on__gte=qualification_since,
-		qualified_on__lt=today_date).prefetch_related("tool")
-	badge_reader_user: Dict[str, Set[User]] = defaultdict(set)
-	for qualification in new_qualifications:
-		# Only add the ones that qualify with qualification level
-		if qualification.tool.apply_grant_access(qualification.qualification_level):
-			badge_reader_user[qualification.tool.grant_badge_reader_access_upon_qualification].add(
-				qualification.user)
-	return badge_reader_user
-
-
-def get_granted_physical_access(qualification_since: datetime.date, today_date: datetime.date) -> Dict[str, Set[User]]:
-	include_physical_access = ToolCustomization.get_bool("tool_grant_access_include_physical_access")
-	if not include_physical_access:
-		return {}
-	# Here we rely on the membership history to figure out who was granted access
-	qualification_since_datetime = localize(datetime.datetime.combine(qualification_since, datetime.datetime.min.time()))
-	today_datetime = localize(datetime.datetime.combine(today_date, datetime.datetime.min.time()))
-	physical_access_level_type = ContentType.objects.get_for_model(PhysicalAccessLevel)
-	user_type = ContentType.objects.get_for_model(User)
-	memberships: QuerySetType[MembershipHistory] = MembershipHistory.objects.filter(parent_content_type=physical_access_level_type, child_content_type=user_type, action=MembershipHistory.Action.ADDED, date__gte=qualification_since_datetime, date__lt=today_datetime)
-	physical_access_to_users: Dict[str, Set[User]] = defaultdict(set)
-	for membership in memberships:
-		physical_access: PhysicalAccessLevel = membership.parent_content_object
-		user: User = membership.child_content_object
-		# Make sure the user still has that access, in case it was added but removed since
-		if physical_access in user.physical_access_levels.all():
-			physical_access_to_users[physical_access.name].add(user)
-	return physical_access_to_users

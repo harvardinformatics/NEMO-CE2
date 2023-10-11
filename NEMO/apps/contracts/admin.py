@@ -3,11 +3,11 @@ from django.contrib import admin
 
 from NEMO.apps.contracts.customization import ContractsCustomization
 from NEMO.apps.contracts.models import (
-    ContractorAgreement,
-    ContractorAgreementDocuments,
-    Procurement,
-    ProcurementDocuments,
-    ServiceContract,
+	ContractorAgreement,
+	ContractorAgreementDocuments,
+	Procurement,
+	ProcurementDocuments,
+	ServiceContract,
 )
 from NEMO.apps.contracts.views.contracts import export_contractor_agreements, export_procurements
 from NEMO.mixins import ModelAdminRedirectMixin

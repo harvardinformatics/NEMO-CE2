@@ -1,6 +1,6 @@
 from django.core.management import BaseCommand
 
-from NEMO.views.charge_validation import do_auto_validate_charges
+from NEMO.views.timed_services import do_auto_validate_charges
 
 
 class Command(BaseCommand):

@@ -1,6 +1,6 @@
 from django.core.management import BaseCommand
 
-from NEMO.views.qualifications import send_email_grant_access
+from NEMO.views.timed_services import send_email_grant_access
 
 
 class Command(BaseCommand):

@@ -6,7 +6,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from NEMO.decorators import user_office_or_manager_required
@@ -20,8 +19,10 @@ from NEMO.utilities import (
 	as_timezone,
 	export_format_datetime,
 	format_datetime,
-	queryset_search_filter, render_email_template,
+	queryset_search_filter,
+	render_email_template,
 	send_mail,
+	slugify_underscore,
 )
 from NEMO.views.customization import (
 	ApplicationCustomization,
@@ -201,7 +202,7 @@ def export_recurring_charges(request):
 
 	response = table.to_csv()
 	feature_name = RecurringChargesCustomization.get("recurring_charges_name")
-	filename = f"{slugify(feature_name.lower()).replace('-', '_')}_{export_format_datetime()}.csv"
+	filename = f"{slugify_underscore(feature_name.lower())}_{export_format_datetime()}.csv"
 	response["Content-Disposition"] = f'attachment; filename="{filename}"'
 	return response
 
@@ -264,14 +265,14 @@ def extended_permissions(request) -> bool:
 	return not lock_charges or user.is_facility_manager or user.is_superuser
 
 
-def make_withdrawal(consumable_id: int, quantity: int, project_id: int, merchant: User, customer_id: int, tool_usage=False, request=None):
+def make_withdrawal(consumable_id: int, quantity: int, project_id: int, merchant: User, customer_id: int, usage_event=None, request=None):
 	withdraw = ConsumableWithdraw(
 		consumable_id=consumable_id,
 		quantity=quantity,
 		merchant=merchant,
 		customer_id=customer_id,
 		project_id=project_id,
-		tool_usage=tool_usage
+		usage_event=usage_event
 	)
 	withdraw.full_clean()
 	withdraw.save()

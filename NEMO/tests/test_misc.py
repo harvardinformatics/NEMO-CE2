@@ -1,6 +1,8 @@
+import re
+
+from PIL import Image
 from django.conf import settings
 from django.test import TestCase
-from PIL import Image
 
 from NEMO.utilities import capitalize, get_email_from_settings, resize_image
 
@@ -36,4 +38,13 @@ class MiscTests(TestCase):
 			self.assertEqual(resized_height, 40)
 		resized_image.close()
 
-
+	def test_regex_escaping(self):
+		# non escaped, no match
+		self.assertFalse(re.match("test?[]]", "test?[]]"))
+		# escaped, match
+		self.assertTrue(re.match(re.escape("test?[]]"), "test?[]]"))
+		# escaped + number
+		self.assertTrue(re.match(re.escape("test?[]]") + "\d+$", "test?[]]5"))
+		self.assertTrue(re.match(re.escape("test?[]]") + "\d+$", "test?[]]124"))
+		# number is mandatory
+		self.assertFalse(re.match(re.escape("test?[]]") + "\d+$", "test?[]]"))

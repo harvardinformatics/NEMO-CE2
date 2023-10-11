@@ -28,11 +28,11 @@ from NEMO.models import (
 	Consumable,
 	ConsumableWithdraw,
 	Project,
-	ShadowingVerificationRequest,
 	RecurringConsumableCharge,
 	ReservationItemType,
 	SafetyIssue,
 	ScheduledOutage,
+	ShadowingVerificationRequest,
 	StaffAbsence,
 	Task,
 	TaskCategory,
@@ -54,7 +54,6 @@ class UserForm(ModelForm):
 		model = User
 		exclude = [
 			"is_staff",
-			"is_service_personnel",
 			"is_technician",
 			"is_facility_manager",
 			"is_superuser",

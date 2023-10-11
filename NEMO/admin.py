@@ -1,6 +1,4 @@
 import datetime
-import sys
-from json import loads
 
 from django import forms
 from django.contrib import admin
@@ -23,7 +21,9 @@ from NEMO.actions import (
 	access_requests_export_csv,
 	adjustment_requests_export_csv,
 	create_next_interlock,
+	disable_selected_cards,
 	duplicate_tool_configuration,
+	enable_selected_cards,
 	lock_selected_interlocks,
 	rebuild_area_tree,
 	shadowing_verification_requests_export_csv,
@@ -123,7 +123,13 @@ from NEMO.models import (
 )
 from NEMO.utilities import admin_get_item, format_daterange
 from NEMO.views.customization import ProjectsAccountsCustomization, TrainingCustomization
-from NEMO.widgets.dynamic_form import DynamicForm, PostUsageFloatFieldQuestion, PostUsageNumberFieldQuestion
+from NEMO.widgets.dynamic_form import (
+	DynamicForm,
+	PostUsageFloatFieldQuestion,
+	PostUsageNumberFieldQuestion,
+	admin_render_dynamic_form_preview,
+	validate_dynamic_form_model,
+)
 
 
 # Formset to require at least one inline form
@@ -142,8 +148,8 @@ class ToolAdminForm(forms.ModelForm):
 		fields = "__all__"
 
 	class Media:
-		js = ("admin/tool/tool.js", "admin/questions_preview/questions_preview.js")
-		css = {"": ("admin/questions_preview/questions_preview.css",)}
+		js = ("admin/tool/tool.js", "admin/dynamic_form_preview/dynamic_form_preview.js")
+		css = {"": ("admin/dynamic_form_preview/dynamic_form_preview.css",)}
 
 	required_resources = forms.ModelMultipleChoiceField(
 		queryset=Resource.objects.all(),
@@ -353,18 +359,12 @@ class ToolAdmin(admin.ModelAdmin):
 		)
 	)
 
-	@admin.display(description="Questions", ordering="post_usage_questions", boolean=True)
+	@admin.display(description="Questions", ordering="_post_usage_questions", boolean=True)
 	def has_post_usage_questions(self, obj: Tool):
 		return True if obj.post_usage_questions else False
 
 	def _post_usage_preview(self, obj):
-		if obj.id:
-			form_validity_div = '<div id="form_validity"></div>' if obj.post_usage_questions else ""
-			return mark_safe(
-				'<div class="questions_preview">{}{}</div><div class="help questions_preview_help">Save form to preview post usage questions</div>'.format(
-					DynamicForm(obj.post_usage_questions).render("tool_usage_group_question", obj.id), form_validity_div
-				)
-			)
+		return admin_render_dynamic_form_preview(obj.post_usage_questions, "tool_usage_group_question", obj.id)
 
 	def formfield_for_foreignkey(self, db_field, request, **kwargs):
 		""" We only want non children tool to be eligible as parents """
@@ -434,7 +434,7 @@ class AreaAdmin(DraggableMPTTAdmin):
 		("Additional Information", {"fields": ("area_calendar_color",)}),
 		(
 			"Area access",
-			{"fields": ("requires_reservation", "logout_grace_period", "welcome_message", "buddy_system_allowed")},
+			{"fields": ("requires_reservation", "logout_grace_period", "welcome_message", "auto_logout_time", "buddy_system_allowed")},
 		),
 		(
 			"Occupancy",
@@ -654,8 +654,8 @@ class ReservationQuestionsForm(forms.ModelForm):
 		fields = "__all__"
 
 	class Media:
-		js = ("admin/reservation_questions/reservation_questions.js", "admin/questions_preview/questions_preview.js")
-		css = {"": ("admin/questions_preview/questions_preview.css",)}
+		js = ("admin/dynamic_form_preview/dynamic_form_preview.js",)
+		css = {"": ("admin/dynamic_form_preview/dynamic_form_preview.css",)}
 
 	def clean(self):
 		cleaned_data = super().clean()
@@ -677,18 +677,9 @@ class ReservationQuestionsForm(forms.ModelForm):
 			)
 		# Validate reservation_questions JSON format
 		if reservation_questions:
-			try:
-				loads(reservation_questions)
-			except ValueError:
-				self.add_error("questions", "This field needs to be a valid JSON string")
-			try:
-				dynamic_form = DynamicForm(reservation_questions)
-				dynamic_form.validate("reservation_group_question", self.instance.id)
-			except KeyError as e:
-				self.add_error("questions", f"{e} property is required")
-			except Exception:
-				error_info = sys.exc_info()
-				self.add_error("questions", error_info[0].__name__ + ": " + str(error_info[1]))
+			errors = validate_dynamic_form_model(reservation_questions, "reservation_group_question", self.instance.id)
+			for error in errors:
+				self.add_error("questions", error)
 		return cleaned_data
 
 
@@ -716,19 +707,7 @@ class ReservationQuestionsAdmin(admin.ModelAdmin):
 	)
 
 	def questions_preview(self, obj):
-		form_validity_div = ""
-		rendered_form = ""
-		try:
-			rendered_form = DynamicForm(obj.questions).render("reservation_group_question", obj.id)
-			if obj.questions:
-				form_validity_div = '<div id="form_validity"></div>'
-		except:
-			pass
-		return mark_safe(
-			'<div class="questions_preview">{}{}</div><div class="help questions_preview_help">Save form to preview reservation questions</div>'.format(
-				rendered_form, form_validity_div
-			)
-		)
+		return admin_render_dynamic_form_preview(obj.questions, "reservation_group_question", obj.id)
 
 
 @register(UsageEvent)
@@ -790,6 +769,7 @@ class InterlockCardAdminForm(forms.ModelForm):
 class InterlockCardAdmin(admin.ModelAdmin):
 	form = InterlockCardAdminForm
 	list_display = ("name", "enabled", "server", "port", "number", "category", "even_port", "odd_port")
+	actions = [disable_selected_cards, enable_selected_cards]
 
 
 class InterlockAdminForm(forms.ModelForm):

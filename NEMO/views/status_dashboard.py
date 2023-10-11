@@ -14,7 +14,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from NEMO.decorators import disable_session_expiry_refresh, facility_manager_required
 from NEMO.forms import StaffAbsenceForm
-from NEMO.model_tree import get_area_model_tree, ModelTreeHelper, TreeItem
+from NEMO.model_tree import ModelTreeHelper, TreeItem, get_area_model_tree
 from NEMO.models import (
 	Area,
 	AreaAccessRecord,
@@ -30,12 +30,12 @@ from NEMO.models import (
 )
 from NEMO.typing import QuerySetType
 from NEMO.utilities import (
-	as_timezone,
 	BasicDisplayTable,
+	as_timezone,
 	beginning_of_the_day,
+	end_of_the_day,
 	export_format_datetime,
 	format_datetime,
-	localize,
 	quiet_int,
 )
 from NEMO.views.customization import StatusDashboardCustomization
@@ -226,7 +226,7 @@ def staff_absences_dict(staffs, days, start, end):
 
 def closures_dict(days, start, end):
 	dictionary = {}
-	l_start, l_end = localize(start), localize(end)
+	l_start, l_end = beginning_of_the_day(start), end_of_the_day(end)
 	closure_times = ClosureTime.objects.filter(start_time__lte=l_end, end_time__gte=l_start, closure__staff_absent=True)
 	for closure_time in closure_times:
 		for day in days:
