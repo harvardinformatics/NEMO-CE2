@@ -6,7 +6,7 @@
         <h1 class="pull-left" style="margin-top: 0;margin-right: 20px">{{ shadowing_verification_request_title }}</h1>
     </div>
     {% if not feature_enabled %}
-        <p style="margin: 15px 0">{% if user.is_super_user %}This feature is not enabled. You can enable this feature by allowing shadowing verification on select tools.{% else %}This feature is not enabled.{% endif %}</p>
+        <p style="margin: 15px 0">{% if user.is_superuser %}This feature is not enabled. You can enable this feature by allowing shadowing verification on select tools.{% else %}This feature is not enabled.{% endif %}</p>
     {% else %}
         <div style="margin: 15px 0">
             <div style="display: table-cell; width: 100%">
