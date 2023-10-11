@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load custom_tags_and_filters %}
+{% load static %}
+{% load tz %}
+{% block title %}{% if form.instance.id %}Modify shadowing verification{% else %}New shadowing verification{% endif %}{% endblock %}
+{% block extrahead %}
+	<script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
+	<link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}"/>
+{% endblock %}
+{% block content %}
+    {% with instance_id=form.instance.id %}
+        <h1 class="form-group">{% if instance_id %}Modify shadowing verification{% else %}New shadowing verification{% endif %}</h1>
+        <form class="well" action="{% if instance_id %}{% url 'edit_shadowing_verification' instance_id %}{% else %}{% url 'create_shadowing_verification' %}{% endif %}" method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+            {% if instance_id and user in form.instance.reviewers %}
+                <div class="form-group">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <label for="creator_readonly" class="control-label">Creator</label>
+                            <input id="creator_readonly" class="form-control" style="min-width: 250px;" disabled value="{{ form.instance.creator }}">
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            <div class="form-group">
+			    <label for="tool_search">Tool</label>{% if form.tool.errors %} - <span style="color:red">{{ form.tool.errors|striptags }}</span>{% endif %}
+			    <input type="text" id="tool_search" name="tool" class="form-control" required>
+			    <input type="button" id="selected_tool" class="btn btn-default" onclick="clear_tool_selection()" style="display:none">
+            </div>
+            <div class="form-group" id="level_field" style="display: none;">
+			    <label for="qualification_level">Qualification Level</label>{% if form.qualification_level.errors %} - <span style="color:red">{{ form.qualification_level.errors|striptags }}</span>{% endif %}
+                <select class="form-control" id="qualification_level" name="qualification_level"></select>
+            </div>
+            <div class="form-group">
+                <label for="user_search">Shadowed User</label>{% if form.shadowed_qualified_user.errors %} - <span style="color:red">{{ form.shadowed_qualified_user.errors|striptags }}</span>{% endif %}
+                <input type="text" id="user_search" name="shadowed_qualified_user" class="form-control" required>
+                <input type="button" id="selected_user" class="btn btn-default" onclick="clear_selection('#user_search', '#selected_user')" style="display:none">
+            </div>
+            <div class="form-group"  style="position: relative;">
+                <label for="event_date">Shadowed On</label>{% if form.event_date.errors %} - <span style="color:red">{{ form.event_date.errors|striptags }}</span>{% endif %}
+                <input type="text" class="form-control text-center" name="event_date" id="event_date"  value="{{ form.event_date.value|input_date_format }}" required>
+            </div>
+            <div class="form-group">
+                <label for="description" class="control-label">Description</label>{% if form.description.errors %} - <span style="color:red">{{ form.description.errors|striptags }}</span>{% endif %}
+                <textarea class="form-control" rows="3" name="description" id="description" placeholder="{{shadowing_verification_request_description_placeholder}}" required>{{ form.description.value|default_if_none:"" }}</textarea>
+            </div>
+            <div class="text-right">
+                {% if form.instance.get_status_display == "Pending" %}
+                    {% if instance_id and user in form.instance.reviewers %}
+                        {% button type="save" submit=False name="approve_request" title="Approve request" icon="glyphicon-ok-circle" value="Approve" onclick="confirm_review_dialog(this);" %}
+                        {% button type="delete" submit=False name="deny_request" title="Deny request" icon="glyphicon-ban-circle" value="Deny" onclick="confirm_review_dialog(this);" %}
+                    {% endif %}
+                    {% if not instance_id or form.instance.creator == user %}
+                        {% button type="save" value=instance_id|yesno:"Save changes,Create" %}
+                    {% endif %}
+                {% endif %}
+            </div>
+        </form>
+    {% endwith %}
+	<script>
+        let timepicker_properties =
+		{
+			format: '{{ date_input_js_format }}',
+            useCurrent: false,
+            maxDate: moment().endOf('day'),
+		};
+        function select(jquery_event, search_selection, dataset_name)
+        {
+            if(dataset_name === 'tools')
+            {
+                update_selection('#tool_search', '#selected_tool', search_selection.id, search_selection.name);
+                // Update qualification levels
+                clear_selection("#level_search", "#selected_level");
+                if(search_selection.qualification_levels && search_selection.qualification_levels.length > 0)
+                {
+                    add_qualification_levels_field(search_selection.qualification_levels);
+                } else
+                {
+                    remove_qualification_levels_field();
+                }
+            }
+            else if(dataset_name === 'qualification_levels')
+            {
+                update_selection('#level_search', '#selected_level', search_selection.id, search_selection.name)
+            }
+            else if(dataset_name === 'users')
+            {
+                update_selection('#user_search', '#selected_user', search_selection.id, search_selection.name)
+            }
+        }
+
+        function clear_tool_selection()
+        {
+            clear_selection("#level_search", "#selected_level");
+            remove_qualification_levels_field();
+            clear_selection("#tool_search", "#selected_tool");
+        }
+
+        function remove_qualification_levels_field()
+        {
+            $('#qualification_level').empty().prop('required',false);
+            $('#level_field').hide();
+        }
+
+        function add_qualification_levels_field(dataset)
+        {
+            const qualification_level = $('#qualification_level');
+            qualification_level.empty();
+            $(dataset).each(function() {
+                qualification_level.append($("<option>").attr('value',this.id).text(this.name));
+            });
+
+            qualification_level.prop('required',true);
+            $('#level_field').show();
+        }
+
+        function update_selection(search_id, selected_id, id, name)
+        {
+            $(search_id).typeahead('val', id).hide();
+            $(selected_id).val(name).show();
+        }
+
+        function clear_selection(search_id, selected_id)
+        {
+            $(selected_id).hide();
+            $(search_id).typeahead('val', '').show().focus();
+        }
+
+        function confirm_review_dialog(review_button)
+        {
+            let decision = review_button.innerText.trim().toLowerCase();
+            let dialog_text = "Are you sure you want to "+decision+" this request?";
+            if (confirm(dialog_text))
+            {
+                submit_and_disable(review_button)
+            }
+        }
+
+        function get_qualification_levels(tools_data, tool_id)
+        {
+            const index = tools_data.findIndex((tool) =>  tool.id === tool_id);
+            if(index === -1)
+            {
+                return [];
+            }
+            else
+            {
+                return tools_data[index].qualification_levels;
+            }
+        }
+
+        function on_load()
+		{
+            const tools_data = {{ tools }};
+			$('#tool_search').autocomplete('tools', select, tools_data);
+            $('#user_search').autocomplete('users', select, {{ users|json_search_base }});
+            $('#event_date').datetimepicker(timepicker_properties);
+
+            {% if form.cleaned_data.tool %}
+                select(false, {
+                    'id': '{{ form.cleaned_data.tool.id }}',
+                    'name': '{{ form.cleaned_data.tool.name }}',
+                    'qualification_levels': get_qualification_levels(tools_data, {{ form.cleaned_data.tool.id }})
+                }, 'tools');
+            {% elif form.instance.tool %}
+                select(false, {
+                    'id': '{{ form.instance.tool.id }}',
+                    'name': '{{ form.instance.tool.name }}',
+                    'qualification_levels': get_qualification_levels(tools_data, {{ form.instance.tool.id }})
+                }, 'tools');
+            {% endif %}
+
+            {% if form.cleaned_data.qualification_level %}
+                $('#qualification_level').val('{{ form.cleaned_data.qualification_level.id }}');
+            {% elif form.instance.qualification_level %}
+                $('#qualification_level').val('{{ form.instance.qualification_level.id }}');
+            {% endif %}
+
+            {% if form.cleaned_data.shadowed_qualified_user %}
+                select(false, {'id': '{{ form.cleaned_data.shadowed_qualified_user.id }}', 'name': '{{ form.cleaned_data.shadowed_qualified_user }}'}, 'users');
+            {% elif form.instance.shadowed_qualified_user %}
+                select(false, {'id': '{{ form.instance.shadowed_qualified_user.id }}', 'name': '{{ form.instance.shadowed_qualified_user }}'}, 'users');
+            {% endif %}
+		}
+
+		$(on_load);
+	</script>
+{% endblock %}

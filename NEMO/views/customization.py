@@ -281,6 +281,16 @@ class InterlockCustomization(CustomizationBase):
 	}
 
 
+@customization(key="shadowing_verification", title="Shadowing Verification")
+class ShadowingVerificationCustomization(CustomizationBase):
+	variables = {
+		"shadowing_verification_request_title": "Shadowing Verifications",
+		"shadowing_verification_request_display_max": "",
+		"shadowing_verification_request_description_placeholder": "Please describe techniques used, processed, tool mode etc",
+		"shadowing_verification_request_description": "",
+	}
+
+
 @customization(key="requests", title="User requests")
 class UserRequestsCustomization(CustomizationBase):
 	frequencies = [RecurrenceFrequency.DAILY, RecurrenceFrequency.WEEKLY, RecurrenceFrequency.MONTHLY]
@@ -327,6 +337,17 @@ class UserRequestsCustomization(CustomizationBase):
 		except:
 			pass
 
+	@classmethod
+	def set(cls, name: str, value):
+		if name == "adjustment_requests_enabled" and value != "enabled":
+			# If adjustment requests are being disabled, remove all notifications
+			previously_enabled = cls.get_bool("adjustment_requests_enabled")
+			if previously_enabled:
+				Notification.objects.filter(
+					notification_type__in=[Notification.Types.ADJUSTMENT_REQUEST, Notification.Types.ADJUSTMENT_REQUEST_REPLY]
+				).delete()
+		super().set(name, value)
+
 	def context(self) -> Dict:
 		context_dict = super().context()
 		context_dict["frequency_choices"] = [(freq.index, freq.display_value) for freq in self.frequencies]
@@ -345,17 +366,6 @@ class UserRequestsCustomization(CustomizationBase):
 					)
 			except Exception as e:
 				raise ValidationError(str(e))
-
-	@classmethod
-	def set(cls, name: str, value):
-		if name == "adjustment_requests_enabled" and value != "enabled":
-			# If adjustment requests are being disabled, remove all notifications
-			previously_enabled = cls.get_bool("adjustment_requests_enabled")
-			if previously_enabled:
-				Notification.objects.filter(
-					notification_type__in=[Notification.Types.ADJUSTMENT_REQUEST, Notification.Types.ADJUSTMENT_REQUEST_REPLY]
-				).delete()
-		super().set(name, value)
 
 
 @customization(key="recurring_charges", title="Recurring charges")
@@ -408,13 +418,14 @@ class ToolCustomization(CustomizationBase):
 		"tool_qualification_cc": "",
 		"tool_problem_max_image_size_pixels": "750",
 		"tool_problem_send_to_all_qualified_users": "",
+		"tool_configuration_near_future_days": "1",
 		"tool_reservation_policy_superusers_bypass": "",
 		"tool_grant_access_emails": "",
 		"tool_grant_access_include_physical_access": "",
 	}
 
 	def validate(self, name, value):
-		if name in ["tool_qualification_expiration_days", "tool_problem_max_image_size_pixels"] and value:
+		if name in ["tool_qualification_expiration_days", "tool_problem_max_image_size_pixels", "tool_configuration_near_future_days"] and value:
 			validate_integer(value)
 		if name == "tool_qualification_reminder_days" and value:
 			# Check that we have an integer or a list of integers
@@ -514,6 +525,7 @@ class TemplatesCustomization(CustomizationBase):
 		("reservation_cancelled_user_email", ".html"),
 		("weekend_access_email", ".html"),
 		("recurring_charges_reminder_email", ".html"),
+		("shadowing_verification_notification_email", ".html"),
 	]
 
 

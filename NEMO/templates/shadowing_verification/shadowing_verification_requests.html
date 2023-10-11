@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}{{ shadowing_verification_request_title }}{% endblock %}
+{% load custom_tags_and_filters %}
+{% block content %}
+    <div class="clearfix" style="margin-top: 0;">
+        <h1 class="pull-left" style="margin-top: 0;margin-right: 20px">{{ shadowing_verification_request_title }}</h1>
+    </div>
+    {% if not feature_enabled %}
+        <p style="margin: 15px 0">{% if user.is_super_user %}This feature is not enabled. You can enable this feature by allowing shadowing verification on select tools.{% else %}This feature is not enabled.{% endif %}</p>
+    {% else %}
+        <div style="margin: 15px 0">
+            <div style="display: table-cell; width: 100%">
+                {% if feature_description %}
+                    <div class="well" style="display: table; margin-right: 15px">
+                        <span class="requests-description-info glyphicon glyphicon-info-sign primary-highlight"></span>
+                        <div class="requests-description">{{ feature_description|safe|linebreaksbr }}</div>
+                    </div>
+                {% endif %}
+            </div>
+            {% if allowed_tools_exist %}
+                <div class="text-right" style="display: table-cell; vertical-align: top">{% button type="add" url="create_shadowing_verification" value="New" %}</div>
+            {% endif %}
+        </div>
+        {% if pending_requests or approved_requests or denied_requests %}
+            {% if user.is_staff or user.is_superuser or user.is_facility_manager %}
+                <div class="text-right" style="margin-bottom: -20px">
+                    {% button type="export" value="Export" url="export_shadowing_verification" target="_blank" %}
+                </div>
+            {% endif %}
+            <div>
+                {% if pending_requests %}
+                    <h3><a onclick="toggle_details(this)" data-toggle="collapse" data-target="#pending_requests" class="pointer">
+                        <span class="glyphicon glyphicon-chevron-down pull-left chevron"></span>Pending ({{ pending_requests|length }})
+                    </a></h3>
+                    <div id="pending_requests" class="collapse in">
+                        {% include 'shadowing_verification/shadowing_verification_requests_table.html' with request_status='pending' request_list=pending_requests %}
+                    </div>
+                {% endif %}
+                {% if approved_requests %}
+                    <h3><a onclick="toggle_details(this)" data-toggle="collapse" data-target="#approved_requests" class="pointer">
+                        <span class="glyphicon glyphicon-chevron-down pull-left chevron"></span>Approved
+                    </a></h3>
+                    <div id="approved_requests" class="collapse in">
+                        {% include 'shadowing_verification/shadowing_verification_requests_table.html' with request_status='approved' request_list=approved_requests %}
+                    </div>
+                {% endif %}
+                {% if denied_requests %}
+                    <h3><a onclick="toggle_details(this)" data-toggle="collapse" data-target="#denied_requests" class="pointer">
+                        <span class="glyphicon glyphicon-chevron-down pull-left chevron"></span>Denied
+                    </a></h3>
+                    <div id="denied_requests" class="collapse in">
+                        {% include 'shadowing_verification/shadowing_verification_requests_table.html' with request_status='denied' request_list=denied_requests %}
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="italic" style="margin-top: 20px">You do not have any current active shadowing verifications</div>
+        {% endif %}
+        <script>
+            $(function ()
+            {
+                {# Scroll to msg id if available #}
+                let msg_id = window.location.hash.substr(1);
+                if (msg_id) document.getElementById(msg_id).scrollIntoView();
+
+                $('[data-toggle="tooltip"]').tooltip();
+            })
+        </script>
+    {% endif %}
+{% endblock %}

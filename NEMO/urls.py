@@ -48,9 +48,11 @@ from NEMO.views import (
 	remote_work,
 	resources,
 	safety,
+	shadowing_verification,
 	sidebar,
 	status_dashboard,
 	tasks,
+	timed_services,
 	tool_control,
 	training,
 	training_new,
@@ -62,6 +64,11 @@ from NEMO.views import (
 from NEMO.views.constants import MEDIA_PROTECTED
 
 logger = logging.getLogger(__name__)
+
+
+def sort_urls(url_path):
+	return url_path[0].count('/'), url_path[0]
+
 
 # REST API URLs
 router = routers.DefaultRouter()
@@ -89,6 +96,7 @@ router.register(r"tools", api.ToolViewSet)
 router.register(r"training_sessions", api.TrainingSessionViewSet)
 router.register(r"usage_events", api.UsageEventViewSet)
 router.register(r"users", api.UserViewSet)
+router.registry.sort(key=sort_urls)
 
 reservation_item_types = f'(?P<item_type>{"|".join(ReservationItemType.values())})'
 
@@ -175,6 +183,13 @@ urlpatterns += [
 	path("adjustment_request_reply/<int:request_id>/", adjustment_requests.adjustment_request_reply, name="adjustment_request_reply"),
 	path("export_adjustment_requests/", adjustment_requests.csv_export, name="export_adjustment_requests"),
 	path("delete_adjustment_request/<int:request_id>/", adjustment_requests.delete_adjustment_request, name="delete_adjustment_request"),
+
+	# Shadowing Verification requests
+	path("shadowing_verifications/", shadowing_verification.shadowing_verification_requests, name="shadowing_verifications"),
+	path("create_shadowing_verification/", shadowing_verification.create_shadowing_verification_request, name="create_shadowing_verification"),
+	path("edit_shadowing_verification/<int:request_id>/", shadowing_verification.create_shadowing_verification_request, name="edit_shadowing_verification"),
+	path("export_shadowing_verification/", shadowing_verification.csv_export, name="export_shadowing_verification"),
+	path("delete_shadowing_verification/<int:request_id>/", shadowing_verification.delete_shadowing_verification_request, name="delete_shadowing_verification"),
 
 	# Tasks:
 	path("create_task/", tasks.create, name="create_task"),
@@ -409,19 +424,20 @@ if settings.ALLOW_CONDITIONAL_URLS:
 		path("new_area_access_record/", area_access.new_area_access_record, name="new_area_access_record"),
 
 		# Reminders and periodic events
-		path("cancel_unused_reservations/", calendar.cancel_unused_reservations, name="cancel_unused_reservations"),
-		path("create_closure_alerts/", calendar.create_closure_alerts, name="create_closure_alerts"),
-		path("email_out_of_time_reservation_notification/", calendar.email_out_of_time_reservation_notification, name="email_out_of_time_reservation_notification"),
-		path("email_reservation_ending_reminders/", calendar.email_reservation_ending_reminders, name="email_reservation_ending_reminders"),
-		path("email_reservation_reminders/", calendar.email_reservation_reminders, name="email_reservation_reminders"),
-		path("email_usage_reminders/", calendar.email_usage_reminders, name="email_usage_reminders"),
-		path("email_weekend_access_notification/", access_requests.email_weekend_access_notification, name="email_weekend_access_notification"),
-		path("email_user_access_expiration_reminders/", calendar.email_user_access_expiration_reminders, name="email_user_access_expiration_reminders"),
-		path("manage_tool_qualifications/", calendar.manage_tool_qualifications, name="manage_tool_qualifications"),
-		path("manage_recurring_charges/", calendar.manage_recurring_charges, name="manage_recurring_charges"),
+		path("cancel_unused_reservations/", timed_services.cancel_unused_reservations, name="cancel_unused_reservations"),
+		path("create_closure_alerts/", timed_services.create_closure_alerts, name="create_closure_alerts"),
+		path("email_out_of_time_reservation_notification/", timed_services.email_out_of_time_reservation_notification, name="email_out_of_time_reservation_notification"),
+		path("email_reservation_ending_reminders/", timed_services.email_reservation_ending_reminders, name="email_reservation_ending_reminders"),
+		path("email_reservation_reminders/", timed_services.email_reservation_reminders, name="email_reservation_reminders"),
+		path("email_usage_reminders/", timed_services.email_usage_reminders, name="email_usage_reminders"),
+		path("email_weekend_access_notification/", timed_services.email_weekend_access_notification, name="email_weekend_access_notification"),
+		path("email_user_access_expiration_reminders/", timed_services.email_user_access_expiration_reminders, name="email_user_access_expiration_reminders"),
+		path("manage_tool_qualifications/", timed_services.manage_tool_qualifications, name="manage_tool_qualifications"),
+		path("manage_recurring_charges/", timed_services.manage_recurring_charges, name="manage_recurring_charges"),
+		path("auto_logout_users/", timed_services.auto_logout_users, name="auto_logout_users"),
 		# Reminders and periodic events - NEMO CE
-		path("email_grant_access/", qualifications.email_grant_access, name="email_grant_access"),
-		path("auto_validate_charges/", charge_validation.auto_validate_charges, name="auto_validate_charges"),
+		path("email_grant_access/", timed_services.email_grant_access, name="email_grant_access"),
+		path("auto_validate_charges/", timed_services.auto_validate_charges, name="auto_validate_charges"),
 
 		# Abuse:
 		path("abuse/", abuse.abuse, name="abuse"),

@@ -48,7 +48,7 @@
 <div id="panel-sort">
     <div class="panel-body">
         <h3 class="customization-section-title" id="access_request_notification_email_id">Access request notification email</h3>
-        <p>This email is sent to the person who created the request when an access request is created or updated. The other users present on the request as well as the facility managers are cc'ed.</p>
+        <p>This email is sent to the person who created the request when an access request is created or updated. The other users present on the request as well as the reviewers are cc'ed.</p>
         <p>The following context variables are provided when the email is rendered:</p>
         <ul>
             <li><b>template_color</b> - the color: green if approved, red if denied, blue otherwise</li>
@@ -62,7 +62,7 @@
 
     <div class="panel-body">
         <h3 class="customization-section-title" id="adjustment_request_notification_email_id">Adjustment request notification email</h3>
-        <p>This email is sent to the person who created the request when an adjustment request is created or updated. Facility managers are cc'ed.</p>
+        <p>This email is sent to the person who created the request when an adjustment request is created or updated. Reviewers are cc'ed.</p>
         <p>When an adjustment request is approved it is also sent to the User Office</p>
         <p>The following context variables are provided when the email is rendered:</p>
         <ul>
@@ -486,6 +486,19 @@
             <li><b>weekend_access</b> - true/false, whether there are approved weekend access requests for the current week.</li>
         </ul>
         {% include 'customizations/customizations_upload.html' with element=weekend_access_email name='weekend access email' key='templates' %}
+    </div>
+    <div class="panel-body">
+        <h3 class="customization-section-title" id="shadowing_verification_notification_email_id">Shadowing Verification notification email</h3>
+        <p>This email is sent to the person who created the request when a shadowing verification is created or updated. Facility managers are cc'ed.</p>
+        <p>The following context variables are provided when the email is rendered:</p>
+        <ul>
+            <li><b>template_color</b> - the color: green if approved, red if denied, blue otherwise</li>
+            <li><b>shadowing_verification</b> - the user's shadowing verification that was created or updated</li>
+            <li><b>status</b> - the status of the request: received, updated, approved or denied</li>
+            <li><b>shadowing_verification_url</b> - the URL to the shadowing verifications page</li>
+        </ul>
+        {% include 'customizations/customizations_upload.html' with element=shadowing_verification_notification_email name='shadowing verification notification email' key='templates' %}
+        <div class="customization-separation"></div>
     </div>
 </div>
 <script>

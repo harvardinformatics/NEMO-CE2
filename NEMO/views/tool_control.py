@@ -100,7 +100,7 @@ def tool_status(request, tool_id):
 	broadcast_qualified_user_enabled = ToolCustomization.get_bool("tool_control_broadcast_qualified_users")
 	dictionary = {
 		"tool": tool,
-		"tool_rate": rate_class.get_tool_rate(tool),
+		"tool_rate": rate_class.get_tool_rate(tool, request.user),
 		"task_categories": TaskCategory.objects.filter(stage=TaskCategory.Stage.INITIAL_ASSESSMENT),
 		"rendered_configuration_html": tool.configuration_widget(request.user),
 		"mobile": request.device == "mobile",
@@ -438,13 +438,7 @@ def disable_tool(request, tool_id):
 			return HttpResponseBadRequest(str(e))
 
 	try:
-		dynamic_form.charge_for_consumables(
-			current_usage_event.user,
-			current_usage_event.operator,
-			current_usage_event.project,
-			current_usage_event.run_data,
-			request
-		)
+		dynamic_form.charge_for_consumables(current_usage_event, request)
 	except Exception as e:
 		return HttpResponseBadRequest(str(e))
 	dynamic_form.update_tool_counters(current_usage_event.run_data, tool.id)

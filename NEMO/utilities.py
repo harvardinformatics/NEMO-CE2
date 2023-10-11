@@ -31,6 +31,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.formats import date_format, get_format, time_format
 from django.utils.html import format_html
+from django.utils.text import slugify
 from django.utils.timezone import is_naive, localtime
 
 utilities_logger = getLogger(__name__)
@@ -164,6 +165,7 @@ class EmailCategory(object):
 	SENSORS = 10
 	ADJUSTMENT_REQUESTS = 11
 	TRAINING = 12
+	SHADOWING_VERIFICATION_REQUESTS = 1001
 	Choices = (
 		(GENERAL, "General"),
 		(SYSTEM, "System"),
@@ -178,6 +180,7 @@ class EmailCategory(object):
 		(SENSORS, "Sensors"),
 		(ADJUSTMENT_REQUESTS, "Adjustment Requests"),
 		(TRAINING, "Training"),
+		(SHADOWING_VERIFICATION_REQUESTS, "Shadowing Verification Requests"),
 	)
 
 
@@ -727,3 +730,7 @@ def create_ics(identifier, event_name, start: datetime, end: datetime, user, org
 	attachment = create_email_attachment(ics, maintype="text", subtype="calendar", method=method_name)
 	return attachment
 
+
+def slugify_underscore(name: str):
+	# Slugify and replaces dashes by underscores
+	return slugify(name).replace("-", "_")

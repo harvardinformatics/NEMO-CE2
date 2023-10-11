@@ -13,14 +13,13 @@ from re import match
 from typing import Iterable, List, Optional, Set, Union
 
 from django.conf import settings
-from django.contrib import auth
 from django.contrib.auth.models import BaseUserManager, Group, Permission, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.validators import MinValueValidator
 from django.db import connections, models, transaction
-from django.db.models import Q, QuerySet
+from django.db.models import Q
 from django.db.models.manager import Manager
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
@@ -40,9 +39,11 @@ from NEMO.utilities import (
 	EmailCategory,
 	RecurrenceFrequency,
 	as_timezone,
+	beginning_of_the_day,
 	bootstrap_primary_color,
 	distinct_qs_value_list,
 	document_filename_upload,
+	end_of_the_day,
 	format_daterange,
 	format_datetime,
 	get_chemical_document_filename,
@@ -145,7 +146,7 @@ class BaseCategory(SerializationByNameModel):
 
 
 class BaseDocumentModel(BaseModel):
-	document = models.FileField(null=True, blank=True, upload_to=document_filename_upload, verbose_name='Document')
+	document = models.FileField(max_length=CHAR_FIELD_MAXIMUM_LENGTH, null=True, blank=True, upload_to=document_filename_upload, verbose_name='Document')
 	url = models.CharField(null=True, blank=True, max_length=200, verbose_name='URL')
 	name = models.CharField(null=True, blank=True, max_length=200, help_text="The optional name to display for this document")
 	uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -287,6 +288,7 @@ class UserPreferences(BaseModel):
 	email_send_buddy_request_replies = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Buddy request replies")
 	email_send_access_request_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Access request updates")
 	email_send_adjustment_request_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Adjustment request updates")
+	email_send_shadowing_verification_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Shadowing verification updates")
 	email_send_broadcast_emails = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Broadcast emails")
 	email_send_task_updates = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Task updates")
 	email_send_access_expiration_emails = models.PositiveIntegerField(default=EmailNotificationType.BOTH_EMAILS, choices=EmailNotificationType.on_choices(), help_text="Access expiration reminders")
@@ -300,8 +302,6 @@ class UserPreferences(BaseModel):
 	tool_freed_time_notifications = models.ManyToManyField("Tool", blank=True, help_text="Tools to receive notification when reservation time is freed.")
 	tool_freed_time_notifications_min_time = models.PositiveIntegerField(default=120, help_text="Minimum amount of minutes freed to receive a notification.")
 	tool_freed_time_notifications_max_future_days = models.PositiveIntegerField(default=7, help_text="Maximum number of days in the future to receive a notification for.")
-	tool_adjustment_notifications = models.ManyToManyField("Tool", related_name="+", blank=True, help_text="Tools to see/receive adjustment notifications for. If empty all notifications will be received.")
-	area_adjustment_notifications = models.ManyToManyField("Area", related_name="+", blank=True, help_text="Areas to see/receive adjustment notifications for. If empty all notifications will be received.")
 	tool_task_notifications = models.ManyToManyField("Tool", related_name="+", blank=True, help_text="Tools to see maintenance records and receive task notifications for. If empty all notifications will be received.")
 
 	def get_recurring_charges_days(self) -> List[int]:
@@ -448,10 +448,17 @@ class TemporaryPhysicalAccessRequest(BaseModel):
 	reviewer = models.ForeignKey("User", null=True, blank=True, related_name='access_requests_reviewed', on_delete=models.CASCADE)
 	deleted = models.BooleanField(default=False, help_text="Indicates the request has been deleted and won't be shown anymore.")
 
-	def creator_and_other_users(self) -> Set:
+	def creator_and_other_users(self) -> Set[User]:
 		result = {self.creator}
 		result.update(self.other_users.all())
 		return result
+
+	def reviewers(self) -> QuerySetType[User]:
+		# Create the list of users to notify/show request to. If the physical access request area's
+		# list of reviewers is empty, send/show to all facility managers
+		facility_managers = User.objects.filter(is_active=True, is_facility_manager=True)
+		area_reviewers = self.physical_access_level.area.access_request_reviewers.filter(is_active=True)
+		return area_reviewers or facility_managers
 
 	def clean(self):
 		if self.start_time and self.end_time and self.end_time <= self.start_time:
@@ -466,7 +473,7 @@ class Closure(BaseModel):
 	alert_days_before = models.PositiveIntegerField(null=True, blank=True, help_text="Enter the number of days before the closure when an alert should automatically be created. Leave blank for no alert.")
 	alert_template = models.TextField(null=True, blank=True, help_text=mark_safe("The template to create the alert with. The following variables are provided (when applicable): <b>name</b>, <b>start_time</b>, <b>end_time</b>, <b>areas</b>."))
 	notify_managers_last_occurrence = models.BooleanField(default=True, help_text="Check this box to notify facility managers on the last occurrence of this closure.")
-	staff_absent = models.BooleanField(default=True, help_text="Check this box and all staff members will be marked absent during this closure in staff status.")
+	staff_absent = models.BooleanField(verbose_name="Staff absent entire day", default=True, help_text="Check this box and all staff members will be marked absent during this closure in staff status.")
 	physical_access_levels = models.ManyToManyField('PhysicalAccessLevel', blank=True, help_text="Select access levels this closure applies to.")
 
 	def __str__(self):
@@ -602,48 +609,6 @@ class User(BaseModel, PermissionsMixin):
 				}
 			)
 
-	def has_perm(self, perm, obj=None):
-		"""
-		Returns True if the user has each of the specified permissions. If
-		object is passed, it checks if the user has all required perms for this object.
-		"""
-
-		# Active administrators have all permissions.
-		if self.is_active and self.is_superuser:
-			return True
-
-		# Otherwise we need to check the backends.
-		for backend in auth.get_backends():
-			if hasattr(backend, "has_perm"):
-				if obj is not None:
-					if backend.has_perm(self, perm, obj):
-						return True
-				else:
-					if backend.has_perm(self, perm):
-						return True
-		return False
-
-	def has_perms(self, perm_list, obj=None):
-		for perm in perm_list:
-			if not self.has_perm(perm, obj):
-				return False
-		return True
-
-	def has_module_perms(self, app_label):
-		"""
-		Returns True if the user has any permissions in the given app label.
-		Uses pretty much the same logic as has_perm, above.
-		"""
-		# Active administrators have all permissions.
-		if self.is_active and self.is_superuser:
-			return True
-
-		for backend in auth.get_backends():
-			if hasattr(backend, "has_module_perms"):
-				if backend.has_module_perms(self, app_label):
-					return True
-		return False
-
 	def check_password(self, raw_password):
 		return False
 
@@ -696,6 +661,11 @@ class User(BaseModel, PermissionsMixin):
 
 	def get_name(self):
 		return self.first_name + ' ' + self.last_name
+
+	def get_initials(self):
+		first_name_initial = self.first_name[0] if self.first_name else ""
+		last_name_initial = self.last_name[0] if self.last_name else ""
+		return first_name_initial + last_name_initial
 
 	def add_qualification(self, tool: Tool, qualification_level: QualificationLevel = None):
 		Qualification.objects.update_or_create(user=self, tool=tool, defaults={"qualification_level": qualification_level})
@@ -782,6 +752,19 @@ class User(BaseModel, PermissionsMixin):
 		bulk_managed_users.pop(self.id, None)
 		return list(bulk_managed_users.values())
 
+	def has_perm(self, perm, obj=None):
+		# By default we don't use the actual object, similar to django admin
+		general_permission = super().has_perm(perm)
+		if general_permission:
+			return True
+		# For charges, the reviewer of an adjustment request for that charge can also edit it
+		if obj and issubclass(type(obj), BillableItemMixin):
+			# If there is an approved adjustment request for this charge, check if the user is a reviewer
+			adjustment_request: AdjustmentRequest = AdjustmentRequest.objects.filter(status=RequestStatus.APPROVED, deleted=False, item_id=obj.id, item_type=ContentType.objects.get_for_model(obj)).first()
+			if adjustment_request:
+				return self in adjustment_request.reviewers()
+		return general_permission
+
 	@classmethod
 	def get_email_field_name(cls):
 		return 'email'
@@ -821,9 +804,12 @@ class Tool(SerializationByNameModel):
 	_tool_calendar_color = models.CharField(db_column="tool_calendar_color", max_length=9, default="#33ad33", help_text="Color for tool reservations in calendar overviews")
 	_category = models.CharField(db_column="category", null=True, blank=True, max_length=1000, help_text="Create sub-categories using slashes. For example \"Category 1/Sub-category 1\".")
 	_operational = models.BooleanField(db_column="operational", default=False, help_text="Marking the tool non-operational will prevent users from using the tool.")
+	# Tool permissions
 	_primary_owner = models.ForeignKey(User, db_column="primary_owner_id", null=True, blank=True, related_name="primary_tool_owner", help_text="The staff member who is responsible for administration of this tool.", on_delete=models.PROTECT)
 	_backup_owners = models.ManyToManyField(User, db_table='NEMO_tool_backup_owners', blank=True, related_name="backup_for_tools", help_text="Alternate staff members who are responsible for administration of this tool when the primary owner is unavailable.")
 	_superusers = models.ManyToManyField(User, db_table='NEMO_tool_superusers', blank=True, related_name="superuser_for_tools", help_text="Superusers who can train users on this tool.")
+	_adjustment_request_reviewers = models.ManyToManyField(User, db_table='NEMO_tool_adjustment_request_reviewers', blank=True, related_name="adjustment_request_reviewer_on_tools", help_text="Users who can approve/deny adjustment requests for this tool. Defaults to facility managers if left blank.")
+	# Extra info
 	_location = models.CharField(db_column="location", null=True, blank=True, max_length=100)
 	_phone_number = models.CharField(db_column="phone_number", null=True, blank=True, max_length=100)
 	_notification_email_address = models.EmailField(db_column="notification_email_address", blank=True, null=True, help_text="Messages that relate to this tool (such as comments, problems, and shutdowns) will be forwarded to this email address. This can be a normal email address or a mailing list address.")
@@ -848,6 +834,10 @@ class Tool(SerializationByNameModel):
 	_policy_off_start_time = models.TimeField(db_column="policy_off_start_time", null=True, blank=True, help_text="The start time when policy rules should NOT be enforced")
 	_policy_off_end_time = models.TimeField(db_column="policy_off_end_time", null=True, blank=True, help_text="The end time when policy rules should NOT be enforced")
 	_policy_off_weekend = models.BooleanField(db_column="policy_off_weekend", default=False, help_text="Whether or not policy rules should be enforced on weekends")
+	# Shadowing Verification Request fields:
+	_allow_user_shadowing_verification_request = models.BooleanField(default=False, help_text="Allow users to request qualification on this tool through shadowing verification.")
+	_shadowing_verification_request_qualification_levels = models.ManyToManyField('QualificationLevel', default=False, blank=True, related_name="shadowing_verification_request_qualification_levels", help_text="Qualification Levels that users can request on this tool through shadowing verification.")
+	_shadowing_verification_reviewers = models.ManyToManyField(User, db_table='NEMO_tool_shadowing_verification_reviewers', blank=True, related_name="shadowing_verification_reviewer_on_tools", help_text="Users who can approve/deny shadowing verification for this tool. Defaults to facility managers if left blank.")
 
 	class Meta:
 		ordering = ["name"]
@@ -932,6 +922,15 @@ class Tool(SerializationByNameModel):
 	def superusers(self, value):
 		self.raise_setter_error_if_child_tool("superusers")
 		self._superusers = value
+
+	@property
+	def adjustment_request_reviewers(self) -> QuerySetType[User]:
+		return self.parent_tool.adjustment_request_reviewers if self.is_child_tool() else self._adjustment_request_reviewers
+
+	@adjustment_request_reviewers.setter
+	def adjustment_request_reviewers(self, value):
+		self.raise_setter_error_if_child_tool("_adjustment_request_reviewers")
+		self._adjustment_request_reviewers = value
 
 	@property
 	def location(self):
@@ -1140,6 +1139,33 @@ class Tool(SerializationByNameModel):
 		self.raise_setter_error_if_child_tool("tool_calendar_color")
 		self._tool_calendar_color = value
 
+	@property
+	def allow_user_shadowing_verification_request(self):
+		return self.parent_tool._allow_user_shadowing_verification_request if self.is_child_tool() else self._allow_user_shadowing_verification_request
+
+	@allow_user_shadowing_verification_request.setter
+	def allow_user_shadowing_verification_request(self, value):
+		self.raise_setter_error_if_child_tool("allow_user_shadowing_verification_request")
+		self._allow_user_shadowing_verification_request = value
+
+	@property
+	def shadowing_verification_request_qualification_levels(self):
+		return self.parent_tool._shadowing_verification_request_qualification_levels if self.is_child_tool() else self._shadowing_verification_request_qualification_levels
+
+	@shadowing_verification_request_qualification_levels.setter
+	def shadowing_verification_request_qualification_levels(self, value):
+		self.raise_setter_error_if_child_tool("shadowing_verification_request_qualification_levels")
+		self._shadowing_verification_request_qualification_levels = value
+
+	@property
+	def shadowing_verification_reviewers(self):
+		return self.parent_tool._shadowing_verification_reviewers if self.is_child_tool() else self._shadowing_verification_reviewers
+
+	@shadowing_verification_reviewers.setter
+	def shadowing_verification_reviewers(self, value):
+		self.raise_setter_error_if_child_tool("shadowing_verification_reviewers")
+		self._shadowing_verification_reviewers = value
+
 	def apply_grant_access(self, qualification_level: QualificationLevel = None) -> bool:
 		return (
 			not self.grant_access_for_qualification_levels.exists()
@@ -1338,7 +1364,7 @@ class Tool(SerializationByNameModel):
 		content = escape(loader.render_to_string("snippets/tool_info.html", {"tool": self}))
 		return f'<a href="javascript:;" data-title="{content}" data-tooltip-id="tooltip-tool-{self.id}" data-placement="bottom" class="tool-info-tooltip info-tooltip-container"><span class="glyphicon glyphicon-send small-icon"></span>{self.name_or_child_in_use_name()}</a>'
 
-	def trainers(self) -> QuerySet:
+	def trainers(self) -> QuerySetType[User]:
 		return User.objects.filter(Q(primary_tool_owner__in=[self])|Q(backup_for_tools__in=[self])|Q(superuser_for_tools__in=[self]))
 
 	def clean(self):
@@ -1348,7 +1374,7 @@ class Tool(SerializationByNameModel):
 				errors["parent_tool"] = "You cannot select the parent to be the tool itself."
 		else:
 			from NEMO.views.customization import ToolCustomization
-			from NEMO.widgets.dynamic_form import DynamicForm
+			from NEMO.widgets.dynamic_form import validate_dynamic_form_model
 			if not self._category:
 				errors["_category"] = "This field is required."
 			if not self._location and ToolCustomization.get_bool("tool_location_required"):
@@ -1360,15 +1386,9 @@ class Tool(SerializationByNameModel):
 
 			# Validate _post_usage_questions JSON format
 			if self._post_usage_questions:
-				try:
-					loads(self._post_usage_questions)
-				except ValueError:
-					errors["_post_usage_questions"] = "This field needs to be a valid JSON string"
-				try:
-					DynamicForm(self._post_usage_questions).validate("tool_usage_group_question", self.id)
-				except Exception:
-					error_info = sys.exc_info()
-					errors["_post_usage_questions"] = error_info[0].__name__ + ": " + str(error_info[1])
+				dynamic_form_errors = validate_dynamic_form_model(self._post_usage_questions, "tool_usage_group_question", self.id)
+				if dynamic_form_errors:
+					errors["_post_usage_questions"] = dynamic_form_errors
 
 			if self._policy_off_between_times and (not self._policy_off_start_time or not self._policy_off_end_time):
 				if not self._policy_off_start_time:
@@ -1620,6 +1640,10 @@ class Area(MPTTModel):
 	abuse_email: List[str] = fields.MultiEmailField(null=True, blank=True, help_text="An email will be sent to this address when users overstay in the area or in children areas (logged in with expired reservation). A comma-separated list can be used.")
 	reservation_email: List[str] = fields.MultiEmailField(null=True, blank=True, help_text="An email will be sent to this address when users create or cancel reservations in the area or in children areas. A comma-separated list can be used.")
 
+	# Area permissions
+	adjustment_request_reviewers = models.ManyToManyField(User, blank=True, related_name="adjustment_request_reviewer_on_areas", help_text="Users who can approve/deny adjustment requests for this area. Defaults to facility managers if left blank.")
+	access_request_reviewers = models.ManyToManyField(User, blank=True, related_name="access_request_reviewer_on_areas", help_text="Users who can approve/deny access requests for this area. Defaults to facility managers if left blank.")
+
 	# Additional information
 	area_calendar_color = models.CharField(max_length=9, default="#88B7CD", help_text="Color for tool reservations in calendar overviews")
 
@@ -1627,6 +1651,7 @@ class Area(MPTTModel):
 	welcome_message = models.TextField(null=True, blank=True, help_text='The welcome message will be displayed on the tablet login page. You can use HTML and JavaScript.')
 	requires_reservation = models.BooleanField(default=False, help_text="Check this box to require a reservation for this area before a user can login.")
 	logout_grace_period = models.PositiveIntegerField(null=True, blank=True, help_text="Number of minutes users have to logout of this area after their reservation expired before being flagged and abuse email is sent.")
+	auto_logout_time = models.PositiveIntegerField(null=True, blank=True, help_text="Number of minutes after which users will be automatically logged out of this area.")
 	buddy_system_allowed = models.BooleanField(default=False, help_text="Check this box if the buddy system is allowed in this area.")
 
 	# Capacity
@@ -1988,11 +2013,11 @@ class Consumable(BaseModel):
 	quantity = models.IntegerField(help_text="The number of items currently in stock.")
 	reusable = models.BooleanField(default=False, help_text="Check this box if this item is reusable. The quantity of reusable items will not decrease when orders are made (storage bins for example).")
 	visible = models.BooleanField(default=True)
+	allow_self_checkout = models.BooleanField(default=True, help_text="Allow users to self checkout this consumable, only applicable when self checkout customization is enabled.")
+	notes = models.TextField(null=True, blank=True, help_text="Notes about the consumable.")
 	reminder_threshold = models.IntegerField(null=True, blank=True, help_text="More of this item should be ordered when the quantity falls below this threshold.")
 	reminder_email = models.EmailField(null=True, blank=True, help_text="An email will be sent to this address when the quantity of this item falls below the reminder threshold.")
 	reminder_threshold_reached = models.BooleanField(default=False)
-	allow_self_checkout = models.BooleanField(default=True, help_text="Allow users to self checkout this consumable, only applicable when self checkout customization is enabled.")
-	notes = models.TextField(null=True, blank=True, help_text="Notes about the consumable.")
 
 	class Meta:
 		ordering = ["name"]
@@ -2047,12 +2072,16 @@ class ConsumableWithdraw(BaseModel, BillableItemMixin):
 	quantity = models.PositiveIntegerField()
 	project = models.ForeignKey(Project, help_text="The withdraw will be billed to this project.", on_delete=models.CASCADE)
 	date = models.DateTimeField(default=timezone.now, help_text="The date and time when the user withdrew the consumable.")
-	tool_usage = models.BooleanField(default=False, help_text="Whether this withdraw is from tool usage")
+	usage_event = models.ForeignKey(UsageEvent, null=True, blank=True, help_text="Whether this withdraw is from tool usage", on_delete=models.CASCADE)
 	validated = models.BooleanField(default=False)
 	validated_by = models.ForeignKey(User, null=True, blank=True, related_name="consumable_withdrawal_validated_set", on_delete=models.CASCADE)
 
 	class Meta:
 		ordering = ['-date']
+
+	@property
+	def tool_usage(self) -> bool:
+		return bool(self.usage_event)
 
 	def clean(self):
 		errors = {}
@@ -2692,6 +2721,7 @@ class Notification(BaseModel):
 		ADJUSTMENT_REQUEST_REPLY = 'adjustmentrequestmessage'
 		TEMPORARY_ACCESS_REQUEST = 'temporaryphysicalaccessrequest'
 		TRAINING_REQUEST = 'trainingrequest'
+		SHADOWING_VERIFICATION_REQUEST = 'shadowingverificationnrequest'
 		TRAINING_INVITATION = 'traininginvitation'
 		TRAINING_ALL = 'trainingall'
 		Choices = (
@@ -2699,10 +2729,11 @@ class Notification(BaseModel):
 			(SAFETY, 'New safety issues - notifies staff only'),
 			(BUDDY_REQUEST, 'New buddy request - notifies all users'),
 			(BUDDY_REQUEST_REPLY, 'New buddy request reply - notifies request creator and users who have replied'),
-			(ADJUSTMENT_REQUEST, 'New adjustment request - notifies facility managers only'),
+			(ADJUSTMENT_REQUEST, 'New adjustment request - notifies reviewers only'),
 			(ADJUSTMENT_REQUEST_REPLY, 'New adjustment request reply - notifies request creator and users who have replied'),
 			(TEMPORARY_ACCESS_REQUEST, 'New access request - notifies other users on request and reviewers'),
 			(TRAINING_REQUEST, 'New training request - notifies trainers only'),
+			(SHADOWING_VERIFICATION_REQUEST, 'New shadowing verification request - notifies reviewers only'),
 			(TRAINING_INVITATION, 'New training invitation - notifies invited users'),
 			(TRAINING_ALL, 'All training notifications')
 		)
@@ -2955,9 +2986,22 @@ class AdjustmentRequest(BaseModel):
 		result = {self.creator}
 		for reply in self.replies:
 			result.add(reply.author)
-		for manager in User.objects.filter(is_active=True, is_facility_manager=True):
-			result.add(manager)
+		result.update(self.reviewers())
 		return list(result)
+
+	def reviewers(self) -> QuerySetType[User]:
+		# Create the list of users to notify/show request to. If the adjustment request has a tool/area and their
+		# list of reviewers is empty, send/show to all facility managers
+		tool: Tool = getattr(self.item, "tool", None) if self.item else None
+		area: Area = getattr(self.item, "area", None) if self.item else None
+		facility_managers = User.objects.filter(is_active=True, is_facility_manager=True)
+		if tool:
+			tool_reviewers = tool._adjustment_request_reviewers.filter(is_active=True)
+			return tool_reviewers or facility_managers
+		if area:
+			area_reviewers = area.adjustment_request_reviewers.filter(is_active=True)
+			return area_reviewers or facility_managers
+		return facility_managers
 
 	def clean(self):
 		if not self.description:
@@ -2975,6 +3019,55 @@ class AdjustmentRequest(BaseModel):
 
 	class Meta:
 		ordering = ['-creation_time']
+
+
+class ShadowingVerificationRequest(BaseModel):
+	creation_time = models.DateTimeField(auto_now_add=True, help_text="The date and time when the request was created.")
+	creator = models.ForeignKey("User", related_name='qualification_requests_created', on_delete=models.CASCADE)
+	last_updated = models.DateTimeField(auto_now=True, help_text="The last time this request was modified.")
+	last_updated_by = models.ForeignKey("User", null=True, blank=True, related_name="qualification_requests_updated", help_text="The last user who modified this request.", on_delete=models.SET_NULL)
+	description = models.TextField(null=False, blank=False, help_text="The description of the request.")
+	tool = models.ForeignKey(Tool, help_text="The tool that the user is requesting a shadowing verification for.", on_delete=models.CASCADE)
+	qualification_level = models.ForeignKey(QualificationLevel, null=True, blank=True, help_text="The qualification level that the user is requesting.", on_delete=models.PROTECT)
+	event_date = models.DateField(help_text="The date of the shadowing event.")
+	shadowed_qualified_user = models.ForeignKey("User", related_name="qualification_requests_shadowed_qualified_user", help_text="The qualified user who was shadowed.", on_delete=models.CASCADE)
+	status = models.IntegerField(choices=RequestStatus.choices_without_expired(), default=RequestStatus.PENDING)
+	reviewer = models.ForeignKey("User", null=True, blank=True, related_name='qualification_requests_reviewed', on_delete=models.CASCADE)
+	deleted = models.BooleanField(default=False, help_text="Indicates the request has been deleted and won't be shown anymore.")
+
+	def reviewers(self) -> QuerySetType[User]:
+		# Create the list of users to notify/show request to. If the shadowing tool's
+		# list of reviewers is empty, send/show to all facility managers
+		facility_managers = User.objects.filter(is_active=True, is_facility_manager=True)
+		tool_shadow_reviewers = self.tool.shadowing_verification_reviewers.filter(is_active=True)
+		return tool_shadow_reviewers or facility_managers
+
+	def clean(self):
+		errors = {}
+		# Check tool
+		if self.tool_id and not self.tool.allow_user_shadowing_verification_request:
+			errors['tool'] = 'This tool does not allow shadowing verification.'
+		# Check qualification level
+		if QualificationLevel.objects.exists():
+			if not self.qualification_level:
+				if self.tool.shadowing_verification_request_qualification_levels.exists():
+					errors['qualification_level'] = 'Qualification level is required.'
+				else:
+					errors['tool'] = 'This tool does not allow shadowing verification.'
+			elif hasattr(self, 'tool') and not self.tool.shadowing_verification_request_qualification_levels.filter(id=self.qualification_level.id).exists():
+				errors['qualification_level'] = 'This qualification level cannot be requested for tool.'
+		if self.tool_id and self.shadowed_qualified_user and self.event_date:
+			event_datetime = datetime.datetime(self.event_date.year, self.event_date.month, self.event_date.day)
+			# Filter usages by shadowed user and too
+			usages = UsageEvent.objects.filter(user=self.shadowed_qualified_user, tool=self.tool)
+			# Exclude all the usages that started after the shadowing date
+			usages = usages.exclude(start__gt=end_of_the_day(event_datetime))
+			# Exclude all the usages that ended before the shadowing date
+			usages = usages.exclude(end__lte=beginning_of_the_day(event_datetime))
+			if not usages.exists():
+				errors['shadowed_qualified_user'] = '%s did not use the %s on %s' % (self.shadowed_qualified_user.get_name(), self.tool.name, format_datetime(self.event_date, "DATE_FORMAT"))
+		if len(errors) != 0:
+			raise ValidationError(errors)
 
 
 class RequestMessage(BaseModel):
