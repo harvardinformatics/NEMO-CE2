@@ -498,7 +498,7 @@ def ten_most_recent_past_comments_and_tasks(request, tool_id):
 		comments = comments.filter(staff_only=False)
 	comments = comments[:10]
 	past = list(chain(tasks, comments))
-	past.sort(key=lambda x: getattr(x, "creation_ 	time", None) or getattr(x, "creation_date", None))
+	past.sort(key=lambda x: getattr(x, "creation_time", None) or getattr(x, "creation_date", None))
 	past.reverse()
 	past = past[0:10]
 	if request.GET.get("export"):
