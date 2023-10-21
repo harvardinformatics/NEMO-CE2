@@ -6,7 +6,6 @@ import NEMO.utilities
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("NEMO", "0040_version_4_2_0"),
     ]

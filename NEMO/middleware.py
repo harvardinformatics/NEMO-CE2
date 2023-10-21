@@ -117,7 +117,6 @@ class NEMOAuditlogMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-
         if request.META.get("HTTP_X_FORWARDED_FOR"):
             # In case of proxy, set 'original' address
             remote_addr = request.META.get("HTTP_X_FORWARDED_FOR").split(",")[0]

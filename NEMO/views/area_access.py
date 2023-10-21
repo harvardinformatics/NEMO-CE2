@@ -43,7 +43,6 @@ area_access_logger = getLogger(__name__)
 
 # Utility parser to find error messages in rendered self_login view
 class ParseSelfLoginErrorMessage(HTMLParser):
-
     record = False
     data = None
 

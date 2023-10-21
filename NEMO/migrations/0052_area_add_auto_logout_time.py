@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("NEMO", "0051_request_reviewers_in_tool_and_area"),
     ]

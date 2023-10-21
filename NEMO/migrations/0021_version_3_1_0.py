@@ -8,7 +8,6 @@ import NEMO.fields
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("NEMO", "0020_version_3_0_0"),
     ]

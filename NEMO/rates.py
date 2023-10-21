@@ -12,7 +12,6 @@ rates_logger = getLogger(__name__)
 
 
 class Rates(ABC):
-
     rates = None
 
     @abstractmethod
@@ -43,7 +42,6 @@ class Rates(ABC):
 
 
 class NISTRates(Rates):
-
     consumable_rate_class = "inventory_rate"
     tool_rate_class = "primetime_eq_hourly_rate"
     tool_training_rate_class = "training_individual_hourly_rate"

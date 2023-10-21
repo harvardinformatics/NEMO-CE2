@@ -14,7 +14,6 @@ import NEMO.utilities
 
 
 class Migration(migrations.Migration):
-
     replaces = [
         ("NEMO", "0002_version_1_1_0"),
         ("NEMO", "0003_version_1_2_0"),

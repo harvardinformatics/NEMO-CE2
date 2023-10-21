@@ -7,7 +7,6 @@ from django.db.models import F
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("contenttypes", "0002_remove_content_type_name"),
         ("NEMO", "0044_version_4_4_0"),

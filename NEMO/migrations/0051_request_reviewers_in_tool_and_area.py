@@ -8,7 +8,6 @@ from django.db.models import Q
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("NEMO", "0050_consumable_add_self_checkout_and_notes"),
     ]

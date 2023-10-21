@@ -6,7 +6,6 @@ import NEMO.utilities
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("contracts", "0001_initial"),
     ]

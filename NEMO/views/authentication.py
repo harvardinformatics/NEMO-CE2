@@ -146,7 +146,6 @@ class LDAPAuthenticationBackend(ModelBackend):
 
     @method_decorator(sensitive_post_parameters("password"))
     def authenticate(self, request, username=None, password=None, **keyword_arguments):
-
         # Check for remote user in extra arguments if no username and password.
         # In case of basic authentication
         if not username or not password:

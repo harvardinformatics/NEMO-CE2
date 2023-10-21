@@ -7,7 +7,6 @@ from NEMO.migrations_utils import create_news_for_version
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("NEMO", "0039_version_4_1_0"),
     ]

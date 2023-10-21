@@ -2,7 +2,7 @@ from setuptools import find_namespace_packages, setup
 
 setup(
     name="NEMO-CE",
-    version="1.7.2",
+    version="2.0.0.dev",
     python_requires=">=3.8, <4",
     packages=find_namespace_packages(exclude=["NEMO.tests", "NEMO.tests.*"]),
     include_package_data=True,
@@ -15,13 +15,17 @@ setup(
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Web Environment",
-        "Framework :: Django",
         "Intended Audience :: Science/Research",
         "Intended Audience :: System Administrators",
         "License :: Public Domain",
         "Natural Language :: English",
         "Operating System :: OS Independent",
+        "Framework :: Django :: 3.2",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     install_requires=[
         "cryptography==41.0.4",
