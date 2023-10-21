@@ -8,8 +8,8 @@ from NEMO.apps.nemo_ce.migration_utils import NEMOMigration
 class Migration(NEMOMigration):
 
     dependencies = [
-        ('NEMO', '0048_version_4_6_3'),
-        ('nemo_ce', '0008_ce_qualification_level_in_training_history'),
+        ("NEMO", "0048_version_4_6_3"),
+        ("nemo_ce", "0008_ce_qualification_level_in_training_history"),
     ]
 
     def rename_customization(apps, schema_editor):
@@ -24,8 +24,12 @@ class Migration(NEMOMigration):
     operations = [
         migrations.RunPython(rename_customization),
         migrations.AddField(
-            model_name='tool',
-            name='_grant_access_for_qualification_levels',
-            field=models.ManyToManyField(blank=True, help_text='Granting physical access or badge reader access will only apply to the selected qualification levels. If left empty it will apply to all qualification levels.', to='NEMO.QualificationLevel'),
+            model_name="tool",
+            name="_grant_access_for_qualification_levels",
+            field=models.ManyToManyField(
+                blank=True,
+                help_text="Granting physical access or badge reader access will only apply to the selected qualification levels. If left empty it will apply to all qualification levels.",
+                to="NEMO.QualificationLevel",
+            ),
         ),
     ]

@@ -1,4 +1,4 @@
-from django.db import migrations, models
+from django.db import migrations
 
 from NEMO.migrations_utils import create_news_for_version
 
@@ -6,7 +6,7 @@ from NEMO.migrations_utils import create_news_for_version
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('NEMO', '0032_version_3_11_0'),
+        ("NEMO", "0032_version_3_11_0"),
     ]
 
     def new_version_news(apps, schema_editor):

@@ -376,8 +376,12 @@ def manage_events(request):
     mark_training_objects_expired()
     user: User = request.user
     date_now = timezone.now()
-    past_training_events = TrainingEvent.objects.filter(creator=user, cancelled=False).filter(Q(end__lte=date_now)|Q(start__lte=date_now, end__gte=date_now))
-    training_events = TrainingEvent.objects.filter(creator=user, cancelled=False, end__gte=date_now).exclude(start__lte=date_now)
+    past_training_events = TrainingEvent.objects.filter(creator=user, cancelled=False).filter(
+        Q(end__lte=date_now) | Q(start__lte=date_now, end__gte=date_now)
+    )
+    training_events = TrainingEvent.objects.filter(creator=user, cancelled=False, end__gte=date_now).exclude(
+        start__lte=date_now
+    )
     dictionary = {"training_events": training_events, "past_training_events": past_training_events, "now": date_now}
     return render(request, "training_new/training_events/manage_training_events.html", dictionary)
 
@@ -421,7 +425,9 @@ def register_for_training(request, training_event_id):
     user: User = request.user
     training_event = get_object_or_404(TrainingEvent, id=training_event_id, cancelled=False)
     if training_event.invitation_only and not training_event.pending_invitations(user):
-        return HttpResponseBadRequest("This training is by invitation only. Submit a request or contract the trainer directly")
+        return HttpResponseBadRequest(
+            "This training is by invitation only. Submit a request or contract the trainer directly"
+        )
     # Create new training invitation
     invitation = TrainingInvitation()
     invitation.training_event = training_event
@@ -491,10 +497,14 @@ def mark_training_objects_expired():
     for t_invite in TrainingInvitation.objects.filter(
         status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED], training_event__start__lte=date_now
     ):
-        t_invite.save_status(TrainingRequestStatus.EXPIRED, None, "Automatically expired, training session already took place")
+        t_invite.save_status(
+            TrainingRequestStatus.EXPIRED, None, "Automatically expired, training session already took place"
+        )
         delete_notification(Notification.Types.TRAINING_INVITATION, t_invite.id)
         # Expire corresponding requests
-        for training_request in TrainingRequest.objects.filter(tool=t_invite.tool, status=TrainingRequestStatus.INVITED, user=t_invite.user):
+        for training_request in TrainingRequest.objects.filter(
+            tool=t_invite.tool, status=TrainingRequestStatus.INVITED, user=t_invite.user
+        ):
             training_request.save_status(TrainingRequestStatus.EXPIRED, None, "The associated invitation expired")
 
 
@@ -642,7 +652,9 @@ def suggested_times_for_training(tool, duration) -> List[Tuple[Any, Set[User]]]:
 def send_ics(training: TrainingEvent, user, cancelled=False):
     event_name = f"{training.tool.name} Training"
     trainer = training.trainer
-    ics = create_ics(training.id, event_name, training.start, training.end, user, organizer=trainer, cancelled=cancelled)
+    ics = create_ics(
+        training.id, event_name, training.start, training.end, user, organizer=trainer, cancelled=cancelled
+    )
     # Check if this is sent to the trainer by himself, in which case we need to remove him as organizer in ICS
     if user == trainer:
         ics = create_ics(training.id, event_name, training.start, training.end, trainer, cancelled=cancelled)

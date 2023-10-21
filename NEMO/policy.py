@@ -60,7 +60,9 @@ from NEMO.views.customization import (
 
 
 class NEMOPolicy:
-    def check_to_enable_tool(self, tool: Tool, operator: User, user: User, project: Project, staff_charge: bool, remote_work=False):
+    def check_to_enable_tool(
+        self, tool: Tool, operator: User, user: User, project: Project, staff_charge: bool, remote_work=False
+    ):
         """
         Check that the user is allowed to enable the tool. Enable the tool if the policy checks pass.
         """
@@ -190,7 +192,9 @@ class NEMOPolicy:
 
         # Check if we are allowed to bill to project
         try:
-            self.check_billing_to_project(project, user, tool, UsageEvent(tool=tool, project=project, remote_work=remote_work, user=user))
+            self.check_billing_to_project(
+                project, user, tool, UsageEvent(tool=tool, project=project, remote_work=remote_work, user=user)
+            )
         except ProjectChargeException as e:
             return HttpResponseBadRequest(e.msg)
 
@@ -221,19 +225,23 @@ class NEMOPolicy:
         has_post_usage_questions = bool(tool.post_usage_questions)
         force_off = ToolCustomization.get("tool_control_ongoing_reservation_force_off")
 
-        ongoing_reservation = Reservation.objects.filter(tool=tool, user=operator, start__lte=timezone.now(),
-                                                         end__gte=timezone.now(), shortened=False,
-                                                         cancelled=False, missed=False).exists()
+        ongoing_reservation = Reservation.objects.filter(
+            tool=tool,
+            user=operator,
+            start__lte=timezone.now(),
+            end__gte=timezone.now(),
+            shortened=False,
+            cancelled=False,
+            missed=False,
+        ).exists()
 
         if (
-                current_usage_event.operator != operator
-                and current_usage_event.user != operator
-                and not (operator.is_staff or operator.is_user_office)
-                and not (ongoing_reservation and not has_post_usage_questions)
+            current_usage_event.operator != operator
+            and current_usage_event.user != operator
+            and not (operator.is_staff or operator.is_user_office)
+            and not (ongoing_reservation and not has_post_usage_questions)
         ):
-            if (
-                    not (ongoing_reservation and not has_post_usage_questions and force_off)
-            ):
+            if not (ongoing_reservation and not has_post_usage_questions and force_off):
                 return HttpResponseBadRequest(
                     "You may not disable a tool while another user is using it unless you are a staff member or have an ongoing reservation."
                 )
@@ -290,7 +298,11 @@ class NEMOPolicy:
         )
 
         previous_accessories = cancelled_reservation.tool_accessories.all() if cancelled_reservation else []
-        policy_problems.extend(self.check_accessories_available_for_reservation(new_reservation, previous_accessories, cancelled_reservation))
+        policy_problems.extend(
+            self.check_accessories_available_for_reservation(
+                new_reservation, previous_accessories, cancelled_reservation
+            )
+        )
 
         # Reservations that have been cancelled may not be changed.
         if new_reservation.cancelled:
@@ -315,7 +327,9 @@ class NEMOPolicy:
 
         # Check if we are allowed to bill to project
         try:
-            self.check_billing_to_project(new_reservation.project, user, new_reservation.reservation_item, new_reservation)
+            self.check_billing_to_project(
+                new_reservation.project, user, new_reservation.reservation_item, new_reservation
+            )
         except ProjectChargeException as e:
             policy_problems.append(e.msg)
 
@@ -418,17 +432,16 @@ class NEMOPolicy:
                     )
             elif qualification.qualification_level and not qualification.qualification_level.qualify_user:
                 if user == user_creating_reservation:
-                    policy_problems.append(
-                        "You do not have the qualification level required to operate this tool."
-                    )
+                    policy_problems.append("You do not have the qualification level required to operate this tool.")
                 else:
                     policy_problems.append(
                         f"{str(user)} does not have the qualification level required to operate this tool."
                     )
             elif qualification.qualification_level:
                 times_to_check = get_times_to_check(new_reservation.start, new_reservation.end)
-                if not all([qualification.qualification_level.is_allowed_at(check_time) for check_time in
-                            times_to_check]):
+                if not all(
+                    [qualification.qualification_level.is_allowed_at(check_time) for check_time in times_to_check]
+                ):
                     if user == user_creating_reservation:
                         policy_problems.append(
                             f"You do not have the qualification level required to operate this tool at some point during the reservation window. Allowed times are {qualification.qualification_level.allowed_times_display()}"
@@ -664,13 +677,10 @@ class NEMOPolicy:
         # Exclude events for which the following is true:
         # The event starts and ends before the time-window, and...
         # The event starts and ends after the time-window.
-        coincident_events = coincident_events.exclude(start__lt=new_reservation.start,
-                                                      end__lte=new_reservation.start)
+        coincident_events = coincident_events.exclude(start__lt=new_reservation.start, end__lte=new_reservation.start)
         coincident_events = coincident_events.exclude(start__gte=new_reservation.end, end__gt=new_reservation.end)
         if coincident_events.count() > 0:
-            policy_problems.append(
-                "Your reservation coincides with a training. Please choose a different time."
-            )
+            policy_problems.append("Your reservation coincides with a training. Please choose a different time.")
 
     def should_enforce_reservation_policy(self, reservation: Reservation) -> bool:
         """Returns whether the policy rules should be enforced."""
@@ -874,12 +884,16 @@ class NEMOPolicy:
 
         return HttpResponse()
 
-    def check_accessories_available_for_reservation(self, reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None) -> List[str]:
+    def check_accessories_available_for_reservation(
+        self, reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None
+    ) -> List[str]:
         policy_problems = []
         conflicts = accessory_conflicts_for_reservation(reservation, accessories, cancelled_reservation)
         for accessory_name, reservations in conflicts.items():
             for reservation_using_accessory in reservations:
-                policy_problems.append(f"Someone already reserved the {accessory_name} for the {reservation_using_accessory.tool.name}: {format_daterange(reservation_using_accessory.start, reservation_using_accessory.end)}")
+                policy_problems.append(
+                    f"Someone already reserved the {accessory_name} for the {reservation_using_accessory.tool.name}: {format_daterange(reservation_using_accessory.start, reservation_using_accessory.end)}"
+                )
         return policy_problems
 
     def check_to_create_outage(self, outage: ScheduledOutage) -> Optional[str]:
@@ -981,7 +995,11 @@ class NEMOPolicy:
                 raise ReservationRequiredUserError(user=user, area=area)
 
     def check_billing_to_project(
-        self, project: Project, user: User, item: Union[Tool, Area, Consumable, StaffCharge] = None, charge: Union[UsageEvent, AreaAccessRecord, ConsumableWithdraw, StaffCharge, Reservation] = None
+        self,
+        project: Project,
+        user: User,
+        item: Union[Tool, Area, Consumable, StaffCharge] = None,
+        charge: Union[UsageEvent, AreaAccessRecord, ConsumableWithdraw, StaffCharge, Reservation] = None,
     ):
         if project:
             if project not in user.active_projects():
@@ -1055,20 +1073,22 @@ class NEMOPolicy:
             policy_problems.append(
                 "Your training coincides with another training that already exists. Please choose a different time."
             )
-        coincident_reservations = Reservation.objects.filter(tool=training.tool, cancelled=False, missed=False, shortened=False)
+        coincident_reservations = Reservation.objects.filter(
+            tool=training.tool, cancelled=False, missed=False, shortened=False
+        )
         coincident_reservations = coincident_reservations.exclude(start__lt=training.start, end__lte=training.start)
         coincident_reservations = coincident_reservations.exclude(start__gte=training.end, end__gt=training.end)
         if coincident_reservations.exists():
             policy_problems.append(
                 "Your training coincides with a reservation that already exists. Please choose a different time."
             )
-        coincident_outages = ScheduledOutage.objects.filter(Q(tool=training.tool) | Q(resource__fully_dependent_tools__in=[training.tool]))
+        coincident_outages = ScheduledOutage.objects.filter(
+            Q(tool=training.tool) | Q(resource__fully_dependent_tools__in=[training.tool])
+        )
         coincident_outages = coincident_outages.exclude(start__lt=training.start, end__lte=training.start)
         coincident_outages = coincident_outages.exclude(start__gte=training.end, end__gt=training.end)
         if coincident_outages.exists():
-            policy_problems.append(
-                "Your training coincides with a scheduled outage. Please choose a different time."
-            )
+            policy_problems.append("Your training coincides with a scheduled outage. Please choose a different time.")
         return policy_problems
 
     def check_to_register_for_training(self, training_invite: TrainingInvitation) -> Optional[List[str]]:
@@ -1092,7 +1112,9 @@ def recursive_merge(intervals: List[tuple], start_index=0) -> List[tuple]:
     return intervals
 
 
-def accessory_conflicts_for_reservation(reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None) -> Dict[str, List[Reservation]]:
+def accessory_conflicts_for_reservation(
+    reservation: Reservation, accessories: List[ToolAccessory], cancelled_reservation: Reservation = None
+) -> Dict[str, List[Reservation]]:
     conflicts = {}
     for accessory in accessories:
         reservation_qs = accessory.reservation_set.filter(cancelled=False, missed=False, shortened=False)

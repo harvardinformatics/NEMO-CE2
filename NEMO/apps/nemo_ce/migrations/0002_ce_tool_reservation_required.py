@@ -8,14 +8,18 @@ from NEMO.apps.nemo_ce.migration_utils import NEMOMigration
 class Migration(NEMOMigration):
 
     dependencies = [
-        ('NEMO', '0045_version_4_5_0'),
-        ('nemo_ce', '0001_ce_tool_accessories'),
+        ("NEMO", "0045_version_4_5_0"),
+        ("nemo_ce", "0001_ce_tool_accessories"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='tool',
-            name='_reservation_required',
-            field=models.BooleanField(db_column='reservation_required', default=False, help_text='Require that users have a current (within 15 minutes) reservation in order to use the tool'),
+            model_name="tool",
+            name="_reservation_required",
+            field=models.BooleanField(
+                db_column="reservation_required",
+                default=False,
+                help_text="Require that users have a current (within 15 minutes) reservation in order to use the tool",
+            ),
         ),
     ]

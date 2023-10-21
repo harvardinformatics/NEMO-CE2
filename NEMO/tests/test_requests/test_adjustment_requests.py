@@ -6,20 +6,20 @@ from django.urls import reverse
 from django.utils import timezone
 
 from NEMO.models import (
-	AdjustmentRequest,
-	Notification,
-	RequestMessage,
-	RequestStatus,
-	Tool,
-	UsageEvent,
-	User,
+    AdjustmentRequest,
+    Notification,
+    RequestMessage,
+    RequestStatus,
+    Tool,
+    UsageEvent,
+    User,
 )
 from NEMO.tests.test_utilities import (
-	create_user_and_project,
-	login_as,
-	login_as_staff,
-	login_as_user,
-	validate_model_error,
+    create_user_and_project,
+    login_as,
+    login_as_staff,
+    login_as_user,
+    validate_model_error,
 )
 from NEMO.views.customization import UserRequestsCustomization
 
