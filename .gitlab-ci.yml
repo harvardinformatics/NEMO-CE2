@@ -6,15 +6,34 @@ stages:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
-Test:
+.test: &test
   variables:
     GIT_STRATEGY: clone
   stage: test
-  image: python:3
   script:
     - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/tests"
     - python -m pip install ./
     - python manage.py test NEMO.tests --settings=test_settings
+
+Test python 3.8:
+  <<: *test
+  image: python:3.8
+
+Test python 3.9:
+  <<: *test
+  image: python:3.9
+
+Test python 3.10:
+  <<: *test
+  image: python:3.10
+
+Test python 3.11:
+  <<: *test
+  image: python:3.11
+
+Test python 3.12:
+  <<: *test
+  image: python:3.12
 
 NEMO-CE dev build:
   stage: build
