@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db import transaction
-from django.db.models import Case, CharField, F, Q, Value, When
+from django.db.models import Case, CharField, F, IntegerField, Q, Value, When
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -199,12 +199,12 @@ def history(request):
     )
     training_histories = training_histories.annotate(
         tool_order=Case(
-            When(training_request__isnull=False, then=F("training_request__tool")),
-            When(training_invitation__isnull=False, then=F("training_invitation__training_event__tool")),
-            When(training_event__isnull=False, then=F("training_event__tool")),
+            When(training_request__isnull=False, then=F("training_request__tool_id")),
+            When(training_invitation__isnull=False, then=F("training_invitation__training_event__tool_id")),
+            When(training_event__isnull=False, then=F("training_event__tool_id")),
             When(qualification__isnull=False, then=F("qualification__parent_object_id")),
-            default=Value(""),
-            output_field=CharField(),
+            default=Value(0),
+            output_field=IntegerField(),
         )
     )
     page = SortedPaginator(training_histories, request, order_by="-time").get_current_page()
