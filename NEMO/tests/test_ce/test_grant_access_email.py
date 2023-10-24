@@ -32,7 +32,9 @@ class GrantAccessEmailTest(TestCase):
         self.assertFalse(EmailLog.objects.exists())
         ToolCustomization.set("tool_grant_access_emails", "abc@example.com")
         # Manually reset the date otherwise it won't find any qualification
-        Customization.objects.update_or_create(name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()})
+        Customization.objects.update_or_create(
+            name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()}
+        )
         call_command("send_email_grant_access")
         # No grant access set, nothing should be sent
         self.assertFalse(EmailLog.objects.exists())
@@ -40,16 +42,18 @@ class GrantAccessEmailTest(TestCase):
         tool.grant_badge_reader_access_upon_qualification = "Cleanroom access"
         tool.grant_access_for_qualification_levels.set([level_24_7])
         tool.save()
-        Customization.objects.update_or_create(name="tool_email_grant_access_since",
-                                               defaults={"value": yesterday.isoformat()})
+        Customization.objects.update_or_create(
+            name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()}
+        )
         call_command("send_email_grant_access")
         self.assertFalse(EmailLog.objects.exists())
         # Set it to the right one
         tool.grant_access_for_qualification_levels.set([level_intro])
         tool.save()
         # Now it should work
-        Customization.objects.update_or_create(name="tool_email_grant_access_since",
-                                               defaults={"value": yesterday.isoformat()})
+        Customization.objects.update_or_create(
+            name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()}
+        )
         call_command("send_email_grant_access")
         self.assertEqual(EmailLog.objects.count(), 1)
         # Try again without resetting the customization date, should only have one email still
@@ -61,7 +65,9 @@ class GrantAccessEmailTest(TestCase):
         user = User.objects.create(username="test_user", first_name="Testy", last_name="McTester", badge_number=222222)
         tool = Tool.objects.create(name="Test tool")
         area = Area.objects.create(name="Cleanroom")
-        physical_access_level = PhysicalAccessLevel.objects.create(name="Cleanroom access", area=area, schedule=PhysicalAccessLevel.Schedule.ALWAYS)
+        physical_access_level = PhysicalAccessLevel.objects.create(
+            name="Cleanroom access", area=area, schedule=PhysicalAccessLevel.Schedule.ALWAYS
+        )
         level_24_7 = QualificationLevel.objects.create(name="24/7", qualify_user=True)
         level_intro = QualificationLevel.objects.create(name="Introduction", qualify_user=False)
         clean_and_record(yesterday, user, tool, level_intro)
@@ -84,7 +90,9 @@ class GrantAccessEmailTest(TestCase):
         tool.save()
         clean_and_record(yesterday, user, tool, level_intro)
         # Manually reset the date otherwise it won't find any qualification
-        Customization.objects.update_or_create(name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()})
+        Customization.objects.update_or_create(
+            name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()}
+        )
         call_command("send_email_grant_access")
         self.assertFalse(EmailLog.objects.exists())
         # Set it to the right one
@@ -94,19 +102,24 @@ class GrantAccessEmailTest(TestCase):
         # Pretend the access was later removed, email should not be sent
         user.physical_access_levels.set([])
         # Manually reset the date otherwise it won't find any qualification
-        Customization.objects.update_or_create(name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()})
+        Customization.objects.update_or_create(
+            name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()}
+        )
         call_command("send_email_grant_access")
         self.assertFalse(EmailLog.objects.exists())
         # Now it should work
         clean_and_record(yesterday, user, tool, level_intro)
         # Manually reset the date otherwise it won't find any qualification
-        Customization.objects.update_or_create(name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()})
+        Customization.objects.update_or_create(
+            name="tool_email_grant_access_since", defaults={"value": yesterday.isoformat()}
+        )
         # Now it should work
         call_command("send_email_grant_access")
         self.assertEqual(EmailLog.objects.count(), 1)
         # Try again without resetting the customization date, should only have one email still
         call_command("send_email_grant_access")
         self.assertEqual(EmailLog.objects.count(), 1)
+
 
 def clean_and_record(yesterday, user, tool, level):
     MembershipHistory.objects.all().delete()

@@ -8,13 +8,13 @@ from django.views.decorators.http import require_POST
 
 from NEMO.decorators import staff_member_required
 from NEMO.models import (
-	AreaAccessRecord,
-	ConsumableWithdraw,
-	Reservation,
-	StaffCharge,
-	TrainingSession,
-	UsageEvent,
-	User,
+    AreaAccessRecord,
+    ConsumableWithdraw,
+    Reservation,
+    StaffCharge,
+    TrainingSession,
+    UsageEvent,
+    User,
 )
 from NEMO.views.adjustment_requests import adjustment_eligible_items
 from NEMO.views.customization import RemoteWorkCustomization, UserRequestsCustomization

@@ -37,7 +37,7 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
 )
-from NEMO.views.customization import (EmailsCustomization, UserRequestsCustomization, get_media_file_contents)
+from NEMO.views.customization import EmailsCustomization, UserRequestsCustomization, get_media_file_contents
 from NEMO.views.notifications import (
     create_adjustment_request_notification,
     create_request_message_notification,
@@ -77,11 +77,13 @@ def adjustment_requests(request):
         "adjustment_requests_description": UserRequestsCustomization.get("adjustment_requests_description"),
         "request_notifications": get_notifications(request.user, Notification.Types.ADJUSTMENT_REQUEST, delete=False),
         "reply_notifications": get_notifications(request.user, Notification.Types.ADJUSTMENT_REQUEST_REPLY),
-        "user_is_reviewer": user_is_reviewer
+        "user_is_reviewer": user_is_reviewer,
     }
 
     # Delete notifications for seen requests
-    Notification.objects.filter(user=request.user, notification_type=Notification.Types.ADJUSTMENT_REQUEST, object_id__in=my_requests).delete()
+    Notification.objects.filter(
+        user=request.user, notification_type=Notification.Types.ADJUSTMENT_REQUEST, object_id__in=my_requests
+    ).delete()
     return render(request, "requests/adjustment_requests/adjustment_requests.html", dictionary)
 
 
@@ -324,7 +326,9 @@ def user_adjustment_eligible_items(user: User, current_item=None) -> List[Billab
     return adjustment_eligible_items(staff_charges_allowed, charge_filter, user, current_item, item_number)
 
 
-def adjustment_eligible_items(staff_charges_allowed: bool, charge_filter=None, user: User=None, current_item=None, item_number=None) -> List[BillableItemMixin]:
+def adjustment_eligible_items(
+    staff_charges_allowed: bool, charge_filter=None, user: User = None, current_item=None, item_number=None
+) -> List[BillableItemMixin]:
     if charge_filter is None:
         charge_filter = {}
     items: List[BillableItemMixin] = []
@@ -332,18 +336,14 @@ def adjustment_eligible_items(staff_charges_allowed: bool, charge_filter=None, u
         missed_filter = deepcopy(charge_filter)
         if user:
             missed_filter["user_id"] = user.id
-        items.extend(
-            Reservation.objects.filter(missed=True).filter(**missed_filter).order_by("-end")[:item_number]
-        )
+        items.extend(Reservation.objects.filter(missed=True).filter(**missed_filter).order_by("-end")[:item_number])
     if UserRequestsCustomization.get_bool("adjustment_requests_tool_usage_enabled"):
         tool_usage_filter = deepcopy(charge_filter)
         if user:
             tool_usage_filter["user_id"] = user.id
             tool_usage_filter["operator_id"] = user.id
         items.extend(
-            UsageEvent.objects.filter(end__isnull=False)
-            .filter(**tool_usage_filter)
-            .order_by("-end")[:item_number]
+            UsageEvent.objects.filter(end__isnull=False).filter(**tool_usage_filter).order_by("-end")[:item_number]
         )
     if UserRequestsCustomization.get_bool("adjustment_requests_area_access_enabled"):
         area_access_filter = deepcopy(charge_filter)
@@ -373,7 +373,11 @@ def adjustment_eligible_items(staff_charges_allowed: bool, charge_filter=None, u
             .filter(**remote_area_access_filter)
             .order_by("-end")[:item_number]
         )
-        items.extend(StaffCharge.objects.filter(end__isnull=False).filter(**remote_staff_time_filter).order_by("-end")[:item_number])
+        items.extend(
+            StaffCharge.objects.filter(end__isnull=False)
+            .filter(**remote_staff_time_filter)
+            .order_by("-end")[:item_number]
+        )
     if current_item and current_item in items:
         items.remove(current_item)
     # Remove already adjusted charges. filter by id first

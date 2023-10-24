@@ -10,24 +10,38 @@ from NEMO.apps.nemo_ce.migration_utils import NEMOMigration
 class Migration(NEMOMigration):
 
     dependencies = [
-        ('NEMO', '0045_version_4_5_5'),
-        ('nemo_ce', '0005_ce_add_project_to_training_request'),
+        ("NEMO", "0045_version_4_5_5"),
+        ("nemo_ce", "0005_ce_add_project_to_training_request"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='traininghistory',
-            name='qualification',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='NEMO.membershiphistory'),
+            model_name="traininghistory",
+            name="qualification",
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="NEMO.membershiphistory"
+            ),
         ),
         migrations.AlterField(
-            model_name='membershiphistory',
-            name='authorizer',
-            field=models.ForeignKey(blank=True, help_text='The staff member who changed the membership status of the account, project, or user in question.', null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            model_name="membershiphistory",
+            name="authorizer",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="The staff member who changed the membership status of the account, project, or user in question.",
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AlterField(
-            model_name='traininghistory',
-            name='user',
-            field=models.ForeignKey(blank=True, help_text='The user who changed the training item status', null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            model_name="traininghistory",
+            name="user",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="The user who changed the training item status",
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

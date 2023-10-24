@@ -9,15 +9,15 @@ from NEMO.apps.nemo_ce.migration_utils import NEMOMigration
 class Migration(NEMOMigration):
 
     dependencies = [
-        ('NEMO', '0045_version_4_5_5'),
-        ('nemo_ce', '0004_ce_qualification_levels'),
+        ("NEMO", "0045_version_4_5_5"),
+        ("nemo_ce", "0004_ce_qualification_levels"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='trainingrequest',
-            name='project',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='NEMO.project'),
+            model_name="trainingrequest",
+            name="project",
+            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to="NEMO.project"),
             preserve_default=False,
         ),
     ]
