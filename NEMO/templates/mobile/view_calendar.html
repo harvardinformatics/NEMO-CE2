@@ -16,6 +16,8 @@
 			{% include 'mobile/individual_reservation.html' with reservation=event %}
 		{% elif event|class_name == "ScheduledOutage" %}
 			{% include 'mobile/individual_outage.html' with outage=event %}
+		{% elif event|class_name == "TrainingEvent" %}
+			{% include 'mobile/individual_training_event.html' with training=event %}
 		{% endif %}
 	{% empty %}
 		<div style="text-align:center">There are no reservations</div>
@@ -27,4 +29,11 @@
 			<rect x="15" y="24" width="21" height="3" fill="white"></rect>
 		</svg>
 	</a>
+{#	<a href="{% url 'create_training_event_calendar' %}?item_type={{ item_type }}&item_id={{ item.id }}">#}
+{#		<svg height="50" width="50" style="position:fixed; right:15px; bottom:15px">#}
+{#			<circle cx="25" cy="25" r="25" fill="#BF00FFFF"></circle>#}
+{#			<rect x="24" y="15" width="3" height="20" fill="white"></rect>#}
+{#			<rect x="15" y="24" width="21" height="3" fill="white"></rect>#}
+{#		</svg>#}
+{#	</a>#}
 {% endblock %}

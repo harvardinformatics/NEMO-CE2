@@ -10,7 +10,7 @@ from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException
-from NEMO.models import Area, Project, Reservation, ReservationItemType, ScheduledOutage, Tool, User
+from NEMO.models import Area, Project, Reservation, ReservationItemType, ScheduledOutage, Tool, TrainingEvent, User
 from NEMO.policy import policy_class as policy
 from NEMO.utilities import beginning_of_the_day, end_of_the_day, localize
 from NEMO.views.calendar import (
@@ -19,7 +19,7 @@ from NEMO.views.calendar import (
     extract_tool_accessories,
     render_reservation_questions,
 )
-from NEMO.views.customization import CalendarCustomization
+from NEMO.views.customization import CalendarCustomization, TrainingCustomization
 
 
 @login_required
@@ -195,8 +195,10 @@ def view_calendar(request, item_type, item_id, date=None):
     reservations = reservations.exclude(start__gt=end, end__gt=end)
 
     outages = ScheduledOutage.objects.none()
+    trainings = TrainingEvent.objects.none()
     if item_type == ReservationItemType.TOOL:
         outages = ScheduledOutage.objects.filter(Q(tool=item) | Q(resource__fully_dependent_tools__in=[item]))
+        trainings = TrainingEvent.objects.filter(tool=item, cancelled=False)
     elif item_type == ReservationItemType.AREA:
         outages = item.scheduled_outage_queryset()
 
@@ -206,7 +208,16 @@ def view_calendar(request, item_type, item_id, date=None):
     outages = outages.exclude(start__lt=start, end__lt=start)
     outages = outages.exclude(start__gt=end, end__gt=end)
 
+    # Exclude trainings for which the following is true:
+    # The training starts and ends before the time-window, and...
+    # The training starts and ends after the time-window.
+    trainings = trainings.exclude(start__lt=start, end__lt=start)
+    trainings = trainings.exclude(start__gt=end, end__gt=end)
+
     events = list(chain(reservations, outages))
+    # Don't show trainings if disabled
+    if TrainingCustomization.get_bool("training_module_enabled"):
+        events.extend(trainings)
     events.sort(key=lambda x: x.start)
 
     dictionary = {

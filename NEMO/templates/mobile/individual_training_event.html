@@ -1,0 +1,47 @@
+{% load custom_tags_and_filters %}
+{% load training_tags %}
+<div class="alert" style="background-color: #BF00FFFF; color: white" role="alert">
+	<span style="cursor:pointer" class="pull-right glyphicon glyphicon-chevron-down" data-toggle="collapse" data-target="#extended_training_information_{{ training.id }}"></span>
+	<span style="cursor:pointer" data-toggle="collapse" data-target="#extended_training_information_{{ training.id }}"><strong>Training by {{ training.trainer.get_name }}</strong></span><br>
+	Starting {{ training.start }}<br>
+	Ending {{ training.end }}<br>
+	<div id="extended_training_information_{{ training.id }}" class="collapse">
+		<div style="height:10px">{# Vertical spacer #}</div>
+		Trainer: {{ training.trainer.get_name }}<br>
+		{% if training.technique %}
+			Technique: {{ training.technique.name }}<br>
+		{% endif %}
+		Duration: {{ training.duration }} minutes<br>
+		Attendees: {{ training.current_capacity }}/{{ training.capacity }}<br>
+		{% if training.users.all %}
+			{% if user.is_staff or user|is_trainer:training.tool %}
+				{% for attendee in training.users.all %}
+					<span style="visibility: hidden">Attendees: </span>{{ attendee }}<br>
+				{% endfor %}
+			{% endif %}
+		{% endif %}
+		{% if training.pending_invitations.all %}
+			{% if user.is_staff or user|is_trainer:training.tool %}
+				Invitations:<br>
+				{% for invite in training.pending_invitations.all %}
+					<span style="visibility: hidden"></span>{{ invite.user }}<br>
+				{% endfor %}
+			{% endif %}
+		{% endif %}
+		{% if training.message %}
+			Details: {{ training.message|linebreaksbr }}<br>
+		{% endif %}
+		Created by {{ training.creator }}<br>
+		{% if training.details %}
+			Details:<br>
+			{{ training.details|linebreaksbr }}
+		{% endif %}
+{#		{% if user.is_staff %}#}
+{#			<div style="height:10px"></div>#}
+{#			<form method="post" action="{% url 'cancel_training' training.id %}">#}
+{#				{% csrf_token %}#}
+{#                {% button type="delete" submit=True value="Cancel this training" %}#}
+{#			</form>#}
+{#		{% endif %}#}
+	</div>
+</div>
