@@ -56,9 +56,40 @@
 				</div>
 			</div>
 		</div>
+		<div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
+			<label class="control-label col-md-3" for="exclude_tool">Excluded tools</label>
+			<div class="col-md-7">
+				<input id="exclude_tool" type="text" autocomplete="off" class="form-control" placeholder="Search for a tool to exclude">
+			</div>
+			{% if errors.training_excluded_tools %}
+				<div class="col-md-offset-3 col-md-9 help-block light-grey">
+					{{ errors.training_excluded_tools.error }}
+				</div>
+			{% endif %}
+		</div>
+		<div class="form-group">
+			<div id="exclude-list" class="col-md-offset-3 col-md-4">
+				No tools are excluded.
+			</div>
+		</div>
         <div class="customization-separation" style="margin-bottom: 15px"></div>
         <div class="text-center">
             {% button type="save" value="Save settings" %}
         </div>
     </form>
 </div>
+<script>
+	function add_tool(jquery_event, search_selection, dataset_name)
+	{
+        $(this).typeahead('val', '').focus();
+		add_to_list("#exclude-list", "remove_tool", search_selection.id, search_selection.name, "Remove " + search_selection.name, "training_excluded_tools_list");
+	}
+    function remove_tool(tool_id)
+	{
+		remove_from_list("#exclude-list", "#training_excluded_tools_list_" + tool_id, "No tools are excluded.");
+	}
+	$('#exclude_tool').autocomplete('tools', add_tool, {{ tools|json_search_base }});
+    {% for tool in excluded_tools %}
+		add_tool(undefined, {name:'{{ tool.name }}', id:{{ tool.id }}});
+	{% endfor %}
+</script>

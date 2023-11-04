@@ -526,7 +526,10 @@ def review_invitation(request, training_invitation_id):
 @login_required
 @require_GET
 def tool_training_search(request):
-    return queryset_search_filter(Tool.objects.filter(visible=True), ["name"], request)
+    tools = Tool.objects.filter(visible=True).exclude(
+        id__in=TrainingCustomization.get_list_int("training_excluded_tools")
+    )
+    return queryset_search_filter(tools, ["name"], request)
 
 
 @any_staff_or_trainer

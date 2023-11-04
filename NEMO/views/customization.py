@@ -20,7 +20,15 @@ from django.views.decorators.http import require_GET, require_POST
 from NEMO import init_admin_site
 from NEMO.decorators import administrator_required, customization
 from NEMO.exceptions import InvalidCustomizationException
-from NEMO.models import BadgeReader, ConsumableCategory, Customization, Notification, Project, RecurringConsumableCharge
+from NEMO.models import (
+    BadgeReader,
+    ConsumableCategory,
+    Customization,
+    Notification,
+    Project,
+    RecurringConsumableCharge,
+    Tool,
+)
 from NEMO.utilities import RecurrenceFrequency, date_input_format, datetime_input_format, quiet_int
 
 
@@ -482,11 +490,31 @@ class TrainingCustomization(CustomizationBase):
         "training_request_default_availability_allowed": "",
         "training_event_default_duration": "",
         "training_event_default_capacity": "",
+        "training_excluded_tools": "",
     }
+
+    def context(self) -> Dict:
+        # Override to add list of tools
+        dictionary = super().context()
+        dictionary["tools"] = Tool.objects.filter(visible=True)
+        dictionary["excluded_tools"] = Tool.objects.filter(id__in=self.get_list_int("training_excluded_tools"))
+        return dictionary
 
     def validate(self, name, value):
         if name in ["training_event_default_duration", "training_event_default_capacity"] and value:
             validate_integer(value)
+        if name == "training_excluded_tools" and value:
+            validate_comma_separated_integer_list(value)
+
+    def save(self, request, element=None) -> Dict[str, Dict[str, str]]:
+        errors = super().save(request, element)
+        exclude_tools = ",".join(request.POST.getlist("training_excluded_tools_list", []))
+        try:
+            self.validate("training_excluded_tools", exclude_tools)
+            type(self).set("training_excluded_tools", exclude_tools)
+        except (ValidationError, InvalidCustomizationException) as e:
+            errors["training_excluded_tools"] = {"error": str(e.message or e.msg), "value": exclude_tools}
+        return errors
 
     @classmethod
     def set(cls, name: str, value):
