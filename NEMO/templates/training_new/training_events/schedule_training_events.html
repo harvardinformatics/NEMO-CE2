@@ -22,10 +22,12 @@
 						<td>{{ training_request.tool }}</td>
 						<td>{{ training_request.creation_time }}</td>
 						<td>
-							{% for date_time in training_request.trainingrequesttime_set.all %}
-								{% url 'create_training_event_for_time' date_time.id as create_training_event_url %}
-								{{ date_time }} <span class="success-highlight glyphicon glyphicon-plus-sign" title="Schedule training" onclick="new_get_request('{% url 'create_training_event_for_time' date_time.id %}')"></span><br>
-							{% endfor %}
+							<div class="training-dates">
+								{% for date_time in training_request.trainingrequesttime_set.all %}
+									{% url 'create_training_event_for_time' date_time.id as create_training_event_url %}
+									{{ date_time }} <span class="success-highlight glyphicon glyphicon-plus-sign" title="Schedule training" onclick="new_get_request('{% url 'create_training_event_for_time' date_time.id %}')"></span><br>
+								{% endfor %}
+							</div>
 						</td>
 						<td>
 							{% if training_request.status == 1 %} {# 1 == SENT #}

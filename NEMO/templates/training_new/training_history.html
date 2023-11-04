@@ -57,9 +57,11 @@
 									<td>{{ training_history.training_item_type }}</td>
 									<td>{{ training_history.tool }}</td>
 									<td>
-										{% for date_time in training_history.dates %}
-											{{ date_time }}{% if not forloop.last %}<br>{% endif %}
-										{% endfor %}
+										<div class="training-dates">
+											{% for date_time in training_history.dates %}
+												{{ date_time }}{% if not forloop.last %}<br>{% endif %}
+											{% endfor %}
+										</div>
 									</td>
 									<td>
 										{{ training_history.status }}{% if training_history.qualification_level %} ({{ training_history.qualification_level }}){% endif %}

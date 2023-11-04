@@ -72,7 +72,7 @@
 							<td>{{ training_request.tool }}</td>
 							<td>{{ training_request.creation_time }}</td>
 							<td>
-								<div style="overflow-y: auto;line-height: 1em; max-height: 3.5em">
+								<div class="training-dates">
 									{% for date_time in training_request.trainingrequesttime_set.all %}
 										{{ date_time }}<br>
 									{% endfor %}
