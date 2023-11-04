@@ -4609,6 +4609,11 @@ class TrainingRequestTime(BaseModel):
     start_time = models.DateTimeField(help_text="The start date and time of the closure")
     end_time = models.DateTimeField(help_text="The end date and time of the closure")
 
+    def contains(self, date_to_check: datetime):
+        return not self.start_time.astimezone() > end_of_the_day(
+            date_to_check
+        ) and not self.end_time.astimezone() < beginning_of_the_day(date_to_check)
+
     def clean(self):
         if self.end_time and self.end_time < timezone.now():
             raise ValidationError({"end_time": "Your availability cannot be in the past"})
