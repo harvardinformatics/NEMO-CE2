@@ -72,9 +72,11 @@
 							<td>{{ training_request.tool }}</td>
 							<td>{{ training_request.creation_time }}</td>
 							<td>
-								{% for date_time in training_request.trainingrequesttime_set.all %}
-									{{ date_time }}<br>
-								{% endfor %}
+								<div class="training-dates">
+									{% for date_time in training_request.trainingrequesttime_set.all %}
+										{{ date_time }}<br>
+									{% endfor %}
+								</div>
 							</td>
 							<td>{{ training_request.get_status_display }}</td>
 							<td>{{ training_request.project }}</td>

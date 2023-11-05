@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import timedelta
 from typing import Any, List, Set, Tuple
 
+from dateutil.rrule import DAILY, rrule
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
@@ -31,10 +32,12 @@ from NEMO.models import (
     User,
 )
 from NEMO.policy import policy_class as policy
+from NEMO.typing import QuerySetType
 from NEMO.utilities import (
     BasicDisplayTable,
     EmailCategory,
     create_ics,
+    date_input_format,
     distinct_qs_value_list,
     export_format_datetime,
     format_datetime,
@@ -276,14 +279,57 @@ def upcoming_events(request):
 @any_staff_or_trainer
 @require_GET
 def schedule_events(request):
+    user: User = request.user
     mark_training_objects_expired()
     training_requests = TrainingRequest.objects.filter(
         status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED]
     )
+    tools = Tool.objects.in_bulk(distinct_qs_value_list(training_requests, "tool")).values()
+    users = User.objects.in_bulk(distinct_qs_value_list(training_requests, "user")).values()
+    training_dates = TrainingRequestTime.objects.in_bulk(
+        distinct_qs_value_list(training_requests, "trainingrequesttime")
+    ).values()
+    dates = set()
+    for training_date in training_dates:
+        for day in rrule(
+            DAILY, dtstart=training_date.start_time.astimezone(), until=training_date.end_time.astimezone()
+        ):
+            dates.add(day.date())
+    dates = sorted(dates)
+    tool_filter = request.GET.get("tool", "my-tools")
+    if tool_filter == "my-tools":
+        training_requests = training_requests.filter(tool__in=user_main_tools(user))
+    elif tool_filter != "all-tools":
+        training_requests = training_requests.filter(tool_id=tool_filter)
+    user_filter = request.GET.get("user", "all-users")
+    if user_filter != "all-users":
+        training_requests = training_requests.filter(user_id=user_filter)
+    date_filter = request.GET.get("date", "all-dates")
+    if date_filter and date_filter != "all-dates":
+        parsed_date = datetime.datetime.strptime(date_filter, date_input_format)
+        requests_to_exclude = []
+        for training_request in training_requests:
+            if training_request.trainingrequesttime_set.exists():
+                # if none of the times contains our date, exclude the request
+                if all(
+                    not training_request_time.contains(parsed_date)
+                    for training_request_time in training_request.trainingrequesttime_set.all()
+                ):
+                    requests_to_exclude.append(training_request.id)
+        training_requests = training_requests.exclude(id__in=requests_to_exclude)
+
     return render(
         request,
         "training_new/training_events/schedule_training_events.html",
-        {"training_requests": training_requests},
+        {
+            "training_requests": training_requests,
+            "selected_tool": tool_filter,
+            "tools": tools,
+            "selected_user": user_filter,
+            "users": users,
+            "selected_date": date_filter,
+            "dates": dates,
+        },
     )
 
 
@@ -480,7 +526,10 @@ def review_invitation(request, training_invitation_id):
 @login_required
 @require_GET
 def tool_training_search(request):
-    return queryset_search_filter(Tool.objects.filter(visible=True), ["name"], request)
+    tools = Tool.objects.filter(visible=True).exclude(
+        id__in=TrainingCustomization.get_list_int("training_excluded_tools")
+    )
+    return queryset_search_filter(tools, ["name"], request)
 
 
 @any_staff_or_trainer
@@ -676,3 +725,8 @@ def should_send_ics(user: User, cancelled: bool = False):
         or not cancelled
         and user.get_preferences().attach_created_reservation
     )
+
+
+def user_main_tools(self) -> QuerySetType[Tool]:
+    # Return the user's main tools, which are tools the user owns or is a superuser on
+    return Tool.objects.filter(Q(_primary_owner=self) | Q(_backup_owners__in=[self]) | Q(_superusers__in=[self]))

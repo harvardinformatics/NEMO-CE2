@@ -1185,3 +1185,10 @@ li.area-tree-node a, li.area-tree-node a:hover, li.area-tree-node a:focus
 {
 	text-align: left!important;
 }
+
+.training-dates
+{
+	overflow-y: auto;
+	line-height: 1em;
+	max-height: 4.5em;
+}
