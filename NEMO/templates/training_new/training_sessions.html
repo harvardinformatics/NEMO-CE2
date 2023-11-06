@@ -8,12 +8,18 @@
         async function add_training_entries()
         {
             {% for trained_user in training_event.users.all %}
-				add_participant({"tool": "{{ training_event.tool_id }}", "duration": "{{ training_event.duration }}", "charge_type_id": "{% if training_event.users.count == 1 %}0{% else %}1{% endif %}", "technique_id": "{{ training_event.technique_id }}"});
-                {# We have to use this to wait until the resulting element is created (with twitter autocompletion), otherwise the counter of rows is not incremented in add_participant #}
-                await wait_for_element(".twitter-typeahead #user_textbox__{{ forloop.counter }}");
-                set_autocomplete_value({{ forloop.counter }}, '{{ trained_user.id }}', '{{ trained_user }}', 'user');
-                await wait_for_element(".twitter-typeahead #tool_textbox__{{ forloop.counter }}");
-                set_autocomplete_value({{ forloop.counter }}, '{{ training_event.tool_id }}', '{{ training_event.tool }}', 'tool');
+                {% with project=training_user_project_map|get_item:trained_user.id %}
+					add_participant({"tool": "{{ training_event.tool_id }}", "duration": "{{ training_event.duration }}", "charge_type_id": "{% if training_event.users.count == 1 %}0{% else %}1{% endif %}", "technique_id": "{{ training_event.technique_id|default_if_none:'' }}"{% if project %}, "project_id": "{{ project.id }}"{% endif %}});
+					{# We have to use this to wait until the resulting element is created (with twitter autocompletion), otherwise the counter of rows is not incremented in add_participant #}
+					await wait_for_element(".twitter-typeahead #user_textbox__{{ forloop.counter }}");
+					set_autocomplete_value({{ forloop.counter }}, '{{ trained_user.id }}', '{{ trained_user }}', 'user');
+					await wait_for_element(".twitter-typeahead #tool_textbox__{{ forloop.counter }}");
+					set_autocomplete_value({{ forloop.counter }}, '{{ training_event.tool_id }}', '{{ training_event.tool }}', 'tool');
+                    {% if project and trained_user.active_projects|length > 1 %}
+					await wait_for_element("#project__{{ forloop.counter }} select");
+					$("#project__{{ forloop.counter }} select").val("{{ project.id }}");
+                    {% endif %}
+                {% endwith %}
             {% endfor %}
             remove_row(0);
 		}

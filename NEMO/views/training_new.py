@@ -437,7 +437,17 @@ def manage_events(request):
 def record_events(request, training_event_id=None):
     mark_training_objects_expired()
     dictionary = get_training_dictionary(request)
-    dictionary["training_event"] = TrainingEvent.objects.filter(id=training_event_id).first()
+    training_event = TrainingEvent.objects.filter(id=training_event_id).first()
+    dictionary["training_event"] = training_event
+    # Try to find corresponding training requests and build a map of user -> project to be used when recording
+    if training_event:
+        training_requests = TrainingRequest.objects.filter(
+            tool=training_event.tool, status__in=[TrainingRequestStatus.ACCEPTED, TrainingRequestStatus.INVITED]
+        )
+        training_user_project_map = dict()
+        for training_request in training_requests:
+            training_user_project_map[training_request.user_id] = training_request.project
+        dictionary["training_user_project_map"] = training_user_project_map
     return render(request, "training_new/training_sessions.html", dictionary)
 
 
