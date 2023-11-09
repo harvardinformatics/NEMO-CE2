@@ -186,12 +186,12 @@ class ToolAdminForm(forms.ModelForm):
         if QualificationLevel.objects.exists():
             if (
                 cleaned_data["_allow_user_shadowing_verification_request"]
-                and not cleaned_data["_shadowing_verification_request_qualification_levels"].exists()
+                and not cleaned_data["_shadowing_verification_request_qualification_levels"]
             ):
                 errors["_shadowing_verification_request_qualification_levels"] = "Qualification levels are required."
             elif (
                 not cleaned_data["_allow_user_shadowing_verification_request"]
-                and cleaned_data["_shadowing_verification_request_qualification_levels"].exists()
+                and cleaned_data["_shadowing_verification_request_qualification_levels"]
             ):
                 errors[
                     "_allow_user_shadowing_verification_request"

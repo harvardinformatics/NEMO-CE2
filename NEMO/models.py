@@ -1298,7 +1298,6 @@ class Tool(SerializationByNameModel):
     )
     _shadowing_verification_request_qualification_levels = models.ManyToManyField(
         "QualificationLevel",
-        default=False,
         blank=True,
         related_name="shadowing_verification_request_qualification_levels",
         help_text="Qualification Levels that users can request on this tool through shadowing verification.",
