@@ -8,14 +8,19 @@ from NEMO.apps.nemo_ce.migration_utils import NEMOMigration
 class Migration(NEMOMigration):
 
     dependencies = [
-        ('NEMO', '0054_documents_update_max_length'),
-        ('nemo_ce', '0013_ce_shadowing_reviewers_in_tool'),
+        ("NEMO", "0054_documents_update_max_length"),
+        ("nemo_ce", "0013_ce_shadowing_reviewers_in_tool"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='tool',
-            name='_shadowing_verification_request_qualification_levels',
-            field=models.ManyToManyField(blank=True, help_text='Qualification Levels that users can request on this tool through shadowing verification.', related_name='shadowing_verification_request_qualification_levels', to='NEMO.QualificationLevel'),
+            model_name="tool",
+            name="_shadowing_verification_request_qualification_levels",
+            field=models.ManyToManyField(
+                blank=True,
+                help_text="Qualification Levels that users can request on this tool through shadowing verification.",
+                related_name="shadowing_verification_request_qualification_levels",
+                to="NEMO.QualificationLevel",
+            ),
         ),
     ]
