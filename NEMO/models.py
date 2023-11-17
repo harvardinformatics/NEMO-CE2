@@ -3934,6 +3934,18 @@ class ScheduledOutage(BaseModel):
         else:
             return {self.outage_item_type.value: self.outage_item}
 
+    def clean(self):
+        if self.start and self.end and self.start >= self.end:
+            raise ValidationError(
+                {
+                    "start": "Outage start time ("
+                    + format_datetime(self.start)
+                    + ") must be before the end time ("
+                    + format_datetime(self.end)
+                    + ")."
+                }
+            )
+
     def __str__(self):
         return str(self.title)
 
