@@ -1192,3 +1192,9 @@ li.area-tree-node a, li.area-tree-node a:hover, li.area-tree-node a:focus
 	line-height: 1em;
 	max-height: 4.5em;
 }
+
+.configuration-reservation-option
+{
+    padding: 2px;
+    color: white;
+}

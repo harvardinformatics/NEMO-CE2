@@ -1,5 +1,3 @@
-from typing import List
-
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
@@ -16,6 +14,8 @@ from NEMO.models import (
     AccountType,
     Area,
     AreaAccessRecord,
+    Configuration,
+    ConfigurationOption,
     Consumable,
     ConsumableCategory,
     ConsumableWithdraw,
@@ -40,6 +40,8 @@ from NEMO.serializers import (
     AreaAccessRecordSerializer,
     AreaSerializer,
     BillableItemSerializer,
+    ConfigurationOptionSerializer,
+    ConfigurationSerializer,
     ConsumableCategorySerializer,
     ConsumableSerializer,
     ConsumableWithdrawSerializer,
@@ -62,14 +64,8 @@ from NEMO.serializers import (
 )
 from NEMO.utilities import export_format_datetime
 from NEMO.views.api_billing import (
-    BillableItem,
     BillingFilterForm,
-    get_area_access_for_billing,
-    get_consumables_for_billing,
-    get_missed_reservations_for_billing,
-    get_staff_charges_for_billing,
-    get_training_sessions_for_billing,
-    get_usage_events_for_billing,
+    get_billing_charges,
 )
 from NEMO.views.qualifications import disqualify, qualify
 
@@ -174,6 +170,7 @@ class ProjectViewSet(ModelViewSet):
         "application_identifier": ["exact"],
         "active": ["exact"],
         "account_id": ["exact", "in"],
+        "account": ["exact", "in"],
     }
 
 
@@ -300,6 +297,38 @@ class ResourceViewSet(ModelViewSet):
     }
 
 
+class ConfigurationViewSet(ModelViewSet):
+    filename = "configurations"
+    queryset = Configuration.objects.all()
+    serializer_class = ConfigurationSerializer
+    filterset_fields = {
+        "id": ["exact", "in"],
+        "name": ["exact", "iexact", "in"],
+        "tool_id": ["exact", "in", "isnull"],
+        "tool": ["exact", "in", "isnull"],
+        "advance_notice_limit": ["exact", "in", "gte", "gt", "lte", "lt"],
+        "display_order": ["exact", "in", "gte", "gt", "lte", "lt"],
+        "maintainers": ["exact", "in", "isnull"],
+        "qualified_users_are_maintainers": ["exact"],
+        "exclude_from_configuration_agenda": ["exact"],
+        "enabled": ["exact"],
+    }
+
+
+class ConfigurationOptionViewSet(ModelViewSet):
+    filename = "reservation_configuration_options"
+    queryset = ConfigurationOption.objects.all()
+    serializer_class = ConfigurationOptionSerializer
+    filterset_fields = {
+        "id": ["exact", "in"],
+        "name": ["exact", "iexact", "in"],
+        "reservation_id": ["exact", "in", "isnull"],
+        "reservation": ["exact", "in", "isnull"],
+        "configuration_id": ["exact", "in", "isnull"],
+        "configuration": ["exact", "in", "isnull"],
+    }
+
+
 class ReservationViewSet(ModelViewSet):
     filename = "reservations"
     queryset = Reservation.objects.all()
@@ -309,10 +338,15 @@ class ReservationViewSet(ModelViewSet):
         "start": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "end": ["month", "year", "day", "gte", "gt", "lte", "lt", "isnull"],
         "project_id": ["exact", "in"],
+        "project": ["exact", "in"],
         "user_id": ["exact", "in"],
+        "user": ["exact", "in"],
         "creator_id": ["exact", "in"],
+        "creator": ["exact", "in"],
         "tool_id": ["exact", "in", "isnull"],
+        "tool": ["exact", "in", "isnull"],
         "area_id": ["exact", "in", "isnull"],
+        "area": ["exact", "in", "isnull"],
         "cancelled": ["exact"],
         "missed": ["exact"],
         "validated": ["exact"],
@@ -330,9 +364,13 @@ class UsageEventViewSet(ModelViewSet):
         "start": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "end": ["month", "year", "day", "gte", "gt", "lte", "lt", "isnull"],
         "project_id": ["exact", "in"],
+        "project": ["exact", "in"],
         "user_id": ["exact", "in"],
+        "user": ["exact", "in"],
         "operator_id": ["exact", "in"],
+        "operator": ["exact", "in"],
         "tool_id": ["exact", "in"],
+        "tool": ["exact", "in"],
         "validated": ["exact"],
         "validated_by": ["exact", "in", "isnull"],
     }
@@ -347,9 +385,13 @@ class AreaAccessRecordViewSet(ModelViewSet):
         "start": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "end": ["month", "year", "day", "gte", "gt", "lte", "lt", "isnull"],
         "project_id": ["exact", "in"],
+        "project": ["exact", "in"],
         "customer_id": ["exact", "in"],
+        "customer": ["exact", "in"],
         "area_id": ["exact", "in"],
+        "area": ["exact", "in"],
         "staff_charge_id": ["exact", "isnull", "in"],
+        "staff_charge": ["exact", "isnull", "in"],
         "validated": ["exact"],
         "validated_by": ["exact", "in", "isnull"],
     }
@@ -363,9 +405,11 @@ class TaskViewSet(ModelViewSet):
         "id": ["exact", "in"],
         "urgency": ["exact", "gte", "gt", "lte", "lt"],
         "tool_id": ["exact", "in"],
+        "tool": ["exact", "in"],
         "force_shutdown": ["exact"],
         "safety_hazard": ["exact"],
         "creator_id": ["exact", "in"],
+        "creator": ["exact", "in"],
         "creation_time": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "estimated_resolution_time": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "problem_category": ["exact", "in"],
@@ -373,6 +417,7 @@ class TaskViewSet(ModelViewSet):
         "resolved": ["exact"],
         "resolution_time": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "resolver_id": ["exact", "in"],
+        "resolver": ["exact", "in"],
         "resolution_category": ["exact", "in"],
     }
 
@@ -386,10 +431,14 @@ class ScheduledOutageViewSet(ModelViewSet):
         "start": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "end": ["month", "year", "day", "gte", "gt", "lte", "lt", "isnull"],
         "creator_id": ["exact", "in"],
+        "creator": ["exact", "in"],
         "category": ["exact", "in"],
         "tool_id": ["exact", "in", "isnull"],
+        "tool": ["exact", "in", "isnull"],
         "area_id": ["exact", "in", "isnull"],
+        "area": ["exact", "in", "isnull"],
         "resource_id": ["exact", "in", "isnull"],
+        "resource": ["exact", "in", "isnull"],
     }
 
 
@@ -400,8 +449,11 @@ class StaffChargeViewSet(ModelViewSet):
     filterset_fields = {
         "id": ["exact", "in"],
         "staff_member_id": ["exact", "in"],
+        "staff_member": ["exact", "in"],
         "customer_id": ["exact", "in"],
+        "customer": ["exact", "in"],
         "project_id": ["exact", "in"],
+        "project": ["exact", "in"],
         "start": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "end": ["month", "year", "day", "gte", "gt", "lte", "lt", "isnull"],
         "validated": ["exact"],
@@ -417,9 +469,13 @@ class TrainingSessionViewSet(ModelViewSet):
     filterset_fields = {
         "id": ["exact", "in"],
         "trainer_id": ["exact", "in"],
+        "trainer": ["exact", "in"],
         "trainee_id": ["exact", "in"],
+        "trainee": ["exact", "in"],
         "tool_id": ["exact", "in"],
+        "tool": ["exact", "in"],
         "project_id": ["exact", "in"],
+        "project": ["exact", "in"],
         "duration": ["exact", "gte", "lte", "gt", "lt"],
         "type": ["exact", "in"],
         "date": ["month", "year", "day", "gte", "gt", "lte", "lt"],
@@ -443,6 +499,7 @@ class ConsumableViewSet(ModelViewSet):
     filterset_fields = {
         "id": ["exact", "in"],
         "category_id": ["exact", "in"],
+        "category": ["exact", "in"],
         "quantity": ["exact", "gte", "lte", "gt", "lt"],
         "reminder_threshold": ["exact", "gte", "lte", "gt", "lt"],
         "visible": ["exact"],
@@ -458,9 +515,13 @@ class ConsumableWithdrawViewSet(ModelViewSet):
     filterset_fields = {
         "id": ["exact", "in"],
         "customer_id": ["exact", "in"],
+        "customer": ["exact", "in"],
         "merchant_id": ["exact", "in"],
+        "merchant": ["exact", "in"],
         "consumable_id": ["exact", "in"],
+        "consumable": ["exact", "in"],
         "project_id": ["exact", "in"],
+        "project": ["exact", "in"],
         "quantity": ["exact", "gte", "lte", "gt", "lt"],
         "date": ["month", "year", "day", "gte", "gt", "lte", "lt"],
         "validated": ["exact"],
@@ -500,6 +561,7 @@ class PermissionViewSet(XLSXFileMixin, viewsets.ReadOnlyModelViewSet):
         "name": ["exact", "iexact", "in"],
         "codename": ["exact", "iexact", "in"],
         "content_type_id": ["exact", "in"],
+        "content_type": ["exact", "in"],
     }
 
     def get_filename(self, *args, **kwargs):
@@ -522,18 +584,7 @@ class BillingViewSet(XLSXFileMixin, viewsets.GenericViewSet):
             self.permission_denied(request)
 
     def get_queryset(self):
-        billing_form = BillingFilterForm(self.request.GET)
-        billing_form.full_clean()
-        data: List[BillableItem] = []
-        data.extend(get_usage_events_for_billing(billing_form))
-        data.extend(get_area_access_for_billing(billing_form))
-        data.extend(get_consumables_for_billing(billing_form))
-        data.extend(get_missed_reservations_for_billing(billing_form))
-        data.extend(get_staff_charges_for_billing(billing_form))
-        data.extend(get_training_sessions_for_billing(billing_form))
-
-        data.sort(key=lambda x: x.start, reverse=True)
-        return data
+        return get_billing_charges(self.request.GET)
 
     def get_filename(self, *args, **kwargs):
         return f"billing-{export_format_datetime()}.xlsx"
