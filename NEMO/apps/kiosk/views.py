@@ -14,10 +14,10 @@ from NEMO.policy import policy_class as policy
 from NEMO.utilities import localize, quiet_int
 from NEMO.views.calendar import (
     cancel_the_reservation,
-    extract_configuration,
     extract_reservation_questions,
     extract_tool_accessories,
     render_reservation_questions,
+    set_reservation_configuration,
     shorten_reservation,
 )
 from NEMO.views.customization import ApplicationCustomization
@@ -184,7 +184,7 @@ def reserve_tool(request):
         error_dictionary["message"] = "You must specify a project for your reservation"
         return render(request, "kiosk/error.html", error_dictionary)
 
-    reservation.additional_information, reservation.self_configuration = extract_configuration(request)
+    set_reservation_configuration(reservation, request)
     # Reservation can't be short notice if the user is configuring the tool themselves.
     if reservation.self_configuration:
         reservation.short_notice = False

@@ -22,6 +22,7 @@ from NEMO.actions import (
     adjustment_requests_export_csv,
     create_next_interlock,
     disable_selected_cards,
+    duplicate_configuration,
     duplicate_tool_configuration,
     enable_selected_cards,
     lock_selected_interlocks,
@@ -50,6 +51,7 @@ from NEMO.models import (
     Comment,
     Configuration,
     ConfigurationHistory,
+    ConfigurationOption,
     Consumable,
     ConsumableCategory,
     ConsumableWithdraw,
@@ -578,6 +580,7 @@ class ConfigurationAdmin(admin.ModelAdmin):
         "exclude_from_configuration_agenda",
     )
     filter_horizontal = ("maintainers",)
+    actions = [duplicate_configuration]
 
 
 @register(ConfigurationHistory)
@@ -677,6 +680,11 @@ class ProjectAdmin(admin.ModelAdmin):
             obj.manager_set.set(form.cleaned_data["principal_investigators"])
 
 
+class ConfigurationOptionInline(admin.TabularInline):
+    model = ConfigurationOption
+    extra = 0
+
+
 @register(Reservation)
 class ReservationAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.ModelAdmin):
     list_display = (
@@ -703,6 +711,7 @@ class ReservationAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.M
     )
     date_hierarchy = "start"
     filter_horizontal = ["tool_accessories"]
+    inlines = [ConfigurationOptionInline]
 
 
 class ReservationQuestionsForm(forms.ModelForm):

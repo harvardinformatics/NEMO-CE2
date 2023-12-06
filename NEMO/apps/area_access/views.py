@@ -22,12 +22,14 @@ from NEMO.exceptions import (
     UnavailableResourcesUserError,
 )
 from NEMO.models import (
+    Alert,
     AreaAccessRecord,
     BadgeReader,
     Door,
     PhysicalAccessLog,
     PhysicalAccessType,
     Project,
+    Resource,
     UsageEvent,
     User,
 )
@@ -323,3 +325,11 @@ def get_badge_reader(request) -> BadgeReader:
     except BadgeReader.DoesNotExist:
         badge_reader = BadgeReader.default()
     return badge_reader
+
+
+def get_alerts(request):
+    dictionary = {
+        "alerts": Alert.objects.filter(user=None, debut_time__lte=timezone.now(), expired=False, deleted=False),
+        "disabled_resources": Resource.objects.filter(available=False),
+    }
+    return render(request, "area_access/alerts.html", dictionary)
