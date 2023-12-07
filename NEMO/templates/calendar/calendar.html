@@ -757,6 +757,7 @@ function change_calendar_event_type(calling_element)
         item_tree_areas.hide();
         $(proxy_reservation_button).hide();
         $(scheduled_outage_button).hide();
+        $(schedule_training_button).hide();
         update_event_sources();
 	}
 	else if(event_type === "{{ facility_name|lower }} usage")
