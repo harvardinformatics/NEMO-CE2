@@ -67,6 +67,7 @@ class NEMOPolicy:
         Check that the user is allowed to enable the tool. Enable the tool if the policy checks pass.
         """
         facility_name = ApplicationCustomization.get("facility_name")
+        allow_take_over = ToolCustomization.get_bool("tool_control_allow_take_over")
 
         # The tool must be visible (or the parent if it's a child tool) to users.
         visible = tool.parent_tool.visible if tool.is_child_tool() else tool.visible
@@ -80,7 +81,7 @@ class NEMOPolicy:
 
         # The tool must not be in use.
         current_usage_event = tool.get_current_usage_event()
-        if current_usage_event:
+        if current_usage_event and not allow_take_over:
             return HttpResponseBadRequest("The tool is currently being used by " + str(current_usage_event.user) + ".")
 
         # The user must be qualified to use the tool itself, or the parent tool in case of alternate tool.
@@ -223,7 +224,8 @@ class NEMOPolicy:
         """Check that the user is allowed to disable the tool."""
         current_usage_event = tool.get_current_usage_event()
         has_post_usage_questions = bool(tool.post_usage_questions)
-        force_off = ToolCustomization.get("tool_control_ongoing_reservation_force_off")
+        force_off = ToolCustomization.get_bool("tool_control_ongoing_reservation_force_off")
+        allow_take_over = ToolCustomization.get_bool("tool_control_allow_take_over")
 
         ongoing_reservation = Reservation.objects.filter(
             tool=tool,
@@ -240,6 +242,7 @@ class NEMOPolicy:
             and current_usage_event.user != operator
             and not (operator.is_staff or operator.is_user_office)
             and not (ongoing_reservation and not has_post_usage_questions)
+            and not allow_take_over
         ):
             if not (ongoing_reservation and not has_post_usage_questions and force_off):
                 return HttpResponseBadRequest(
