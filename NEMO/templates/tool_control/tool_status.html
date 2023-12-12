@@ -55,6 +55,15 @@
 						</h2>
 					{% endwith %}
 				</div>
+				{% if tool.get_current_usage_event.operator.id != user.id %}
+					{% if user.is_staff or user.is_user_office %}
+						<p>You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a>.</p>
+					{% elif not tool.post_usage_questions %}
+						{% if time_left and "tool"|customization:"tool_control_ongoing_reservation_force_off" == "enabled" %}
+							<p>You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a> since you have an ongoing reservation and the tool has no post usage questions.</p>
+						{% endif %}
+					{% endif %}
+				{% endif %}
 				{% if time_left and not user.is_staff %}
 					<div>
 						Your reservation for this tool will end at {{ time_left|time }}. The remainder of your reservation will be relinquished when you stop using this tool.
@@ -316,9 +325,15 @@
                         {% endif %}
                     </div>
 				{% endif %}
-			{% else %}
+			{% endif %}
+			{% if not tool.in_use or allow_take_over and tool.get_current_usage_event.operator.id != user.id %}
 				{% if user.is_staff or user.is_service_personnel and tool in user.qualifications.all %}
-					<h4 id="what_to_do_label">What would you like to do?</h4>
+					<h4 id="what_to_do_label">
+						{% if tool.in_use and allow_take_over and tool.get_current_usage_event.operator.id != user.id %}
+							You may take over using this tool.
+						{% endif %}
+						What would you like to do?
+					</h4>
                     <input type="hidden" id="remote_work" name="remote_work" value="">
 					<div class="radio" role="group" aria-labelledby="what_to_do_label">
                         <label><input type="radio" onchange="use_tool_for_self()" name="staff_charge" value="false">Use this tool for my own project</label>
@@ -352,10 +367,18 @@
 							You have {{ tool.tool_children_set.all|length|add:1 }} options to use this tool:<br>
 							<div style="height: 5px"></div>
 						{% endif %}
-                        {% button type="save" submit=False icon="glyphicon-play" value="Start using the "|concat:tool.name onclick="enable_tool('"|concat:tool.id|concat:"'); return false;" %}
+						{% if tool.in_use %}
+							{% button type="save" submit=False icon="glyphicon-play" value="Take over using the "|concat:tool.name onclick="enable_tool('"|concat:tool.id|concat:"'); return false;" %}
+						{% else %}
+							{% button type="save" submit=False icon="glyphicon-play" value="Start using the "|concat:tool.name  onclick="enable_tool('"|concat:tool.id|concat:"'); return false;" %}
+						{% endif %}
 						{% if tool.is_parent_tool %}
 							{% for alternate_tool in tool.tool_children_set.all %}
-                                {% button style="margin-left: 10px" type="save" submit=False icon="glyphicon-play" value="Start using the "|concat:alternate_tool.name onclick="enable_tool('"|concat:alternate_tool.id|concat:"'); return false;" %}
+								{% if tool.in_use %}
+									{% button style="margin-left: 10px" type="save" submit=False icon="glyphicon-play" value="Take over using the "|concat:alternate_tool.name onclick="enable_tool('"|concat:alternate_tool.id|concat:"'); return false;" %}
+								{% else %}
+									{% button style="margin-left: 10px" type="save" submit=False icon="glyphicon-play" value="Start using the "|concat:alternate_tool.name  onclick="enable_tool('"|concat:alternate_tool.id|concat:"'); return false;" %}
+								{% endif %}
 							{% endfor %}
 						{% endif %}
 					</div>
@@ -404,15 +427,6 @@
 	</div>
 
 	<div class="tab-pane" id="details">
-		{% if tool.in_use %}
-			{% if user.is_staff or user.is_user_office %}
-				<p>You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a>.</p>
-			{% elif not tool.post_usage_questions %}
-				{% if time_left and "tool"|customization:"tool_control_ongoing_reservation_force_off" == "enabled" %}
-					<p>You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a> since you have an ongoing reservation and the tool has no post usage questions.</p>
-				{% endif %}
-			{% endif %}
-		{% endif %}
 		<div class="media">
 			<span class="glyphicon glyphicon-info-sign pull-left notification-icon primary-highlight"></span>
 			<div class="media-body">
