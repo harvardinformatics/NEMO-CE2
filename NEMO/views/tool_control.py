@@ -1,3 +1,4 @@
+from argparse import Namespace
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from itertools import chain
@@ -7,6 +8,7 @@ from typing import Dict, List
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -109,6 +111,7 @@ def tool_status(request, tool_id):
         "post_usage_questions": DynamicForm(tool.post_usage_questions).render("tool_usage_group_question", tool_id),
         "qualification_levels": qualification_levels,
         "qualifications": qualifications,
+        "allow_take_over": ToolCustomization.get_bool("tool_control_allow_take_over"),
         "show_broadcast_qualified_for_regular_user": not user_is_staff
         and user_is_qualified
         and broadcast_qualified_user_enabled,
@@ -337,6 +340,7 @@ def determine_tool_status(tool):
 @login_required
 @require_POST
 @synchronized("tool_id")
+@transaction.atomic()
 def enable_tool(request, tool_id, user_id, project_id, staff_charge):
     """Enable a tool for a user. The user must be qualified to do so based on the lab usage policy."""
 
@@ -351,6 +355,7 @@ def enable_tool(request, tool_id, user_id, project_id, staff_charge):
     project = get_object_or_404(Project, id=project_id)
     staff_charge = staff_charge == "true"
     bypass_interlock = request.POST.get("bypass", "False") == "True"
+    taking_over = tool.get_current_usage_event() is not None
     # Figure out if the tool usage is part of remote work
     # 1: Staff charge means it's always remote work
     # 2: Always remote if operator is different from the user
@@ -362,12 +367,25 @@ def enable_tool(request, tool_id, user_id, project_id, staff_charge):
     if response.status_code != HTTPStatus.OK:
         return response
 
-    # All policy checks passed so enable the tool for the user.
-    if tool.interlock and not tool.interlock.unlock():
-        if bypass_interlock and interlock_bypass_allowed(user):
-            pass
-        else:
-            return interlock_error("Enable", user)
+    if not taking_over:
+        # All policy checks passed so enable the tool for the user.
+        if tool.interlock and not tool.interlock.unlock():
+            if bypass_interlock and interlock_bypass_allowed(user):
+                pass
+            else:
+                return interlock_error("Enable", user)
+    else:
+        # All policy checks passed so proceed to disable the tool
+        response = do_disable(
+            tool=tool,
+            downtime=timedelta(minutes=0),
+            staff_shortening=request.POST.get("shorten", False),
+            bypass_interlock=bypass_interlock,
+            take_over=True,
+            request=request,
+        )
+        if response.status_code != HTTPStatus.OK:
+            return response
 
     # Start staff charge before tool usage
     if staff_charge:
@@ -398,36 +416,44 @@ def enable_tool(request, tool_id, user_id, project_id, staff_charge):
     new_usage_event.remote_work = remote_work
     new_usage_event.save()
 
-    return response
+    return HttpResponse()
 
 
 @login_required
 @require_POST
 @synchronized("tool_id")
 def disable_tool(request, tool_id):
+    return do_disable(
+        tool=get_object_or_404(Tool, id=tool_id),
+        downtime=timedelta(minutes=quiet_int(request.POST.get("downtime"))),
+        staff_shortening=request.POST.get("shorten", False),
+        bypass_interlock=request.POST.get("bypass", "False") == "True",
+        take_over=False,
+        request=request,
+    )
+
+
+def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, request):
     if not settings.ALLOW_CONDITIONAL_URLS:
         return HttpResponseBadRequest("Tool control is only available on campus.")
 
-    tool = get_object_or_404(Tool, id=tool_id)
     if tool.get_current_usage_event() is None:
         return HttpResponse()
     user: User = request.user
-    downtime = timedelta(minutes=quiet_int(request.POST.get("downtime")))
-    bypass_interlock = request.POST.get("bypass", "False") == "True"
     response = policy.check_to_disable_tool(tool, user, downtime)
     if response.status_code != HTTPStatus.OK:
         return response
 
-    # All policy checks passed so disable the tool for the user.
-    if tool.interlock and not tool.interlock.lock():
-        if bypass_interlock and interlock_bypass_allowed(user):
-            pass
-        else:
-            return interlock_error("Disable", user)
+    if not take_over:
+        # All policy checks passed so disable the tool for the user.
+        if tool.interlock and not tool.interlock.lock():
+            if bypass_interlock and interlock_bypass_allowed(user):
+                pass
+            else:
+                return interlock_error("Disable", user)
 
     # Shorten the user's tool reservation since we are now done using the tool
     current_usage_event = tool.get_current_usage_event()
-    staff_shortening = request.POST.get("shorten", False)
     shorten_reservation(
         user=current_usage_event.user, item=tool, new_end=timezone.now() + downtime, force=staff_shortening
     )
@@ -438,36 +464,46 @@ def disable_tool(request, tool_id):
     # Collect post-usage questions
     dynamic_form = DynamicForm(tool.post_usage_questions)
 
-    try:
-        current_usage_event.run_data = dynamic_form.extract(request)
-    except RequiredUnansweredQuestionsException as e:
-        if (
-            (user.is_staff or user.is_user_office)
-            and user != current_usage_event.operator
-            and current_usage_event.user != user
-        ):
-            # if a staff is forcing somebody off the tool and there are required questions, send an email and proceed
-            current_usage_event.run_data = e.run_data
-            email_managers_required_questions_disable_tool(current_usage_event.operator, user, tool, e.questions)
-        else:
+    if take_over:
+        try:
+            empty_post_request = Namespace(**{"POST": {}})
+            current_usage_event.run_data = dynamic_form.extract(empty_post_request)
+        except RequiredUnansweredQuestionsException as e:
+            email_managers_required_questions_disable_tool(current_usage_event.operator, tool, e.questions)
+    else:
+        # Handle Post Usage Questions
+        try:
+            current_usage_event.run_data = dynamic_form.extract(request)
+        except RequiredUnansweredQuestionsException as e:
+            if (
+                (user.is_staff or user.is_user_office)
+                and user != current_usage_event.operator
+                and current_usage_event.user != user
+            ):
+                # if a staff is forcing somebody off the tool and there are required questions, send an email and proceed
+                current_usage_event.run_data = e.run_data
+                email_managers_required_questions_disable_tool(
+                    current_usage_event.operator, tool, e.questions, disabling_user=user
+                )
+            else:
+                return HttpResponseBadRequest(str(e))
+        # Handle Consumables
+        try:
+            dynamic_form.charge_for_consumables(current_usage_event, request)
+        except Exception as e:
             return HttpResponseBadRequest(str(e))
+        dynamic_form.update_tool_counters(current_usage_event.run_data, tool.id)
 
-    try:
-        dynamic_form.charge_for_consumables(current_usage_event, request)
-    except Exception as e:
-        return HttpResponseBadRequest(str(e))
-    dynamic_form.update_tool_counters(current_usage_event.run_data, tool.id)
+        if user.charging_staff_time():
+            existing_staff_charge = user.get_staff_charge()
+            if (
+                existing_staff_charge.customer == current_usage_event.user
+                and existing_staff_charge.project == current_usage_event.project
+            ):
+                return render(request, "staff_charges/reminder.html", {"tool": tool})
 
     current_usage_event.save()
-    if user.charging_staff_time():
-        existing_staff_charge = user.get_staff_charge()
-        if (
-            existing_staff_charge.customer == current_usage_event.user
-            and existing_staff_charge.project == current_usage_event.project
-        ):
-            response = render(request, "staff_charges/reminder.html", {"tool": tool})
-
-    return response
+    return HttpResponse()
 
 
 @login_required
@@ -619,11 +655,11 @@ def interlock_error(action: str, user: User):
 
 
 def email_managers_required_questions_disable_tool(
-    tool_user: User, staff_member: User, tool: Tool, questions: List[PostUsageQuestion]
+    tool_user: User, tool: Tool, questions: List[PostUsageQuestion], disabling_user: User = None
 ):
     user_office_email = EmailsCustomization.get("user_office_email_address")
     abuse_email_address = EmailsCustomization.get("abuse_email_address")
-    cc_users: List[User] = [staff_member, tool.primary_owner]
+    cc_users: List[User] = [disabling_user, tool.primary_owner] if disabling_user else [tool.primary_owner]
     # Add facility managers as CC based on their tool notification preferences if any
     cc_users.extend(
         User.objects.filter(is_active=True, is_facility_manager=True).filter(
@@ -638,7 +674,7 @@ def email_managers_required_questions_disable_tool(
     )
     message = f"""
 Dear {tool_user.get_name()},<br/>
-You have been logged off by staff from the {tool} that requires answers to the following post-usage questions:<br/>
+You have been logged off {'by staff 'if disabling_user else ''}from the {tool} that requires answers to the following post-usage questions:<br/>
 <br/>
 {display_questions}
 <br/>

@@ -29,8 +29,8 @@
 			{% endwith %}
 		</div>
 		{% if tool.in_use %}
-            {% if customer.is_staff or customer.is_user_office %}
-			    <p>You may <a href="javascript:void(0)" onclick="disable_tool();">force {{ tool.get_current_usage_event.operator }} off this tool</a>.</p>
+			{% if customer.is_staff or customer.is_user_office %}
+				<p>You may <a href="javascript:void(0)" onclick="disable_tool();">force {{ tool.get_current_usage_event.operator }} off this tool</a>.</p>
 			{% elif not tool.post_usage_questions %}
 				{% if remaining_reservation_duration and "tool"|customization:"tool_control_ongoing_reservation_force_off" == "enabled" %}
 					<p>You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a> since you have an ongoing reservation and the tool has no post usage questions.</p>
@@ -219,7 +219,7 @@
 	{% csrf_token %}
 	<input type="hidden" name="tool_id" value="{{ tool.id }}">
 	<input type="hidden" name="customer_id" value="{{ customer.id }}">
-    <input type="hidden" name="back" value="{{ back }}">
+	<input type="hidden" name="back" value="{{ back }}">
 	{% if tool.in_use %}
 		{% if tool.get_current_usage_event.operator.id == customer.id or tool.get_current_usage_event.user.id == customer.id %}
 			{% if post_usage_questions %}
@@ -237,44 +237,60 @@
 				<div class="col-xs-offset-3 col-xs-6" style="margin-top:30px">
 					<h2 id="answer_to_proceed" style="text-align:center">Please answer the required questions (above) to stop using the {{ tool.name_or_child_in_use_name }}</h2>
 					<div id="stop_button">
-                        <div class="alert alert-danger" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="disable_tool()">
-                            <span class="glyphicon glyphicon-stop"></span> Stop using the {{ tool.name_or_child_in_use_name }}
-                            {% if not user.is_staff and remaining_reservation_duration %}
-                                and relinquish the remaining {{ remaining_reservation_duration }} minutes of your reservation
-                            {% endif %}
-                        </div>
-                        {% if remaining_reservation_duration and user.is_staff %}
-                            <div class="alert alert-danger" style="text-align:center; margin-bottom:0; margin-top: 10px; font-size:x-large" onclick="disable_tool(true)">
-                                <span class="glyphicon glyphicon-stop"></span> Stop using the {{ tool.name_or_child_in_use_name }} and relinquish the remaining {{ remaining_reservation_duration }} minutes of your reservation
-                            </div>
-                        {% endif %}
-                    </div>
+						<div class="alert alert-danger" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="disable_tool()">
+							<span class="glyphicon glyphicon-stop"></span> Stop using the {{ tool.name_or_child_in_use_name }}
+							{% if not user.is_staff and remaining_reservation_duration %}
+								and relinquish the remaining {{ remaining_reservation_duration }} minutes of your reservation
+							{% endif %}
+						</div>
+						{% if remaining_reservation_duration and user.is_staff %}
+							<div class="alert alert-danger" style="text-align:center; margin-bottom:0; margin-top: 10px; font-size:x-large" onclick="disable_tool(true)">
+								<span class="glyphicon glyphicon-stop"></span> Stop using the {{ tool.name_or_child_in_use_name }} and relinquish the remaining {{ remaining_reservation_duration }} minutes of your reservation
+							</div>
+						{% endif %}
+					</div>
 				</div>
 			</div>
 		{% endif %}
 		<div style="width: 100%;padding-top: 40px;border-bottom: 1px dashed lightgray"></div>
-		<h1>Make a reservation</h1>
-		{% include 'kiosk/tool_project_selection_snippet.html' with active_projects=customer.active_projects tool=tool %}
-		<div id="start_reserve" class="col-xs-offset-3 col-xs-6" style="display: none;margin-top:30px">
-			<div class=" alert alert-info" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="tool_reservation('{% url 'kiosk_tool_reservation' tool.id customer.id back %}')">
-				<span class="glyphicon glyphicon-calendar"></span> Reserve the {{ tool.name }}
-			</div>
-		</div>
-	{% else %}
-		{% if customer.is_staff or customer.is_service_personnel and tool in customer.qualifications.all or tool.ready_to_use and tool in customer.qualifications.all %}
+		{% if not enable_is_take_over %}
+			<h1>Make a reservation</h1>
 			{% include 'kiosk/tool_project_selection_snippet.html' with active_projects=customer.active_projects tool=tool %}
+			<div id="start_reserve" class="col-xs-offset-3 col-xs-6" style="display: none;margin-top:30px">
+				<div class=" alert alert-info" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="tool_reservation('{% url 'kiosk_tool_reservation' tool.id customer.id back %}')">
+					<span class="glyphicon glyphicon-calendar"></span> Reserve the {{ tool.name }}
+				</div>
+			</div>
+		{%  endif %}
+	{% endif %}
+	{% if not tool.in_use or enable_is_take_over %}
+		{% if customer.is_staff or customer.is_service_personnel and tool in customer.qualifications.all or tool.ready_to_use and tool in customer.qualifications.all %}
+			{% if enable_is_take_over %}
+				<h1>Take over using this tool</h1>
+			{% endif %}
+			{% include 'kiosk/tool_project_selection_snippet.html' with active_projects=customer.active_projects tool=tool take_over=enable_is_take_over %}
 			<div id="start_reserve" style="display:none; margin-top:20px">
 				{% if tool.is_parent_tool %}
 					<h4>You have {{ tool.tool_children_set.all|length|add:1 }} options to use this tool:</h4>
 					<div class="col-xs-6" style="margin-top: 15px">
 						<div class="alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="enable_tool()">
-							<span class="glyphicon glyphicon-play"></span> Start using the {{ tool.name }}
+							<span class="glyphicon glyphicon-play"></span>
+							{% if enable_is_take_over %}
+								Take over using the {{ tool.name }}
+							{% else %}
+								Start using the {{ tool.name }}
+							{% endif %}
 						</div>
 					</div>
 					{% for alternate_tool in tool.tool_children_set.all %}
 						<div class="col-xs-6" style="margin-top: 15px">
 							<div class="alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="enable_tool('{{ alternate_tool.id }}')">
-								<span class="glyphicon glyphicon-play"></span> Start using the {{ alternate_tool.name }}
+								<span class="glyphicon glyphicon-play"></span>
+								{% if enable_is_take_over %}
+									Take over using the {{ alternate_tool.name }}
+								{% else %}
+									Start using the {{ alternate_tool.name }}
+								{% endif %}
 							</div>
 						</div>
 					{% endfor %}
@@ -286,7 +302,12 @@
 				{% else %}
 					<div class="col-xs-offset-1 col-xs-5">
 						<div class="alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="enable_tool()">
-							<span class="glyphicon glyphicon-play"></span> Start using the {{ tool.name }}
+							<span class="glyphicon glyphicon-play"></span>
+							{% if enable_is_take_over %}
+								Take over using the {{ tool.name }}
+							{% else %}
+								Start using the {{ tool.name }}
+							{% endif %}
 						</div>
 					</div>
 					<div class="col-xs-5">
@@ -299,9 +320,9 @@
 		{% elif tool not in customer.qualifications.all %}
 			<h2>
 				<p>You have not been qualified to use this tool yet.</p>
-                <p>Please contact the primary tool owner, {{ tool.primary_owner }}, if you would like to receive training for tool qualification.</p>
+				<p>Please contact the primary tool owner, {{ tool.primary_owner }}, if you would like to receive training for tool qualification.</p>
 				{% if tool.backup_owners.all.exists %}
-                    <p>
+					<p>
 					{% if tool.backup_owners.all.count == 1 %}
 						If you are unable to reach {{ tool.primary_owner }} then please contact the backup tool owner, {{ tool.backup_owners.all|first }}.
 					{% elif tool.backup_owners.all.count > 1 %}
@@ -312,20 +333,20 @@
 						{% endfor %}
 						</ul>
 					{% endif %}
-                    </p>
+					</p>
 				{% endif %}
-                {% if tool.superusers.all.count == 1 %}
+				{% if tool.superusers.all.count == 1 %}
 					{% with tool.superusers.all|first as superuser %}
 						<p>For equipment training, you can contact the primary, backup or the superuser, {{ superuser.get_contact_info_html|safe }}.</p>
 					{% endwith %}
 				{% elif tool.superusers.all.count > 1 %}
 					<p>For equipment training, you can contact the primary, backup or one of the superusers:
-                    <ul>
+					<ul>
 					{% for x in tool.superusers.all %}
 						<li>{{ x }}</li>
 					{% endfor %}
-                    </ul>
-                    </p>
+					</ul>
+					</p>
 				{% endif %}
 			</h2>
 		{% endif %}

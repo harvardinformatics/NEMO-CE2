@@ -1,8 +1,10 @@
 from typing import Optional
 
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.test import TestCase
 from django.urls import reverse
 
+import NEMO.policy
 from NEMO.admin import InterlockCardAdminForm, ToolAdminForm
 from NEMO.models import (
     Account,
@@ -17,6 +19,8 @@ from NEMO.models import (
     User,
 )
 from NEMO.tests.test_utilities import login_as, login_as_access_user, login_as_user
+from NEMO.utilities import get_class_from_settings
+from NEMO.views.customization import ToolCustomization
 
 tool: Optional[Tool] = None
 alternate_tool: Optional[Tool] = None
@@ -152,3 +156,159 @@ class ToolTestCase(TestCase):
         self.assertTrue(alternate_tool.in_use())
         # make sure both return the same usage event
         self.assertEqual(tool.get_current_usage_event(), alternate_tool.get_current_usage_event())
+
+    def login_as_user_and_enable_tool(self, target_tool, badge):
+        user, created = User.objects.get_or_create(
+            username="test_user " + str(badge), first_name="Testy", last_name="McTester", badge_number=badge
+        )
+        project = Project.objects.create(
+            name="test project " + str(badge),
+            application_identifier="sadasd",
+            account=Account.objects.create(name="test account " + str(badge)),
+        )
+        user.projects.add(project)
+        # user needs to be qualified to use the tool
+        user.add_qualification(target_tool, qualification_level)
+        user.physical_access_levels.add(PhysicalAccessLevel.objects.get(name="cleanroom access"))
+        user.badge_number = badge
+        user.training_required = False
+        user.save()
+        login_as_access_user(self.client)
+        response = self.client.post(
+            reverse("login_to_area", kwargs={"door_id": area_door.id}), {"badge_number": user.badge_number}, follow=True
+        )
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        login_as(self.client, user)
+        return (
+            self.client.post(
+                reverse(
+                    "enable_tool",
+                    kwargs={
+                        "tool_id": tool.id,
+                        "user_id": user.id,
+                        "project_id": project.id,
+                        "staff_charge": "false",
+                    },
+                ),
+                follow=True,
+            ),
+            user,
+        )
+
+    def test_tool_in_use_enable_take_over_disabled(self):
+        # make the tool operational
+        tool.operational = True
+        tool.save()
+        ToolCustomization.set("tool_control_allow_take_over", "")
+        # User one start using tool
+        response, user_one = self.login_as_user_and_enable_tool(tool, 11)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        user_one_usage_id = tool.get_current_usage_event().id
+        # User two start using tool
+        response, user_two = self.login_as_user_and_enable_tool(tool, 12)
+        self.assertEqual(response.status_code, 400, response.content.decode())
+        # Check current tool usage is of user one
+        current_tool_usage = tool.get_current_usage_event()
+        self.assertNotEqual(current_tool_usage, None)
+        self.assertEqual(current_tool_usage.user.id, user_one.id)
+        self.assertEqual(current_tool_usage.id, user_one_usage_id)
+
+    def test_tool_in_use_enable_take_over_enabled(self):
+        # make the tool operational
+        tool.operational = True
+        tool.save()
+        ToolCustomization.set("tool_control_allow_take_over", "enabled")
+        # User one start using tool
+        response, user_one = self.login_as_user_and_enable_tool(tool, 11)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        # User two start using tool
+        response, user_two = self.login_as_user_and_enable_tool(tool, 12)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        # Check current tool usage is user two
+        current_tool_usage = tool.get_current_usage_event()
+        self.assertNotEqual(current_tool_usage, None)
+        self.assertEqual(current_tool_usage.user.id, user_two.id)
+
+    def test_tool_in_use_take_over_policy_enable_fail(self):
+        # make the tool operational
+        tool.operational = True
+        tool.save()
+        ToolCustomization.set("tool_control_allow_take_over", "")
+        # User one start using tool
+        response, user_one = self.login_as_user_and_enable_tool(tool, 11)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        user_one_usage_id = tool.get_current_usage_event().id
+        # User two start using tool
+        NEMO.views.tool_control.policy = PolicyFailEnablePassDisable
+        response, user_two = self.login_as_user_and_enable_tool(tool, 12)
+        self.assertEqual(response.status_code, 400, response.content.decode())
+        # Check current tool usage is of user one
+        current_tool_usage = tool.get_current_usage_event()
+        self.assertNotEqual(current_tool_usage, None)
+        self.assertEqual(current_tool_usage.user.id, user_one.id)
+        self.assertEqual(current_tool_usage.id, user_one_usage_id)
+
+    def test_tool_in_use_take_over_policy_disable_fail(self):
+        # make the tool operational
+        tool.operational = True
+        tool.save()
+        ToolCustomization.set("tool_control_allow_take_over", "")
+        # User one start using tool
+        response, user_one = self.login_as_user_and_enable_tool(tool, 11)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        user_one_usage_id = tool.get_current_usage_event().id
+        # User two start using tool
+        NEMO.views.tool_control.policy = PolicyPassEnableFailDisable
+        response, user_two = self.login_as_user_and_enable_tool(tool, 12)
+        self.assertEqual(response.status_code, 400, response.content.decode())
+        # Check current tool usage is of user one
+        current_tool_usage = tool.get_current_usage_event()
+        self.assertNotEqual(current_tool_usage, None)
+        self.assertEqual(current_tool_usage.user.id, user_one.id)
+        self.assertEqual(current_tool_usage.id, user_one_usage_id)
+
+    def test_tool_in_use_take_over_policy_pass_all(self):
+        # make the tool operational
+        tool.operational = True
+        tool.save()
+        ToolCustomization.set("tool_control_allow_take_over", "")
+        # User one start using tool
+        response, user_one = self.login_as_user_and_enable_tool(tool, 11)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        # User two start using tool
+        NEMO.views.tool_control.policy = PolicyPassEnablePassDisable
+        response, user_two = self.login_as_user_and_enable_tool(tool, 12)
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        # Check current tool usage is of user two
+        current_tool_usage = tool.get_current_usage_event()
+        self.assertNotEqual(current_tool_usage, None)
+        self.assertEqual(current_tool_usage.user.id, user_two.id)
+
+    def tearDown(self):
+        NEMO.views.tool_control.policy = get_class_from_settings("NEMO_POLICY_CLASS", "NEMO.policy.NEMOPolicy")
+
+
+class PolicyFailEnablePassDisable:
+    def check_to_enable_tool(
+        self, tool: Tool, operator: User, user: User, project: Project, staff_charge: bool, remote_work=False
+    ):
+        return HttpResponseBadRequest("Enable policy fail")
+
+    def check_to_disable_tool(self, tool, operator, downtime):
+        return HttpResponse()
+
+
+class PolicyPassEnableFailDisable:
+    def check_to_enable_tool(self, *args, **kwargs):
+        return HttpResponse()
+
+    def check_to_disable_tool(self, *args, **kwargs):
+        return HttpResponseBadRequest("Disable policy fail")
+
+
+class PolicyPassEnablePassDisable:
+    def check_to_enable_tool(self, *args, **kwargs):
+        return HttpResponse()
+
+    def check_to_disable_tool(self, *args, **kwargs):
+        return HttpResponse()
