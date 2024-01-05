@@ -25,6 +25,8 @@ from NEMO.models import (
     Comment,
     Configuration,
     ConfigurationHistory,
+    ConfigurationPrecursor,
+    ConfigurationPrecursorSlot,
     EmailNotificationType,
     Project,
     Qualification,
@@ -153,23 +155,25 @@ def use_tool_for_other(request):
 def tool_config_history(request, tool_id):
     # tool config by user and tool and time
     configs = []
-    config_history = ConfigurationHistory.objects.filter(configuration__tool_id=tool_id).order_by("-modification_time")[
-        :20
-    ]
+    config_history = ConfigurationHistory.objects.filter(
+        Q(configuration__tool_id=tool_id) | Q(precursor_configuration__tool_id=tool_id)
+    ).order_by("-modification_time")[:20]
     for history in config_history:
         configuration = ConfigurationEditor()
-        conf = history.configuration
+        conf = history.get_configuration()
         conf.name = history.item_name
         conf.current_settings = history.setting
+        if isinstance(conf, ConfigurationPrecursor):
+            conf.current_positions = str(history.position)
         configs.append(
             {
                 "modification_time": history.modification_time,
-                "configuration": history.configuration,
+                "configuration": conf,
                 "user": history.user,
                 "html": mark_safe(configuration._render_for_one(conf, render_as_form=False)),
             }
         )
-    return render(request, "tool_control/config_history.html", {"configs": configs})
+    return render(request, "configuration/configuration_history.html", {"configs": configs})
 
 
 @login_required
@@ -265,10 +269,15 @@ def usage_data_history(request, tool_id):
 
 @login_required
 @require_POST
-def tool_configuration(request):
+def tool_configuration(request, config_type=None):
     """Sets the current configuration of a tool."""
     try:
-        configuration = Configuration.objects.get(id=request.POST["configuration_id"])
+        if config_type:
+            configuration_slot = ConfigurationPrecursorSlot.objects.get(pk=request.POST["configuration_id"])
+            configuration = configuration_slot.precursor_configuration
+        else:
+            configuration_slot = None
+            configuration = Configuration.objects.get(id=request.POST["configuration_id"])
     except:
         return HttpResponseNotFound("Configuration not found.")
     if not configuration.enabled:
@@ -277,22 +286,33 @@ def tool_configuration(request):
         return HttpResponseBadRequest("Cannot change a configuration while a tool is in use.")
     if not configuration.user_is_maintainer(request.user):
         return HttpResponseBadRequest("You are not authorized to change this configuration.")
+    if configuration_slot and configuration_slot.permanent_setting:
+        return HttpResponseBadRequest(f"This slot is permanently set to {configuration_slot.setting}")
     try:
-        slot = int(request.POST["slot"])
+        slot = quiet_int(request.POST.get("slot"), None)
         choice = int(request.POST["choice"])
     except:
         return HttpResponseBadRequest("Invalid configuration parameters.")
     try:
-        configuration.replace_current_setting(slot, choice)
+        if configuration_slot:
+            configuration_slot.replace_current_setting(choice)
+        else:
+            configuration.replace_current_setting(slot, choice)
     except IndexError:
         return HttpResponseBadRequest("Invalid configuration choice.")
-    configuration.save()
     history = ConfigurationHistory()
-    history.configuration = configuration
-    history.item_name = configuration.configurable_item_name or configuration.name
-    history.slot = slot
     history.user = request.user
-    history.setting = configuration.get_current_setting(slot)
+    history.item_name = configuration.configurable_item_name or configuration.name
+    if configuration_slot:
+        history.precursor_configuration = configuration
+        history.position = configuration_slot.position
+        history.setting = configuration_slot.setting
+    else:
+        history.configuration = configuration
+        if len(configuration.range_of_configurable_items()) > 1:
+            history.item_name += f" #{slot + 1}"
+        history.position = slot
+        history.setting = configuration.get_current_setting(slot)
     history.save()
     return HttpResponse()
 

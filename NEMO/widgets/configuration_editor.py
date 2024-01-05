@@ -1,87 +1,85 @@
+from typing import Union
+
 from django.forms import Widget
 from django.template import Context, Template
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 
 class ConfigurationEditor(Widget):
-    def __init__(self, attrs=None):
-        self.url = reverse("tool_configuration")
-        super().__init__(attrs)
+    template_name = "configuration/configuration_line_item.html"
 
     def render(self, name, value, attrs=None, **kwargs):
         result = ""
         for config in value["configurations"]:
-            current_settings = config.current_settings_as_list()
             render_as_form = value.get("render_as_form", None)
             if render_as_form is None:
                 render_as_form = not config.tool.in_use() and config.user_is_maintainer(value["user"])
-            if len(current_settings) == 1:
+            if len(config.range_of_configurable_items()) == 1:
                 result += self._render_for_one(config, render_as_form)
             else:
                 result += self._render_for_multiple(config, render_as_form)
         return mark_safe(result)
 
     def _render_for_one(self, config, render_as_form=None):
-        current_setting = config.current_settings_as_list()[0]
-        result = "<p><label class='form-inline'>" + escape(config.name) + ": "
-        if render_as_form:
-            result += (
-                "<select class='form-control' style='width:300px; max-width:100%' onchange=\"on_change_configuration('"
-                + self.url
-                + "', "
-                + str(config.id)
-                + ', 0, this.value)">'
-            )
-            for index, option in enumerate(config.available_settings_as_list()):
-                result += "<option value=" + str(index)
-                if option == current_setting:
-                    result += " selected"
-                result += ">" + escape(option) + "</option>"
-            result += "</select>"
-        else:
-            result += self.display_setting(current_setting)
+        from NEMO.models import Configuration
+
+        config_item = config if isinstance(config, Configuration) else config.configurationprecursorslot_set.first()
+        result = "<p><label class='form-inline'>" + escape(config.name)
+        result += self._render_configuration_line_item("", config_item, 0, render_as_form).strip()
         result += "</label></p>"
         return result
 
     def _render_for_multiple(self, config, render_as_form=None):
+        from NEMO.models import ConfigurationPrecursor, Configuration
+
+        config: Union[ConfigurationPrecursor, Configuration] = config
+        is_precursor = isinstance(config, ConfigurationPrecursor)
         result = "<p>" + escape(config.name) + ":<ul>"
-        for setting_index, current_setting in enumerate(config.current_settings_as_list()):
-            result += "<li>"
-            if render_as_form:
+        name = config.configurable_item_name or config.name
+        if is_precursor:
+            for config_slot in config.configurationprecursorslot_set.all():
                 result += (
-                    "<label class='form-inline'>"
-                    + escape(config.configurable_item_name or config.name)
-                    + " #"
-                    + str(setting_index + 1)
-                    + ": "
+                    "<li>" + self._render_configuration_line_item(name, config_slot, 0, render_as_form, True) + "</li>"
                 )
+        else:
+            for setting_index in config.range_of_configurable_items():
+                item_name = name + f" #{setting_index + 1}"
                 result += (
-                    "<select class='form-control' style='width:300px' onchange=\"on_change_configuration('"
-                    + self.url
-                    + "', "
-                    + str(config.id)
-                    + ", "
-                    + str(setting_index)
-                    + ', this.value)">'
-                )
-                for option_index, option in enumerate(config.available_settings_as_list()):
-                    result += "<option value=" + str(option_index)
-                    if option == current_setting:
-                        result += " selected"
-                    result += ">" + escape(option) + "</option>"
-                result += "</select></label>"
-            else:
-                result += (
-                    (config.configurable_item_name or config.name)
-                    + " #"
-                    + str(setting_index + 1)
-                    + ": "
-                    + self.display_setting(current_setting)
+                    "<li>"
+                    + self._render_configuration_line_item(item_name, config, setting_index, render_as_form, True)
+                    + "</li>"
                 )
         result += "</ul></p>"
         return result
+
+    def _render_configuration_line_item(
+        self, item_name, config_item, index, render_as_form=None, multiple=False
+    ) -> str:
+        from NEMO.models import ConfigurationPrecursorSlot, Configuration
+
+        config_item: Union[Configuration, ConfigurationPrecursorSlot] = config_item
+        is_precursor_slot = isinstance(config_item, ConfigurationPrecursorSlot)
+        config = config_item.precursor_configuration if is_precursor_slot else config_item
+        current_setting = None
+        try:
+            current_setting = config_item.setting if is_precursor_slot else config_item.get_current_setting(index)
+        except IndexError:
+            pass
+        dictionary = {
+            "config_item": config_item,
+            "config": config,
+            "index": index,
+            "item_name": item_name,
+            "multiple": multiple,
+            "readonly": not render_as_form,
+            "display_setting": self.display_setting(current_setting),
+            "current_setting": current_setting,
+            "url": reverse("tool_configuration", args=(["slot"] if is_precursor_slot else [])),
+        }
+        return render_to_string(self.template_name, dictionary)
 
     def display_setting(self, current_setting):
         from NEMO.views.customization import ToolCustomization

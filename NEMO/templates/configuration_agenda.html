@@ -50,11 +50,26 @@
 											{% endif %}
 											<br>
 										{% endif %}
-										<div>{{ config_option.name }} needs to be set to <span
-												{% if config_option.get_color %}class="configuration-reservation-option"
-												style="display: inline-block;background-color: {{ config_option.get_color }}"
-												{% else %}style="color: inherit"{% endif %}>{{ config_option.current_setting }}</span>
-										</div>
+										{% if config_option.precursor_configuration %}
+											<div>
+												{% if config_option.current_position is not None %}
+													{{ config_option.name }} position {{ config_option.current_position|default_if_none:"Any" }} needs to be set to <span
+														{% if config_option.get_color %}class="configuration-reservation-option"
+														style="display: inline-block;background-color: {{ config_option.get_color }}"
+														{% else %}style="color: inherit"{% endif %}>{{ config_option.current_setting }}</span>
+												{% else %}
+													{{ config_option.name }} <span {% if config_option.get_color %}class="configuration-reservation-option"
+														style="display: inline-block;background-color: {{ config_option.get_color }}"
+														{% else %}style="color: inherit"{% endif %}>{{ config_option.current_setting }}</span> needs to be set to any position
+												{% endif %}
+											</div>
+										{% else %}
+											<div>{{ config_option.name }} needs to be set to <span
+													{% if config_option.get_color %}class="configuration-reservation-option"
+													style="display: inline-block;background-color: {{ config_option.get_color }}"
+													{% else %}style="color: inherit"{% endif %}>{{ config_option.current_setting }}</span>
+											</div>
+										{% endif %}
 									{% endfor %}
 									{% if not reservation.tool.in_use and reservation.project %}
 										<div style="margin-top: 8px">

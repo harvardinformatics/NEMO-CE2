@@ -2,7 +2,7 @@ import csv
 import importlib
 import os
 from calendar import monthrange
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from email import encoders
 from email.mime.base import MIMEBase
 from enum import Enum
@@ -408,6 +408,13 @@ def end_of_the_day(t: datetime, in_local_timezone=True) -> datetime:
     """Returns the END of today's day (11:59:59.999999 PM of the current day) in LOCAL time."""
     midnight = t.replace(hour=23, minute=59, second=59, microsecond=999999, tzinfo=None)
     return localize(midnight) if in_local_timezone else midnight
+
+
+def week_date_range(given_date: datetime) -> (datetime, datetime):
+    # Assuming Monday-Sunday week
+    start = given_date - timedelta(days=given_date.weekday())  # Monday
+    end = start + timedelta(days=6)  # Sunday
+    return beginning_of_the_day(start), end_of_the_day(end)
 
 
 def remove_duplicates(iterable: Union[List, Set, Tuple]) -> List:

@@ -6,7 +6,7 @@
             <ul class="nav nav-pills" id="tabs" style="margin-bottom:10px">
                 <li style="width:48%; text-align:center" class="active"><a href="#summary" style="padding: 10px 5px">Summary</a></li>
                 <li style="width:48%; text-align:center"><a href="#details" style="padding: 10px 5px">Details</a></li>
-				{% if tool.configuration_set.exists %}
+				{% if tool.configuration_set.exists or tool.configurationprecursor_set.exists %}
 					<li style="width:48%; text-align:center"><a href="#config" style="padding: 10px 5px"
 																onclick="load_config_history('{{ tool.id }}');">Config
 						History</a></li>{% endif %}
@@ -19,7 +19,7 @@
             <ul class="nav nav-pills" id="tabs">
                 <li class="active"><a href="#summary">Summary</a></li>
                 <li><a href="#details">Details</a></li>
-				{% if tool.configuration_set.exists %}
+				{% if tool.configuration_set.exists or tool.configurationprecursor_set.exists %}
 					<li><a href="#config" onclick="load_config_history('{{ tool.id }}');">Config History</a>
 					</li>{% endif %}
                 {% if tool.post_usage_questions and not hide_data_history or tool.post_usage_questions and user.is_any_part_of_staff %}<li><a href="#usage_data" onclick="load_usage_data('{{ tool.id }}');">Usage Data History</a></li>{% endif %}
@@ -570,7 +570,7 @@
 	</div>
 
 	<div class="tab-pane" id="config">
-		{# the data to be loaded here is in tool_control/config_history.html #}
+		{# the data to be loaded here is in configuration/configuration_history.html #}
 	</div>
 
 	<div class="tab-pane" id="usage_data">

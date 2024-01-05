@@ -514,7 +514,7 @@ function ajax_message(url, type, contents, success_callback, failure_callback, a
 }
 
 //noinspection JSUnusedGlobalSymbols
-function on_change_configuration(url, configuration_id, slot, choice)
+function on_change_configuration(url, configuration_id, slot, choice, confirm)
 {
 	let reconfiguration_properties =
 	{
@@ -523,7 +523,7 @@ function on_change_configuration(url, configuration_id, slot, choice)
 		"choice": choice
 	};
 	let failure_dialog = ajax_failure_callback("Configuration change failed", "There was a problem while changing this tool's configuration.");
-	ajax_post(url, reconfiguration_properties, undefined, failure_dialog);
+	ajax_post(url, reconfiguration_properties, function() {confirm.fadeIn().delay(5000).fadeOut()}, failure_dialog);
 }
 
 function autofocus(selector)

@@ -16,6 +16,9 @@ from NEMO.models import (
     AreaAccessRecord,
     Configuration,
     ConfigurationOption,
+    ConfigurationPrecursor,
+    ConfigurationPrecursorSchedule,
+    ConfigurationPrecursorSlot,
     Consumable,
     ConsumableCategory,
     ConsumableWithdraw,
@@ -203,6 +206,37 @@ class ConfigurationSerializer(FlexFieldsSerializerMixin, ModelSerializer):
         expandable_fields = {
             "tool": "NEMO.serializers.ToolSerializer",
         }
+
+
+class ConfigurationPrecursorSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+    slots = PrimaryKeyRelatedField(source="configurationprecursorslot_set.all", many=True, read_only=True)
+
+    class Meta:
+        model = ConfigurationPrecursor
+        fields = "__all__"
+        expandable_fields = {
+            "tool": "NEMO.serializers.ToolSerializer",
+            "slots": (
+                "NEMO.serializers.ConfigurationPrecursorSlotSerializer",
+                {"source": "configurationprecursorslot_set", "many": True},
+            ),
+        }
+
+
+class ConfigurationPrecursorSlotSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+    class Meta:
+        model = ConfigurationPrecursorSlot
+        fields = "__all__"
+        expandable_fields = {
+            "schedule": "NEMO.serializers.ConfigurationPrecursorScheduleSerializer",
+            "precursor_configuration": "NEMO.serializers.ConfigurationPrecursorSerializer",
+        }
+
+
+class ConfigurationPrecursorScheduleSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+    class Meta:
+        model = ConfigurationPrecursorSchedule
+        fields = "__all__"
 
 
 class ReservationSerializer(FlexFieldsSerializerMixin, ModelSerializer):
