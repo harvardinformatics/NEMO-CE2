@@ -7,8 +7,10 @@ from copy import deepcopy
 from datetime import timedelta
 from enum import Enum
 from html import escape
+from itertools import chain
 from json import loads
 from logging import getLogger
+from operator import attrgetter
 from re import match
 from typing import Iterable, List, Optional, Set, Union
 
@@ -55,8 +57,12 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
     supported_embedded_extensions,
+    week_date_range,
 )
-from NEMO.validators import color_hex_list_validator, color_hex_validator
+from NEMO.validators import (
+    color_hex_list_validator,
+    color_hex_validator,
+)
 from NEMO.views.constants import ADDITIONAL_INFORMATION_MAXIMUM_LENGTH, CHAR_FIELD_MAXIMUM_LENGTH
 from NEMO.widgets.configuration_editor import ConfigurationEditor
 
@@ -643,6 +649,11 @@ class Closure(BaseModel):
     )
     physical_access_levels = models.ManyToManyField(
         "PhysicalAccessLevel", blank=True, help_text="Select access levels this closure applies to."
+    )
+    configuration_precursor_schedule = models.ManyToManyField(
+        "ConfigurationPrecursorSchedule",
+        blank=True,
+        help_text="Select precursor configuration schedules to unlock during this closure (for the whole week)",
     )
 
     def __str__(self):
@@ -1865,14 +1876,18 @@ class Tool(SerializationByNameModel):
         ).exists()
 
     def enabled_configurations(self):
-        return self.configuration_set.filter(enabled=True)
+        configs = list(
+            chain(self.configuration_set.filter(enabled=True), self.configurationprecursor_set.filter(enabled=True))
+        )
+        return sorted(
+            configs,
+            key=attrgetter("display_order"),
+            reverse=True,
+        )
 
     def is_configurable(self):
-        return (
-            self.parent_tool.enabled_configurations().exists()
-            if self.is_child_tool()
-            else self.enabled_configurations().exists()
-        )
+        configs = self.parent_tool.enabled_configurations() if self.is_child_tool() else self.enabled_configurations()
+        return bool(configs)
 
     is_configurable.admin_order_field = "configuration"
     is_configurable.boolean = True
@@ -1891,6 +1906,7 @@ class Tool(SerializationByNameModel):
             "configurations": configurations,
             "notice_limit": notice_limit,
             "able_to_self_configure": able_to_self_configure,
+            "reservation_start": start,
             "additional_information_maximum_length": ADDITIONAL_INFORMATION_MAXIMUM_LENGTH,
         }
         if start:
@@ -1900,7 +1916,9 @@ class Tool(SerializationByNameModel):
     def configuration_widget(self, user, render_as_form=None, filter_for_agenda=False):
         configurations = self.current_ordered_configurations()
         if filter_for_agenda:
-            configurations = configurations.exclude(exclude_from_configuration_agenda=True)
+            configurations = [
+                configuration for configuration in configurations if not configuration.exclude_from_configuration_agenda
+            ]
         config_input = {
             "configurations": configurations,
             "user": user,
@@ -1910,16 +1928,12 @@ class Tool(SerializationByNameModel):
         return configurations_editor.render(None, config_input)
 
     def current_ordered_configurations(self):
-        return (
-            self.parent_tool.enabled_configurations().all().order_by("display_order")
-            if self.is_child_tool()
-            else self.enabled_configurations().all().order_by("display_order")
-        )
+        return self.parent_tool.enabled_configurations() if self.is_child_tool() else self.enabled_configurations()
 
     def determine_insufficient_notice(self, start):
         """Determines if a reservation is created that does not give
         the staff sufficient advance notice to configure a tool."""
-        for config in self.enabled_configurations().all():
+        for config in self.enabled_configurations():
             advance_notice = start - timezone.now()
             if advance_notice < timedelta(hours=config.advance_notice_limit):
                 return True
@@ -2108,6 +2122,17 @@ class Qualification(BaseModel):
         get_latest_by = "qualified_on"
 
 
+class ToolAccessory(SerializationByNameModel):
+    name = models.CharField(max_length=200, help_text="The name of this tool accessory", unique=True)
+    tools = models.ManyToManyField(Tool, blank=False, help_text="The tools that this accessory can be used with")
+
+    class Meta(SerializationByNameModel.Meta):
+        verbose_name_plural = "Tool accessories"
+
+    def __str__(self):
+        return self.name
+
+
 class Configuration(BaseModel, ConfigurationMixin):
     name = models.CharField(
         max_length=200,
@@ -2183,9 +2208,10 @@ class Configuration(BaseModel, ConfigurationMixin):
         current_settings = self.current_settings_as_list()
         current_settings[slot] = self.get_available_setting(choice)
         self.current_settings = ", ".join(current_settings)
+        self.save()
 
     def range_of_configurable_items(self):
-        return range(0, len(self.current_settings.split(",")))
+        return range(0, len(self.current_settings_as_list()))
 
     def get_color(self, setting):
         index = (
@@ -2209,37 +2235,87 @@ class Configuration(BaseModel, ConfigurationMixin):
         return str(self.tool.name) + ": " + str(self.name)
 
 
-class ToolAccessory(SerializationByNameModel):
-    name = models.CharField(max_length=200, help_text="The name of this tool accessory", unique=True)
-    tools = models.ManyToManyField(Tool, blank=False, help_text="The tools that this accessory can be used with")
+class ConfigurationPrecursorSchedule(BaseModel):
+    DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    reset_time = models.TimeField(default=datetime.time(hour=0, minute=00))
+    monday = models.BooleanField(default=True, help_text="Check this box if the configuration resets on Mondays.")
+    tuesday = models.BooleanField(default=True, help_text="Check this box if the configuration resets on Tuesdays.")
+    wednesday = models.BooleanField(default=True, help_text="Check this box if the configuration resets on Wednesdays.")
+    thursday = models.BooleanField(default=True, help_text="Check this box if the configuration resets on Thursdays.")
+    friday = models.BooleanField(default=True, help_text="Check this box if the configuration resets on Fridays.")
+    saturday = models.BooleanField(default=False, help_text="Check this box if the configuration resets on Saturdays.")
+    sunday = models.BooleanField(default=False, help_text="Check this box if the configuration resets on Sundays.")
 
-    class Meta(SerializationByNameModel.Meta):
-        verbose_name_plural = "Tool accessories"
+    def reset_days(self) -> List:
+        return [getattr(self, day) for day in self.DAYS]
+
+    def get_date_range(self, start_time: datetime) -> (datetime, datetime):
+        reset_days = self.reset_days()
+
+        begin = start_time
+        if begin.time() < self.reset_time:
+            begin = begin - timedelta(days=1)
+
+        end = begin + timedelta(days=1)
+
+        while not reset_days[begin.weekday()]:
+            begin -= timedelta(days=1)
+
+        while not reset_days[end.weekday()]:
+            end += timedelta(days=1)
+
+        beginning_day = beginning_of_the_day(begin).replace(hour=self.reset_time.hour, minute=self.reset_time.minute)
+        end_day = beginning_of_the_day(end).replace(
+            hour=self.reset_time.hour, minute=self.reset_time.minute
+        ) - timedelta(microseconds=1)
+
+        return beginning_day, end_day
+
+    def is_active(self, start_time: datetime = None) -> bool:
+        if not start_time:
+            return True
+        closure_ranges = [
+            (week_date_range(closure_time.start_time)[0], week_date_range(closure_time.end_time)[1])
+            for closure in self.closure_set.all()
+            for closure_time in closure.closuretime_set.all()
+        ]
+        closure_ranges = set(closure_ranges)
+        schedule_inactive = closure_ranges and any(
+            (c_range[0] <= start_time <= c_range[1]) for c_range in closure_ranges
+        )
+        return not schedule_inactive
+
+    def clean(self):
+        if not (any(self.reset_days())):
+            raise ValidationError({NON_FIELD_ERRORS: "There needs to be at least one reset day"})
 
     def __str__(self):
-        return self.name
+        days = [day.capitalize() for day in self.DAYS if getattr(self, day)]
+        return f"Resets {', '.join(days)} at {format_datetime(self.reset_time)}"
 
 
-class ConfigurationOption(BaseModel, ConfigurationMixin):
-    name = models.CharField(max_length=CHAR_FIELD_MAXIMUM_LENGTH)
-    configuration = models.ForeignKey(
-        Configuration,
-        null=True,
-        blank=True,
-        help_text="The configuration this option applies to",
-        on_delete=models.SET_NULL,
-    )
-    reservation = models.ForeignKey(
-        "Reservation",
-        help_text="The reservation this option is set on",
-        on_delete=models.CASCADE,
-        related_name="configurationoption_set",
-    )
-    current_setting = models.CharField(
-        null=True,
-        blank=True,
+class ConfigurationPrecursor(BaseModel, ConfigurationMixin):
+    name = models.CharField(
         max_length=CHAR_FIELD_MAXIMUM_LENGTH,
-        help_text="The current value for this configuration option",
+        help_text="The name of this overall configuration. This text is displayed as a label on the tool control page.",
+    )
+    tool = models.ForeignKey(
+        Tool, help_text="The tool that this configuration option applies to.", on_delete=models.CASCADE
+    )
+    configurable_item_name = models.CharField(
+        blank=True,
+        null=True,
+        max_length=CHAR_FIELD_MAXIMUM_LENGTH,
+        help_text="The name of the tool part being configured. This text is displayed as a label on the tool control page. Leave this field blank if there is only one configuration slot.",
+    )
+    advance_notice_limit = models.PositiveIntegerField(
+        help_text="Configuration changes must be made this many hours in advance."
+    )
+    display_order = models.PositiveIntegerField(
+        help_text="The order in which this configuration will be displayed beside others when making a reservation and controlling a tool. Can be any positive integer including 0. Lower values are displayed first."
+    )
+    prompt = models.TextField(
+        blank=True, null=True, help_text="The textual description the user will see when making a configuration choice."
     )
     available_settings = models.TextField(
         blank=True,
@@ -2255,12 +2331,208 @@ class ConfigurationOption(BaseModel, ConfigurationMixin):
     absence_string = models.CharField(
         max_length=100, blank=True, null=True, help_text="The text that appears to indicate absence of a choice."
     )
+    maintainers = models.ManyToManyField(
+        User, blank=True, help_text="Select the users that are allowed to change this configuration."
+    )
+    qualified_users_are_maintainers = models.BooleanField(
+        default=False,
+        help_text="Any user that is qualified to use the tool that this configuration applies to may also change this configuration. Checking this box implicitly adds qualified users to the maintainers list.",
+    )
+    exclude_from_configuration_agenda = models.BooleanField(
+        default=False,
+        help_text="Reservations containing this configuration will be excluded from the Configuration Agenda page.",
+    )
+    enabled = models.BooleanField(
+        default=True, help_text="Only active configurations will show up for the selected tool"
+    )
+
+    def range_of_configurable_items(self):
+        return range(0, self.configurationprecursorslot_set.count())
+
+    def available_positions(self):
+        return [slot.position for slot in self.configurationprecursorslot_set.filter(permanent_position=False)]
+
+    def get_precursor_slot(self, position: int):
+        return self.configurationprecursorslot_set.filter(position=position).first()
+
+    def get_color(self, setting):
+        index = (
+            self.available_settings_as_list().index(setting) if setting in self.available_settings_as_list() else None
+        )
+        if index is not None:
+            color_list = self.calendar_colors_as_list()
+            return color_list[index] if color_list and len(color_list) > index else None
+
+    def user_is_maintainer(self, user):
+        if user in self.maintainers.all() or user.is_staff:
+            return True
+        if self.qualified_users_are_maintainers and (user in self.tool.user_set.all() or user.is_staff):
+            return True
+        return False
+
+    class Meta:
+        ordering = ["tool", "name"]
+
+    def __str__(self):
+        return str(self.tool.name) + ": " + str(self.name)
+
+
+class ConfigurationPrecursorSlot(BaseModel):
+    precursor_configuration = models.ForeignKey(ConfigurationPrecursor, on_delete=models.CASCADE)
+    setting = models.CharField(max_length=CHAR_FIELD_MAXIMUM_LENGTH, null=True, blank=True)
+    position = models.PositiveIntegerField()
+    schedule = models.ForeignKey(ConfigurationPrecursorSchedule, null=True, blank=True, on_delete=models.CASCADE)
+    permanent_setting = models.BooleanField(default=False)
+    permanent_position = models.BooleanField(default=False)
+
+    def replace_current_setting(self, choice):
+        if not self.permanent_setting:
+            self.setting = self.precursor_configuration.get_available_setting(choice)
+        self.save()
+
+    def locked_position_for_reservation(self, start_time: datetime) -> ConfigurationOption:
+        locked_option = self.locked_option_for_reservation(start_time, self.position)
+        return locked_option.first() if locked_option else None
+
+    def locked_setting_any_position_for_reservation(self, start_time: datetime) -> QuerySetType[ConfigurationOption]:
+        return self.locked_option_for_reservation(start_time, None)
+
+    def locked_option_for_reservation(self, start_time: datetime, position) -> QuerySetType[ConfigurationOption]:
+        if start_time and self.schedule and self.schedule.is_active(start_time):
+            range_start, range_end = self.schedule.get_date_range(start_time)
+            reservation_filter = Q(
+                reservation__cancelled=False,
+                reservation__missed=False,
+                reservation__shortened=False,
+                reservation__start__gte=range_start,
+                reservation__start__lt=range_end,
+            )
+            options = ConfigurationOption.objects.filter(precursor_configuration=self.precursor_configuration).filter(
+                reservation_filter
+            )
+            if position is None:
+                options = options.filter(current_position__isnull=True, locked=False)
+            else:
+                options = options.filter(current_position=position)
+            return options
+
+    def available_positions_for_reservation(self, start_time: datetime = None):
+        locked_option = self.locked_position_for_reservation(start_time)
+        if locked_option:
+            return [locked_option.current_position]
+        available_positions = self.precursor_configuration.available_positions()
+        # make sure the available positions are not locked already
+        return [
+            available_position
+            for available_position in available_positions
+            if not self.precursor_configuration.get_precursor_slot(available_position).locked_position_for_reservation(
+                start_time
+            )
+        ]
+
+    def available_settings_for_reservation(self, start_time: datetime = None):
+        locked_option = self.locked_position_for_reservation(start_time)
+        if locked_option:
+            return [locked_option.current_setting]
+        locked_settings = self.locked_setting_any_position_for_reservation(start_time)
+        if locked_settings:
+            # Figure out free slots and setting that we HAVE to have set (with any position)
+            free_slots = [
+                slot.id
+                for slot in self.precursor_configuration.configurationprecursorslot_set.filter(permanent_setting=False)
+            ]
+            try:
+                return [locked_settings[free_slots.index(self.id)].current_setting]
+            except:
+                pass
+        available_settings = self.precursor_configuration.available_settings_as_list()
+        return available_settings
+
+    def clean(self):
+        errors = {}
+        if self.permanent_position and not self.permanent_setting:
+            errors["permanent_position"] = _("The position cannot be permanent unless the setting is too")
+        if self.schedule and self.permanent_setting:
+            errors["schedule"] = _("You cannot have a schedule for a permanently assigned slot")
+        if self.permanent_setting and not self.setting:
+            errors["setting"] = _("Please enter a setting for this permanently assigned slot")
+        if self.precursor_configuration_id:
+            if self.setting and self.setting not in self.precursor_configuration.available_settings_as_list():
+                errors["setting"] = _(
+                    "{} is not a valid setting. choices are: {}".format(
+                        self.setting, ", ".join(self.precursor_configuration.available_settings_as_list())
+                    )
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    class Meta:
+        ordering = ["precursor_configuration", "position"]
+
+    def __str__(self):
+        name = (
+            (self.precursor_configuration.configurable_item_name or self.precursor_configuration.name)
+            if self.precursor_configuration
+            else ""
+        )
+        return f"Position #{self.position} {name}"
+
+
+class ConfigurationOption(BaseModel, ConfigurationMixin):
+    name = models.CharField(max_length=CHAR_FIELD_MAXIMUM_LENGTH)
+    configuration = models.ForeignKey(
+        Configuration,
+        null=True,
+        blank=True,
+        help_text="The configuration this option applies to",
+        on_delete=models.SET_NULL,
+    )
+    precursor_configuration = models.ForeignKey(
+        ConfigurationPrecursor,
+        null=True,
+        blank=True,
+        help_text="The configuration precursor this option applies to",
+        on_delete=models.SET_NULL,
+    )
+    reservation = models.ForeignKey(
+        "Reservation",
+        help_text="The reservation this option is set on",
+        on_delete=models.CASCADE,
+        related_name="configurationoption_set",
+    )
+    current_setting = models.CharField(
+        null=True,
+        blank=True,
+        max_length=CHAR_FIELD_MAXIMUM_LENGTH,
+        help_text="The current value for this configuration option",
+    )
+    current_position = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="The current position for this configuration option",
+    )
+    available_settings = models.TextField(
+        blank=True,
+        null=True,
+        help_text="The available choices to select for this configuration option. Multiple values are separated by commas.",
+    )
+    locked = models.BooleanField(default=False, help_text="Whether this setting is locked")
+    calendar_colors = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Comma separated list of html colors for each available setting. E.g. #ffffff, #eeeeee",
+        validators=[color_hex_list_validator],
+    )
+    absence_string = models.CharField(
+        max_length=100, blank=True, null=True, help_text="The text that appears to indicate absence of a choice."
+    )
 
     def get_color(self):
         # if the underlying configuration has not changed (same available settings), use color from config
-        same_config = self.configuration and self.configuration.available_settings == self.available_settings
+        config = self.get_configuration()
+        same_config = config and config.available_settings == self.available_settings
         if same_config:
-            return self.configuration.get_color(self.current_setting)
+            return config.get_color(self.current_setting)
         index = (
             self.available_settings_as_list().index(self.current_setting)
             if self.current_setting in self.available_settings_as_list()
@@ -2270,9 +2542,13 @@ class ConfigurationOption(BaseModel, ConfigurationMixin):
             color_list = self.calendar_colors_as_list()
             return color_list[index] if color_list and len(color_list) > index else None
 
+    def get_configuration(self) -> Union[Configuration, ConfigurationPrecursor]:
+        return self.configuration or self.precursor_configuration
+
     def __str__(self):
+        position = (" (position: " + str(self.current_position) + ")") if self.current_position is not None else ""
         selected = f", current value: {self.current_setting}" if self.current_setting else ""
-        return f"{self.name}, options: {self.available_settings_as_list()}{selected}"
+        return f"{self.name}, options: {self.available_settings_as_list()}{selected}{position}"
 
 
 class TrainingSession(BaseModel, BillableItemMixin):
@@ -2615,12 +2891,16 @@ class AreaAccessRecord(BaseModel, CalendarDisplayMixin, BillableItemMixin):
 
 
 class ConfigurationHistory(BaseModel):
-    configuration = models.ForeignKey(Configuration, on_delete=models.CASCADE)
+    configuration = models.ForeignKey(Configuration, null=True, blank=True, on_delete=models.CASCADE)
+    precursor_configuration = models.ForeignKey(ConfigurationPrecursor, null=True, blank=True, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     modification_time = models.DateTimeField(default=timezone.now)
     item_name = models.CharField(null=True, blank=False, max_length=CHAR_FIELD_MAXIMUM_LENGTH)
-    slot = models.PositiveIntegerField()
+    position = models.PositiveIntegerField()
     setting = models.TextField()
+
+    def get_configuration(self) -> Union[Configuration, ConfigurationPrecursor]:
+        return self.configuration or self.precursor_configuration
 
     class Meta:
         ordering = ["-modification_time"]
@@ -2816,7 +3096,12 @@ class Reservation(BaseModel, CalendarDisplayMixin, BillableItemMixin):
     def get_configuration_options_display(self):
         result = ""
         for config_option in self.configurationoption_set.all():
-            result += f"{config_option.name}: {config_option.current_setting}\n"
+            position = (
+                f" {'any position' if config_option.current_position is None else 'position '}{ config_option.current_position if config_option.current_position is not None else ''}"
+                if config_option.precursor_configuration
+                else ""
+            )
+            result += f"{config_option.name}{position}: {config_option.current_setting}\n"
         return result
 
     def get_configuration_options_colors(self):

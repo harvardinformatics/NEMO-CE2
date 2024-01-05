@@ -40,7 +40,11 @@ url_kwargs_get_post = {
     "get_projects_for_tool_control": {"get": {"user_id": 1}},
     "get_projects_for_training": {"get": {"user_id": 1}},
     "tool_control": {"kwargs": {"tool_id": 1}},
-    "tool_configuration": {"login_id": 1, "post": {"configuration_id": 1, "slot": 0, "choice": 1}},
+    "tool_configuration": {
+        "kwargs": {"config_type": ""},
+        "login_id": 1,
+        "post": {"configuration_id": 1, "slot": 0, "choice": 1},
+    },
     "tool_usage_group_question": {"get": {"index": 1, "virtual_inputs": 1}},
     "user_requests": {"kwargs": {}},
     "delete_access_request": {"login_id": 3, "kwargs": {"request_id": 1}},

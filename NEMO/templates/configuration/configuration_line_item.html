@@ -1,0 +1,24 @@
+{% load custom_tags_and_filters %}
+{% if readonly %}
+	{% if multiple %}
+		{{ item_name }}{% if config != config_item %} position {{ config_item.position }}{% endif %}: {{ display_setting }}
+		<br>
+	{% else %}
+		{% if config != config_item %}&nbsp;position {{ config_item.position }}{% endif %}: {{ display_setting }}
+	{% endif %}
+{% else %}
+	{% with element_id=config_item.id|concat:"__"|concat:index %}
+		<label class='form-inline'>{{ item_name }}{% if config != config_item %} position {{ config_item.position }}{% endif %}:
+			<select id='configuration_setting__{{ element_id }}' class='form-control' style='width:300px' onchange="on_change_configuration('{{ url }}', '{{ config_item.id }}', '{{ index }}', $('#configuration_setting__{{ element_id }}').val(), $('#confirm__{{ element_id }}'))" {% if config_item.permanent_setting %}disabled{% endif %}>
+				{% if config_item.permanent_setting %}
+					<option selected>{{ current_setting }}</option>
+				{% else %}
+					{% for setting in config.available_settings_as_list %}
+						<option value="{{ forloop.counter0 }}" {% if setting == current_setting %}selected{% endif %}>{{ setting }}</option>
+					{% endfor %}
+				{% endif %}
+			</select>
+		</label>
+		<span id='confirm__{{ element_id }}' style='display: none' class='success-highlight'> Saved <i class='glyphicon glyphicon-ok'></i></span>
+	{% endwith %}
+{% endif %}

@@ -1,4 +1,5 @@
 import datetime
+from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from importlib.metadata import PackageNotFoundError, version
 from urllib.parse import quote
@@ -15,7 +16,7 @@ from django.utils.html import escape, escapejs, format_html
 from django.utils.safestring import mark_safe
 
 from NEMO.mixins import BillableItemMixin
-from NEMO.models import User
+from NEMO.models import ConfigurationPrecursorSlot, User
 from NEMO.utilities import get_full_url
 from NEMO.views.constants import NEXT_PARAMETER_NAME
 from NEMO.views.customization import CustomizationBase, ProjectsAccountsCustomization
@@ -125,8 +126,14 @@ def res_question_tbody(dictionary):
 
 
 @register.filter
-def get_item(dictionary, key):
-    return dictionary.get(key)
+def get_item(dict_or_array, key):
+    if isinstance(dict_or_array, Mapping):
+        return dict_or_array.get(key)
+    elif isinstance(dict_or_array, Sequence):
+        try:
+            return dict_or_array[key]
+        except IndexError:
+            pass
 
 
 @register.simple_tag
@@ -274,3 +281,13 @@ def button(
 def absolute_url(context, view_name, *args, **kwargs):
     url = reverse(view_name, args=args, kwargs=kwargs)
     return get_full_url(url, request=context["request"])
+
+
+@register.filter
+def precursor_slot_available_positions(slot: ConfigurationPrecursorSlot, start_time: datetime = None):
+    return slot.available_positions_for_reservation(start_time)
+
+
+@register.filter
+def precursor_slot_available_settings(slot: ConfigurationPrecursorSlot, start_time: datetime = None):
+    return slot.available_settings_for_reservation(start_time)

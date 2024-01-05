@@ -23,6 +23,8 @@ from NEMO.models import (
     AreaAccessRecord,
     Configuration,
     ConfigurationOption,
+    ConfigurationPrecursor,
+    ConfigurationPrecursorSlot,
     Project,
     Reservation,
     ReservationItemType,
@@ -266,6 +268,7 @@ def reservation_event_feed(request, start, end):
         "all_areas": all_areas,
         "all_areastools": all_areastools,
         "display_name": display_name,
+        "display_configuration": CalendarCustomization.get_bool("calendar_configuration_in_reservations"),
     }
     # Don't show trainings if disabled
     if TrainingCustomization.get_bool("training_module_enabled"):
@@ -616,7 +619,7 @@ def extract_tool_accessories(request) -> List[ToolAccessory]:
 def set_reservation_configuration(reservation: Reservation, request):
     configuration_options = []
     for key, value in request.POST.items():
-        entry = parse_configuration_entry(reservation, key, value)
+        entry = parse_configuration_entry(reservation, key, value, request)
         if entry:
             configuration_options.append(entry)
     # Sort by configuration display priority and add config options to the list to save later:
@@ -631,26 +634,45 @@ def set_reservation_configuration(reservation: Reservation, request):
     reservation.self_configuration = True if request.POST.get("self_configuration") == "on" else False
 
 
-def parse_configuration_entry(reservation: Reservation, key, value) -> Optional[Tuple[int, ConfigurationOption]]:
-    if value == "" or not re.match("^configuration_[0-9]+__slot_[0-9]+__display_order_[0-9]+$", key):
+def parse_configuration_entry(reservation, key, value, request) -> Optional[Tuple[int, ConfigurationOption]]:
+    if value == "" or not re.match(
+        "^(configuration|configurationslot)_[0-9]+__slot_[0-9]+__display_order_[0-9]+$", key
+    ):
         return None
     config_id, slot, display_order = [int(s) for s in key.split("_") if s.isdigit()]
-    configuration = Configuration.objects.get(pk=config_id)
+    precursor_slot: Optional[ConfigurationPrecursorSlot] = None
+    if key.startswith("configurationslot"):
+        configuration = ConfigurationPrecursor.objects.get(pk=config_id)
+        precursor_slot = ConfigurationPrecursorSlot.objects.get(pk=slot)
+    else:
+        configuration = Configuration.objects.get(pk=config_id)
     if not configuration.enabled:
         return None
-    setting = configuration.get_available_setting(value)
 
     option_value = ConfigurationOption()
-    option_value.current_setting = setting
+    option_value.name = configuration.configurable_item_name or configuration.name
+    if precursor_slot:
+        option_value.precursor_configuration = configuration
+        option_value.locked = precursor_slot.permanent_setting
+        if precursor_slot.permanent_setting:
+            option_value.current_setting = precursor_slot.setting
+        else:
+            option_value.current_setting = configuration.get_available_setting(value)
+        if precursor_slot.permanent_position:
+            option_value.current_position = precursor_slot.position
+        else:
+            option_value.current_position = (
+                request.POST.get(f"position_{config_id}__slot_{slot}__display_order_{display_order}") or None
+            )
+    else:
+        if len(configuration.range_of_configurable_items()) != 1:
+            option_value.name += f" #{str(slot + 1)}"
+        option_value.configuration = configuration
+        option_value.current_setting = configuration.get_available_setting(value)
     option_value.available_settings = configuration.available_settings
     option_value.calendar_colors = configuration.calendar_colors
     option_value.absence_string = configuration.absence_string
     option_value.reservation = reservation
-    option_value.configuration = configuration
-    if len(configuration.current_settings_as_list()) == 1:
-        option_value.name = configuration.configurable_item_name or configuration.name
-    else:
-        option_value.name = f"{configuration.configurable_item_name or configuration.name} #{str(slot + 1)}"
     return display_order, option_value
 
 

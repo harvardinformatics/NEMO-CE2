@@ -52,6 +52,9 @@ from NEMO.models import (
     Configuration,
     ConfigurationHistory,
     ConfigurationOption,
+    ConfigurationPrecursor,
+    ConfigurationPrecursorSchedule,
+    ConfigurationPrecursorSlot,
     Consumable,
     ConsumableCategory,
     ConsumableWithdraw,
@@ -578,14 +581,86 @@ class ConfigurationAdmin(admin.ModelAdmin):
         "qualified_users_are_maintainers",
         "display_order",
         "exclude_from_configuration_agenda",
+        "slot_number",
     )
     filter_horizontal = ("maintainers",)
     actions = [duplicate_configuration]
 
+    @admin.display(description="Slots")
+    def slot_number(self, instance):
+        return len(instance.range_of_configurable_items())
+
+
+class ConfigurationPrecursorSlotAdminFormset(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        forms_to_delete = self.deleted_forms
+        valid_forms = [form for form in self.forms if form.is_valid() and form not in forms_to_delete]
+        positions = []
+        for form in valid_forms:
+            position = form.cleaned_data["position"]
+            if position is not None and position in positions:
+                raise ValidationError(_("Position #{} is already assigned").format(position))
+            positions.append(position)
+
+
+class ConfigurationPrecursorSlotInline(admin.StackedInline):
+    model = ConfigurationPrecursorSlot
+    formset = ConfigurationPrecursorSlotAdminFormset
+    extra = 0
+    min_num = 1
+
+
+@register(ConfigurationPrecursorSchedule)
+class ConfigurationPrecursorScheduleAdmin(admin.ModelAdmin):
+    pass
+
+
+@register(ConfigurationPrecursor)
+class ConfigurationPrecursorAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "tool",
+        "name",
+        "enabled",
+        "qualified_users_are_maintainers",
+        "display_order",
+        "exclude_from_configuration_agenda",
+        "slot_number",
+    )
+    filter_horizontal = ("maintainers",)
+    inlines = [ConfigurationPrecursorSlotInline]
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "enabled",
+                    "name",
+                    "tool",
+                    "configurable_item_name",
+                    "advance_notice_limit",
+                    "display_order",
+                    "prompt",
+                    "available_settings",
+                    "calendar_colors",
+                    "absence_string",
+                    "maintainers",
+                    "qualified_users_are_maintainers",
+                    "exclude_from_configuration_agenda",
+                )
+            },
+        ),
+    )
+
+    @admin.display(description="Slots")
+    def slot_number(self, instance):
+        return len(instance.range_of_configurable_items())
+
 
 @register(ConfigurationHistory)
 class ConfigurationHistoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "configuration", "user", "modification_time", "slot")
+    list_display = ("id", "item_name", "configuration", "user", "modification_time", "setting", "position")
     date_hierarchy = "modification_time"
 
 
@@ -1371,7 +1446,7 @@ class ClosureAdmin(admin.ModelAdmin):
     inlines = [ClosureTimeInline]
     form = ClosureAdminForm
     list_display = ("name", "alert_days_before", "get_times_display", "staff_absent", "notify_managers_last_occurrence")
-    filter_horizontal = ("physical_access_levels",)
+    filter_horizontal = ("physical_access_levels", "configuration_precursor_schedule")
     list_filter = (
         ("physical_access_levels__area", TreeRelatedFieldListFilter),
         "staff_absent",
@@ -1390,6 +1465,7 @@ class ClosureAdmin(admin.ModelAdmin):
                     "notify_managers_last_occurrence",
                     "staff_absent",
                     "physical_access_levels",
+                    "configuration_precursor_schedule",
                 )
             },
         ),

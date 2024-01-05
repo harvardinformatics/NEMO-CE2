@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
 from NEMO.decorators import staff_member_required
-from NEMO.models import Configuration, Reservation, Tool
+from NEMO.models import Configuration, ConfigurationPrecursor, Reservation, Tool
 from NEMO.utilities import distinct_qs_value_list, localize, naive_local_current_datetime
 from NEMO.views.customization import ToolCustomization
 
@@ -14,6 +14,11 @@ from NEMO.views.customization import ToolCustomization
 def configuration_agenda(request, time_period="today"):
     tool_ids = distinct_qs_value_list(
         Configuration.objects.filter(enabled=True, exclude_from_configuration_agenda=False), "tool_id"
+    )
+    tool_ids.update(
+        distinct_qs_value_list(
+            ConfigurationPrecursor.objects.filter(enabled=True, exclude_from_configuration_agenda=False), "tool_id"
+        )
     )
     start = None
     end = None

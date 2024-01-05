@@ -80,6 +80,9 @@ router.register(r"area_access_records", api.AreaAccessRecordViewSet)
 router.register(r"areas", api.AreaViewSet)
 router.register(r"billing", api.BillingViewSet, basename="billing")
 router.register(r"configurations", api.ConfigurationViewSet)
+router.register(r"configuration_precursors", api.ConfigurationPrecursorViewSet)
+router.register(r"configuration_precursor_slots", api.ConfigurationPrecursorSlotViewSet)
+router.register(r"configuration_precursor_schedules", api.ConfigurationPrecursorScheduleViewSet)
 router.register(r"consumable_categories", api.ConsumableCategoryViewSet)
 router.register(r"consumable_withdrawals", api.ConsumableWithdrawViewSet)
 router.register(r"consumables", api.ConsumableViewSet)
@@ -153,6 +156,7 @@ urlpatterns += [
     path("tool_status/<int:tool_id>/", tool_control.tool_status, name="tool_status"),
     path("use_tool_for_other/", tool_control.use_tool_for_other, name="use_tool_for_other"),
     path("tool_configuration/", tool_control.tool_configuration, name="tool_configuration"),
+    re_path("tool_configuration/(?P<config_type>slot|)/", tool_control.tool_configuration, name="tool_configuration"),
     path("create_comment/", tool_control.create_comment, name="create_comment"),
     path("hide_comment/<str:comment_id>/", tool_control.hide_comment, name="hide_comment"),
     re_path(

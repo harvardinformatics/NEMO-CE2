@@ -12,7 +12,7 @@ from django.views.decorators.http import require_GET, require_POST
 from NEMO.decorators import synchronized
 from NEMO.exceptions import RequiredUnansweredQuestionsException
 from NEMO.models import BadgeReader, Project, Reservation, ReservationItemType, Tool, UsageEvent, User
-from NEMO.policy import policy_class as policy
+from NEMO.policy import accessory_conflicts_for_reservation, policy_class as policy
 from NEMO.utilities import localize, quiet_int
 from NEMO.views.calendar import (
     cancel_the_reservation,
@@ -174,7 +174,7 @@ def reserve_tool(request):
     project = Project.objects.get(id=request.POST["project_id"])
     back = request.POST["back"]
 
-    error_dictionary = {"back": back, "tool": tool, "project": project, "customer": customer}
+    dictionary = {"back": back, "tool": tool, "project": project, "customer": customer}
 
     """ Create a reservation for a user. """
     try:
@@ -182,8 +182,8 @@ def reserve_tool(request):
         start = localize(datetime.combine(date, parse_time(request.POST["start"])))
         end = localize(datetime.combine(date, parse_time(request.POST["end"])))
     except:
-        error_dictionary["message"] = "Please enter a valid date, start time, and end time for the reservation."
-        return render(request, "kiosk/error.html", error_dictionary)
+        dictionary["message"] = "Please enter a valid date, start time, and end time for the reservation."
+        return render(request, "kiosk/error.html", dictionary)
     # Create the new reservation:
     reservation = Reservation()
     reservation.project = project
@@ -200,20 +200,42 @@ def reserve_tool(request):
         explicit_policy_override=False,
     )
 
-    selected_accessories = extract_tool_accessories(request)
-    if selected_accessories:
-        policy_problems.extend(policy.check_accessories_available_for_reservation(reservation, selected_accessories))
-        reservation._tool_accessories = selected_accessories
-
     # If there was a problem in saving the reservation then return the error...
     if policy_problems:
-        error_dictionary["message"] = policy_problems[0]
-        return render(request, "kiosk/error.html", error_dictionary)
+        dictionary["message"] = policy_problems[0]
+        return render(request, "kiosk/error.html", dictionary)
 
     # All policy checks have passed.
     if project is None and not customer.is_staff:
-        error_dictionary["message"] = "You must specify a project for your reservation"
-        return render(request, "kiosk/error.html", error_dictionary)
+        dictionary["message"] = "You must specify a project for your reservation"
+        return render(request, "kiosk/error.html", dictionary)
+
+    reservation_questions = render_reservation_questions(ReservationItemType.TOOL, tool.id, reservation.project, True)
+    tool_config = tool.is_configurable()
+    tool_accessories = tool.toolaccessory_set.all()
+    needs_extra_config = reservation_questions or tool_config or tool_accessories
+    if needs_extra_config and not request.POST.get("configured") == "true":
+        dictionary.update(tool.get_configuration_information(user=customer, start=reservation.start))
+        dictionary.update(
+            {
+                "request_date": request.POST["date"],
+                "request_start": request.POST["start"],
+                "request_end": request.POST["end"],
+                "reservation": reservation,
+                "tool_accessories": tool_accessories,
+                "conflicts": accessory_conflicts_for_reservation(reservation, tool_accessories),
+                "reservation_questions": reservation_questions,
+            }
+        )
+        return render(request, "kiosk/tool_reservation_extra.html", dictionary)
+
+    selected_accessories = extract_tool_accessories(request)
+    if selected_accessories:
+        accessory_issues = policy.check_accessories_available_for_reservation(reservation, selected_accessories)
+        if accessory_issues:
+            dictionary["message"] = accessory_issues[0]
+            return render(request, "kiosk/error.html", dictionary)
+        reservation._tool_accessories = selected_accessories
 
     set_reservation_configuration(reservation, request)
     # Reservation can't be short notice if the user is configuring the tool themselves.
@@ -226,8 +248,8 @@ def reserve_tool(request):
             request, ReservationItemType.TOOL, tool.id, reservation.project
         )
     except RequiredUnansweredQuestionsException as e:
-        error_dictionary["message"] = str(e)
-        return render(request, "kiosk/error.html", error_dictionary)
+        dictionary["message"] = str(e)
+        return render(request, "kiosk/error.html", dictionary)
 
     reservation.save_and_notify()
     return render(request, "kiosk/success.html", {"new_reservation": reservation, "customer": customer})
@@ -257,19 +279,18 @@ def tool_reservation(request, tool_id, user_id, back):
     customer = User.objects.get(id=user_id)
     project = Project.objects.get(id=request.POST["project_id"])
 
-    dictionary = tool.get_configuration_information(user=customer, start=None)
-    dictionary["tool_accessories"] = tool.toolaccessory_set.all()
-    dictionary["tool"] = tool
-    dictionary["date"] = None
-    dictionary["project"] = project
-    dictionary["customer"] = customer
-    dictionary["back"] = back
-    dictionary["tool_reservation_times"] = list(
-        Reservation.objects.filter(cancelled=False, missed=False, shortened=False, tool=tool, start__gte=timezone.now())
-    )
-
-    # Reservation questions if applicable
-    dictionary["reservation_questions"] = render_reservation_questions(ReservationItemType.TOOL, tool_id, project, True)
+    dictionary = {
+        "tool": tool,
+        "date": None,
+        "project": project,
+        "customer": customer,
+        "back": back,
+        "tool_reservation_times": list(
+            Reservation.objects.filter(
+                cancelled=False, missed=False, shortened=False, tool=tool, start__gte=timezone.now()
+            )
+        ),
+    }
 
     return render(request, "kiosk/tool_reservation.html", dictionary)
 

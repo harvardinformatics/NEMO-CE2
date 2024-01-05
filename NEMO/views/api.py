@@ -16,6 +16,9 @@ from NEMO.models import (
     AreaAccessRecord,
     Configuration,
     ConfigurationOption,
+    ConfigurationPrecursor,
+    ConfigurationPrecursorSchedule,
+    ConfigurationPrecursorSlot,
     Consumable,
     ConsumableCategory,
     ConsumableWithdraw,
@@ -41,6 +44,9 @@ from NEMO.serializers import (
     AreaSerializer,
     BillableItemSerializer,
     ConfigurationOptionSerializer,
+    ConfigurationPrecursorScheduleSerializer,
+    ConfigurationPrecursorSerializer,
+    ConfigurationPrecursorSlotSerializer,
     ConfigurationSerializer,
     ConsumableCategorySerializer,
     ConsumableSerializer,
@@ -308,10 +314,60 @@ class ConfigurationViewSet(ModelViewSet):
         "tool": ["exact", "in", "isnull"],
         "advance_notice_limit": ["exact", "in", "gte", "gt", "lte", "lt"],
         "display_order": ["exact", "in", "gte", "gt", "lte", "lt"],
-        "maintainers": ["exact", "in", "isnull"],
+        "maintainers": ["exact", "isnull"],
         "qualified_users_are_maintainers": ["exact"],
         "exclude_from_configuration_agenda": ["exact"],
         "enabled": ["exact"],
+    }
+
+
+class ConfigurationPrecursorViewSet(ModelViewSet):
+    filename = "configuration_precursors"
+    queryset = ConfigurationPrecursor.objects.all()
+    serializer_class = ConfigurationPrecursorSerializer
+    filterset_fields = {
+        "id": ["exact", "in"],
+        "name": ["exact", "iexact", "in"],
+        "tool_id": ["exact", "in", "isnull"],
+        "tool": ["exact", "in", "isnull"],
+        "advance_notice_limit": ["exact", "in", "gte", "gt", "lte", "lt"],
+        "display_order": ["exact", "in", "gte", "gt", "lte", "lt"],
+        "maintainers": ["exact", "isnull"],
+        "qualified_users_are_maintainers": ["exact"],
+        "exclude_from_configuration_agenda": ["exact"],
+        "enabled": ["exact"],
+    }
+
+
+class ConfigurationPrecursorSlotViewSet(ModelViewSet):
+    filename = "configuration_precursor_slots"
+    queryset = ConfigurationPrecursorSlot.objects.all()
+    serializer_class = ConfigurationPrecursorSlotSerializer
+    filterset_fields = {
+        "id": ["exact", "in"],
+        "precursor_configuration": ["exact", "in"],
+        "schedule": ["exact", "in"],
+        "setting": ["exact", "iexact", "in"],
+        "position": ["exact", "in", "gte", "gt", "lte", "lt"],
+        "permanent_position": ["exact"],
+        "permanent_setting": ["exact"],
+    }
+
+
+class ConfigurationPrecursorScheduleViewSet(ModelViewSet):
+    filename = "configuration_precursor_schedules"
+    queryset = ConfigurationPrecursorSchedule.objects.all()
+    serializer_class = ConfigurationPrecursorScheduleSerializer
+    filterset_fields = {
+        "id": ["exact", "in"],
+        "reset_time": ["exact", "gte", "gt", "lte", "lt"],
+        "monday": ["exact"],
+        "tuesday": ["exact"],
+        "wednesday": ["exact"],
+        "thursday": ["exact"],
+        "friday": ["exact"],
+        "saturday": ["exact"],
+        "sunday": ["exact"],
     }
 
 
@@ -326,6 +382,11 @@ class ConfigurationOptionViewSet(ModelViewSet):
         "reservation": ["exact", "in", "isnull"],
         "configuration_id": ["exact", "in", "isnull"],
         "configuration": ["exact", "in", "isnull"],
+        "precursor_configuration": ["exact", "in", "isnull"],
+        "precursor_configuration_id": ["exact", "in", "isnull"],
+        "current_setting": ["exact", "in"],
+        "current_position": ["exact", "in", "isnull", "gte", "gt", "lte", "lt"],
+        "locked": ["exact"],
     }
 
 
