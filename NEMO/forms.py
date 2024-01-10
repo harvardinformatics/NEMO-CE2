@@ -351,6 +351,7 @@ class EmailBroadcastForm(Form):
             ("tool", "tool"),
             ("tool-reservation", "tool-reservation"),
             ("project", "project"),
+            ("project-pis", "project-pis"),
             ("account", "account"),
             ("area", "area"),
             ("user", "user"),

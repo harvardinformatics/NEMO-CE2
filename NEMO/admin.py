@@ -5,13 +5,14 @@ from django.contrib import admin
 from django.contrib.admin import register
 from django.contrib.admin.decorators import display
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.auth.models import Permission
+from django.contrib.auth.admin import GroupAdmin
+from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.db.models.fields.files import FieldFile
-from django.forms import BaseInlineFormSet
+from django.forms import BaseInlineFormSet, ModelMultipleChoiceField
 from django.template.defaultfilters import linebreaksbr, urlencode
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -147,6 +148,10 @@ class AtLeastOneRequiredInlineFormSet(BaseInlineFormSet):
             raise forms.ValidationError("A minimum of one item is required.")
 
 
+class DocumentModelAdmin(admin.TabularInline):
+    extra = 1
+
+
 class ToolAdminForm(forms.ModelForm):
     class Meta:
         model = Tool
@@ -217,9 +222,8 @@ class ToolAdminForm(forms.ModelForm):
         return cleaned_data
 
 
-class ToolDocumentsInline(admin.TabularInline):
+class ToolDocumentsInline(DocumentModelAdmin):
     model = ToolDocuments
-    extra = 1
 
 
 class UserQualificationInlineFormset(BaseInlineFormSet):
@@ -703,9 +707,8 @@ class ProjectAdminForm(forms.ModelForm):
             self.fields["principal_investigators"].initial = self.instance.manager_set.all()
 
 
-class ProjectDocumentsInline(admin.TabularInline):
+class ProjectDocumentsInline(DocumentModelAdmin):
     model = ProjectDocuments
-    extra = 1
 
 
 @register(Project)
@@ -1105,9 +1108,9 @@ class UserTypeAdmin(admin.ModelAdmin):
 class UserPreferencesAdmin(admin.ModelAdmin):
     list_display = ("user",)
     search_fields = [
-        "user_preferences__user__first_name",
-        "user_preferences__user__last_name",
-        "user_preferences__user__username",
+        "user__first_name",
+        "user__last_name",
+        "user__username",
     ]
     filter_horizontal = ["tool_freed_time_notifications", "tool_task_notifications"]
     form = UserPreferencesForm
@@ -1137,9 +1140,8 @@ class UserAdminForm(forms.ModelForm):
             self.fields["superuser_on_tools"].initial = self.instance.superuser_for_tools.all()
 
 
-class UserDocumentsInline(admin.TabularInline):
+class UserDocumentsInline(DocumentModelAdmin):
     model = UserDocuments
-    extra = 1
 
 
 @register(User)
@@ -1281,9 +1283,8 @@ class SafetyCategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "display_order")
 
 
-class SafetyItemDocumentsInline(admin.TabularInline):
+class SafetyItemDocumentsInline(DocumentModelAdmin):
     model = SafetyItemDocuments
-    extra = 1
 
 
 @register(SafetyItem)
@@ -2018,6 +2019,62 @@ class EmailLogAdmin(admin.ModelAdmin):
         return False
 
 
+class CustomGroupAdminForm(forms.ModelForm):
+    users = ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        required=False,
+        widget=FilteredSelectMultiple(verbose_name="Users", is_stacked=False),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["users"].initial = self.instance.user_set.all()
+
+    def _save_m2m(self):
+        super()._save_m2m()
+        exclude = self._meta.exclude
+        fields = self._meta.fields
+        # Check for fields and exclude
+        if fields and "users" not in fields or exclude and "users" in exclude:
+            return
+        if "users" in self.cleaned_data:
+            self.instance.user_set.set(self.cleaned_data["users"])
+
+
+class CustomGroupAdmin(GroupAdmin):
+    form = CustomGroupAdminForm
+
+
+class PermissionAdminForm(forms.ModelForm):
+    users = ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        required=False,
+        widget=FilteredSelectMultiple(verbose_name="Users", is_stacked=False),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["users"].initial = self.instance.user_set.all()
+
+    def _save_m2m(self):
+        super()._save_m2m()
+        exclude = self._meta.exclude
+        fields = self._meta.fields
+        # Check for fields and exclude
+        if fields and "users" not in fields or exclude and "users" in exclude:
+            return
+        if "users" in self.cleaned_data:
+            self.instance.user_set.set(self.cleaned_data["users"])
+
+
+@admin.register(Permission)
+class PermissionAdmin(admin.ModelAdmin):
+    search_fields = ("name", "codename")
+    form = PermissionAdminForm
+
+
 @register(Qualification)
 class QualificationAdmin(admin.ModelAdmin):
     list_display = (
@@ -2089,5 +2146,6 @@ admin.site.has_permission = has_admin_site_permission
 admin.site.register(ProjectDiscipline)
 admin.site.register(AccountType)
 admin.site.register(ResourceCategory)
-admin.site.register(Permission)
 admin.site.register(TrainingTechnique)
+admin.site.unregister(Group)
+admin.site.register(Group, CustomGroupAdmin)

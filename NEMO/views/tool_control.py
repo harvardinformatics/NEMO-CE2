@@ -119,6 +119,7 @@ def tool_status(request, tool_id):
         and broadcast_qualified_user_enabled,
         "show_broadcast_upcoming_reservation": user_is_staff
         or (user_is_qualified and broadcast_upcoming_reservation_enabled),
+        "tool_control_show_task_details": ToolCustomization.get_bool("tool_control_show_task_details"),
     }
 
     try:
