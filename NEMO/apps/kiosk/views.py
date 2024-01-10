@@ -389,6 +389,7 @@ def tool_information(request, tool_id, user_id, back):
             "tool_usage_group_question", tool.id, virtual_inputs=True
         ),
         "back": back,
+        "tool_control_show_task_details": ToolCustomization.get_bool("tool_control_show_task_details"),
         "allow_take_over": allow_take_over,
         "enable_is_take_over": tool.in_use
         and allow_take_over

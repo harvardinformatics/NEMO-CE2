@@ -82,9 +82,7 @@ def history(request, item_type, item_id):
             }
         )
     if apps.is_installed("auditlog"):
-        from auditlog.models import LogEntry
-
-        logentries: List[LogEntry] = LogEntry.objects.filter(content_type=content_type, object_id=item_id)
+        logentries: List = get_log_entries(item, content_type)
         for log_entry in logentries:
             action_list.add_row(
                 {
@@ -104,6 +102,12 @@ def history(request, item_type, item_id):
         return response
     has_details = any(row.get("details") for row in action_list.rows)
     return render(request, "history.html", {"action_list": action_list, "name": str(item), "has_details": has_details})
+
+
+def get_log_entries(item, content_type):
+    from auditlog.models import LogEntry
+
+    return LogEntry.objects.filter(content_type=content_type, object_id=item.id)
 
 
 def audit_log_message(logentry, separator: str = "\n"):
