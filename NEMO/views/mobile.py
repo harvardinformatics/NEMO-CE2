@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.http import require_GET, require_POST
 
-from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException
+from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException, ToolConfigurationException
 from NEMO.models import Area, Project, Reservation, ReservationItemType, ScheduledOutage, Tool, TrainingEvent, User
 from NEMO.policy import accessory_conflicts_for_reservation, policy_class as policy
 from NEMO.utilities import beginning_of_the_day, end_of_the_day, localize
@@ -158,7 +158,11 @@ def make_reservation(request):
                 return render(request, "mobile/error.html", {"message": accessory_issues[0]})
             reservation._tool_accessories = selected_accessories
 
-    set_reservation_configuration(reservation, request)
+    try:
+        set_reservation_configuration(reservation, request)
+    except ToolConfigurationException as e:
+        return render(request, "mobile/error.html", {"message": str(e)})
+
     # Reservation can't be short notice if the user is configuring the tool themselves.
     if reservation.self_configuration:
         reservation.short_notice = False

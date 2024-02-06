@@ -10,7 +10,7 @@ from django.utils.dateparse import parse_date, parse_time
 from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import synchronized
-from NEMO.exceptions import RequiredUnansweredQuestionsException
+from NEMO.exceptions import RequiredUnansweredQuestionsException, ToolConfigurationException
 from NEMO.models import BadgeReader, Project, Reservation, ReservationItemType, Tool, UsageEvent, User
 from NEMO.policy import accessory_conflicts_for_reservation, policy_class as policy
 from NEMO.utilities import localize, quiet_int
@@ -237,7 +237,12 @@ def reserve_tool(request):
             return render(request, "kiosk/error.html", dictionary)
         reservation._tool_accessories = selected_accessories
 
-    set_reservation_configuration(reservation, request)
+    try:
+        set_reservation_configuration(reservation, request)
+    except ToolConfigurationException as e:
+        dictionary["message"] = str(e)
+        return render(request, "kiosk/error.html", dictionary)
+
     # Reservation can't be short notice if the user is configuring the tool themselves.
     if reservation.self_configuration:
         reservation.short_notice = False

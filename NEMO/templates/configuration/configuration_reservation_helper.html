@@ -6,6 +6,9 @@
 {% load custom_tags_and_filters %}
 
 <div class="form-group">
+	{% if config_error %}
+		<div class="alert alert-danger">{{ config_error }}</div>
+	{% endif %}
 	{% for config in configurations %}
 		{% if config.prompt %}<p>{{ config.prompt }}</p>{% endif %}
 		{% if config|class_name != "ConfigurationPrecursor" %}
@@ -58,8 +61,10 @@
 										{% if precursor_config.absence_string %}
 											<option value="">{{ precursor_config.absence_string }}</option>
 										{% endif %}
-										{% for setting in available_settings %}
-											<option value={{ forloop.counter0 }}>{{ setting }}</option>
+										{% for setting in precursor_config.available_settings_as_list %}
+											{% if setting in available_settings %}
+												<option value={{ forloop.counter0 }}>{{ setting }}</option>
+											{% endif %}
 										{% endfor %}
 									{% endwith %}
 								{% endif %}

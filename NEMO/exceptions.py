@@ -135,3 +135,7 @@ class RequiredUnansweredQuestionsException(NEMOException):
         display_questions = ", ".join([f'"{question.title}"' for question in questions])
         msg = f"You have to answer the following required questions: {display_questions}"
         super().__init__(msg)
+
+
+class ToolConfigurationException(NEMOException):
+    pass
