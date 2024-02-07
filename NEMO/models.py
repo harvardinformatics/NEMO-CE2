@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import os
 import sys
+from collections import defaultdict
 from copy import deepcopy
 from datetime import timedelta
 from enum import Enum
@@ -2336,6 +2337,9 @@ class ConfigurationPrecursor(BaseModel, ConfigurationMixin):
         help_text="Comma separated list of html colors for each available setting. E.g. #ffffff, #eeeeee",
         validators=[color_hex_list_validator],
     )
+    allow_duplicate_settings = models.BooleanField(
+        default=False, help_text="Check this box to allow the same setting to be used in multiple slots"
+    )
     absence_string = models.CharField(
         max_length=100, blank=True, null=True, help_text="The text that appears to indicate absence of a choice."
     )
@@ -2418,6 +2422,22 @@ class ConfigurationPrecursorSlot(BaseModel):
             options = ConfigurationOption.objects.filter(precursor_configuration=self.precursor_configuration).filter(
                 reservation_filter
             )
+            # if the position has been set again later, remove previous positions
+            # to only keep the latest (more restrictive) one per setting
+            # i.e. if someone asks for Au in Any position but later someone else asks in position 2
+            # the system needs to act as if it was set to position 2
+            exclude_ids = []
+            if self.precursor_configuration and not self.precursor_configuration.allow_duplicate_settings:
+                all_options = defaultdict()
+                for option in options:
+                    if option.current_setting:
+                        if option.current_setting in all_options:
+                            exclude_ids.append(all_options[option.current_setting])
+                            del all_options[option.current_setting]
+                        else:
+                            all_options[option.current_setting] = option.id
+            if exclude_ids:
+                options = options.exclude(id__in=exclude_ids)
             if position is None:
                 options = options.filter(current_position__isnull=True, locked=False)
             else:
@@ -2438,6 +2458,22 @@ class ConfigurationPrecursorSlot(BaseModel):
             )
         ]
 
+    def all_locked_settings(self, schedule, start_time: datetime = None) -> List[str]:
+        locked = []
+        if schedule and not self.precursor_configuration.allow_duplicate_settings:
+            for slot in self.precursor_configuration.configurationprecursorslot_set.all():
+                if slot.permanent_setting:
+                    locked.append(slot.setting)
+                    continue
+                locked_option = slot.locked_position_for_reservation(start_time)
+                if locked_option:
+                    locked.append(locked_option.current_setting)
+                    break
+                locked_settings = slot.locked_setting_any_position_for_reservation(start_time)
+                for setting in locked_settings or []:
+                    locked.append(setting.current_setting)
+        return locked
+
     def available_settings_for_reservation(self, start_time: datetime = None):
         locked_option = self.locked_position_for_reservation(start_time)
         if locked_option:
@@ -2454,7 +2490,8 @@ class ConfigurationPrecursorSlot(BaseModel):
             except:
                 pass
         available_settings = self.precursor_configuration.available_settings_as_list()
-        return available_settings
+        locked_settings = self.all_locked_settings(self.schedule, start_time)
+        return [setting for setting in available_settings if setting not in locked_settings]
 
     def clean(self):
         errors = {}

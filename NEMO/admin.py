@@ -648,6 +648,7 @@ class ConfigurationPrecursorAdmin(admin.ModelAdmin):
                     "prompt",
                     "available_settings",
                     "calendar_colors",
+                    "allow_duplicate_settings",
                     "absence_string",
                     "maintainers",
                     "qualified_users_are_maintainers",

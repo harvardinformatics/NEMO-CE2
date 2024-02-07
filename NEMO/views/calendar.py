@@ -1,4 +1,5 @@
 import re
+from collections import defaultdict
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from json import dumps, loads
@@ -16,7 +17,7 @@ from django.utils.timezone import make_aware
 from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import disable_session_expiry_refresh, postpone, staff_member_required, synchronized
-from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException
+from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException, ToolConfigurationException
 from NEMO.forms import CalendarTrainingEventForm
 from NEMO.models import (
     Area,
@@ -549,12 +550,17 @@ def create_item_reservation(request, current_user, start, end, item_type: Reserv
 
         # If a reservation is requested and configuration information is present also...
         elif item.is_configurable() and configured:
-            set_reservation_configuration(new_reservation, request)
-            # Reservation can't be short notice if the user is configuring the tool themselves.
-            if new_reservation.self_configuration:
-                new_reservation.short_notice = False
-            new_reservation.save_and_notify()
-            return reservation_success(request, new_reservation)
+            try:
+                set_reservation_configuration(new_reservation, request)
+                # Reservation can't be short notice if the user is configuring the tool themselves.
+                if new_reservation.self_configuration:
+                    new_reservation.short_notice = False
+                new_reservation.save_and_notify()
+                return reservation_success(request, new_reservation)
+            except ToolConfigurationException as e:
+                configuration_information = item.get_configuration_information(user=user, start=start)
+                configuration_information["config_error"] = str(e)
+                return render(request, "calendar/configuration.html", configuration_information)
 
     elif item_type == ReservationItemType.AREA:
         new_reservation.save_and_notify()
@@ -622,6 +628,7 @@ def set_reservation_configuration(reservation: Reservation, request):
         entry = parse_configuration_entry(reservation, key, value, request)
         if entry:
             configuration_options.append(entry)
+    validate_configuration_options(configuration_options)
     # Sort by configuration display priority and add config options to the list to save later:
     if configuration_options:
         reservation._deferred_related_models = []
@@ -674,6 +681,23 @@ def parse_configuration_entry(reservation, key, value, request) -> Optional[Tupl
     option_value.absence_string = configuration.absence_string
     option_value.reservation = reservation
     return display_order, option_value
+
+
+def validate_configuration_options(options: List[Tuple[int, ConfigurationOption]]):
+    # group options with precursors, that don't allow duplicates
+    grouped_options = defaultdict(list)
+    for item in options:
+        option: ConfigurationOption = item[1]
+        if (
+            option.precursor_configuration
+            and option.current_setting
+            and not option.precursor_configuration.allow_duplicate_settings
+        ):
+            # raise exception if the same setting is used more than once
+            if option.current_setting in grouped_options[option.precursor_configuration_id]:
+                raise ToolConfigurationException(f"{option.current_setting} is set in more than one slot")
+            else:
+                grouped_options[option.precursor_configuration_id].append(option.current_setting)
 
 
 @staff_member_required
