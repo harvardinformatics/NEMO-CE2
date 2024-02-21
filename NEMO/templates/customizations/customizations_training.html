@@ -56,6 +56,20 @@
 				</div>
 			</div>
 		</div>
+		<div class="form-group">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5">User message</label>
+            <div class="col-lg-9 col-md-8 col-sm-7">
+				<div class="checkbox">
+					<label><input type="checkbox" name="training_request_default_message_required" {% if training_request_default_message_required %}checked{% endif %} value="enabled">Require users to submit a message when creating requests</label>
+				</div>
+			</div>
+		</div>
+		<div class="form-group">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_request_default_message_placeholder">Message placeholder</label>
+			<div class="col-md-7">
+				<textarea oninput="auto_size_textarea(this);" id="training_request_default_message_placeholder" name="training_request_default_message_placeholder" class="form-control">{{ training_request_default_message_placeholder }}</textarea>
+			</div>
+		</div>
 		<div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
 			<label class="control-label col-md-3" for="exclude_tool">Excluded tools</label>
 			<div class="col-md-7">
@@ -92,4 +106,5 @@
     {% for tool in excluded_tools %}
 		add_tool(undefined, {name:'{{ tool.name }}', id:{{ tool.id }}});
 	{% endfor %}
+	auto_size_textarea(document.getElementById("training_request_default_message_placeholder"));
 </script>

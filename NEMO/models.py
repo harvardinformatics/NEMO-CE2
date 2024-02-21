@@ -4961,13 +4961,26 @@ class ToolTrainingDetail(BaseModel):
         TrainingTechnique, blank=True, help_text="The techniques available for training on this tool"
     )
     duration = models.PositiveIntegerField(
-        null=True, blank=True, help_text="The training duration for this tool in minutes"
+        null=True,
+        blank=True,
+        help_text="The training duration for this tool in minutes. Leave blank to use the default",
     )
     capacity = models.PositiveIntegerField(
-        null=True, blank=True, help_text="The maximum number of attendees when training for this tool"
+        null=True,
+        blank=True,
+        help_text="The maximum number of attendees when training for this tool. Leave blank to use the default",
     )
     user_availability_allowed = models.BooleanField(
         default=False, help_text="Check this box to allow users to submit their availability when requesting training"
+    )
+    user_message_required = models.BooleanField(
+        default=False, help_text="Check this box to require users to submit a message when requesting training"
+    )
+    message_placeholder = models.CharField(
+        null=True,
+        blank=True,
+        max_length=CHAR_FIELD_MAXIMUM_LENGTH,
+        help_text="The placeholder for the user's message when submitting a training request. Leave blank to use the default",
     )
 
     def __str__(self):

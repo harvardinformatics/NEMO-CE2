@@ -499,6 +499,8 @@ class TrainingCustomization(CustomizationBase):
         "training_module_enabled": "enabled",
         "training_technique_empty_label": "Basic training",
         "training_request_default_availability_allowed": "",
+        "training_request_default_message_required": "",
+        "training_request_default_message_placeholder": "Add a message for the trainer",
         "training_event_default_duration": "",
         "training_event_default_capacity": "",
         "training_excluded_tools": "",

@@ -1873,6 +1873,10 @@ class ToolTrainingDetailAdminForm(forms.ModelForm):
         self.fields["user_availability_allowed"].initial = TrainingCustomization.get_bool(
             "training_request_default_availability_allowed"
         )
+        self.fields["user_message_required"].initial = TrainingCustomization.get_bool(
+            "training_request_default_message_required"
+        )
+        self.fields["message_placeholder"].widget = forms.Textarea()
 
 
 @register(ToolTrainingDetail)

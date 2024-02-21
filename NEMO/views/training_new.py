@@ -13,6 +13,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
+from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from NEMO.decorators import any_staff_or_trainer
@@ -89,11 +90,23 @@ def create_request(request, tool_id=None):
         if tool_training_details
         else TrainingCustomization.get_bool("training_request_default_availability_allowed")
     )
+    user_message_required = (
+        tool_training_details.user_message_required
+        if tool_training_details
+        else TrainingCustomization.get_bool("training_request_default_message_required")
+    )
+    message_placeholder = (
+        tool_training_details.message_placeholder
+        if tool_training_details and tool_training_details.message_placeholder
+        else TrainingCustomization.get("training_request_default_message_placeholder")
+    )
     dictionary = {
         "selected_tool": selected_tool,
         "form": training_request_form,
         "training_details": tool_training_details,
         "user_availability_allowed": user_availability_allowed,
+        "user_message_required": user_message_required,
+        "message_placeholder": message_placeholder,
     }
     if request.method == "POST":
         training_request_form.instance.creator = request.user
@@ -106,6 +119,8 @@ def create_request(request, tool_id=None):
                     )
                 )
         dictionary["time_forms"] = time_forms
+        if user_message_required and not training_request_form.data["message"]:
+            training_request_form.add_error("message", _("This field is required."))
         if training_request_form.is_valid() and all(time_form.is_valid() for time_form in time_forms):
             with transaction.atomic():
                 training_request: TrainingRequest = training_request_form.save()
