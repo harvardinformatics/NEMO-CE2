@@ -491,6 +491,7 @@ def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, re
             current_usage_event.run_data = dynamic_form.extract(empty_post_request)
         except RequiredUnansweredQuestionsException as e:
             email_managers_required_questions_disable_tool(current_usage_event.operator, tool, e.questions)
+        current_usage_event.save()
     else:
         # Handle Post Usage Questions
         try:
@@ -515,6 +516,7 @@ def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, re
             return HttpResponseBadRequest(str(e))
         dynamic_form.update_tool_counters(current_usage_event.run_data, tool.id)
 
+        current_usage_event.save()
         if user.charging_staff_time():
             existing_staff_charge = user.get_staff_charge()
             if (
@@ -523,7 +525,6 @@ def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, re
             ):
                 return render(request, "staff_charges/reminder.html", {"tool": tool})
 
-    current_usage_event.save()
     return HttpResponse()
 
 
