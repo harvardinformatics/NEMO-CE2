@@ -940,10 +940,13 @@ class User(BaseModel, PermissionsMixin):
         last_name_initial = self.last_name[0] if self.last_name else ""
         return first_name_initial + last_name_initial
 
-    def add_qualification(self, tool: Tool, qualification_level: QualificationLevel = None):
-        Qualification.objects.update_or_create(
-            user=self, tool=tool, defaults={"qualification_level": qualification_level}
+    def add_qualification(self, tool: Tool, qualification_level: QualificationLevel = None) -> Qualification:
+        qualification, created = Qualification.objects.update_or_create(
+            user=self,
+            tool=tool,
+            defaults={"qualification_level": qualification_level},
         )
+        return qualification
 
     def remove_qualifications(self, tools: Iterable[Tool]):
         for qualification in Qualification.objects.filter(user=self, tool__in=tools):
@@ -2613,6 +2616,13 @@ class TrainingSession(BaseModel, BillableItemMixin):
     comment = models.CharField(max_length=255, blank=True, null=True)
     qualified = models.BooleanField(
         default=False, help_text="Indicates that after this training session the user was qualified to use the tool."
+    )
+    qualification = models.ForeignKey(
+        Qualification,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="The associated qualification if applicable",
     )
     validated = models.BooleanField(default=False)
     validated_by = models.ForeignKey(

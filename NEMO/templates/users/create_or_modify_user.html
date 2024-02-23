@@ -183,7 +183,7 @@
 		</div>
 		<div class="form-group">
             {% endif %}
-			<div id="project-list" class="{% if not readonly %}col-sm-offset-2{% endif %} col-sm-4" {% if readonly %}style="padding-top: 7px"{% endif %}>
+			<div id="project-list" class="{% if not readonly %}col-sm-offset-2{% endif %} col-sm-8" {% if readonly %}style="padding-top: 7px"{% endif %}>
 				This user has no assigned projects.
 			</div>
 		</div>
@@ -206,7 +206,7 @@
 		</div>
 		<div class="form-group">
 			{% endif %}
-			<div id="qualification-list" class="{% if not readonly %}col-sm-offset-2{% endif %} col-sm-4" {% if readonly %}style="padding-top: 7px" {% endif %}>
+			<div id="qualification-list" class="{% if not readonly %}col-sm-offset-2{% endif %} col-sm-8" {% if readonly %}style="padding-top: 7px" {% endif %}>
 				{% if qualifications %}
 					{% for qualification in qualifications %}
 						<p>{{ qualification.tool.name }}{% if qualification.qualification_level %} ({ qualification.qualification_level.name }}){% endif %}</p>
@@ -458,7 +458,7 @@
 					add_project('{{ project.display_with_pis }}', {{ project.id }});
 				{% endfor %}
 				{% for qualification in qualifications %}
-					add_tool_qualification('{{ qualification.tool.name }} - {{ qualification.qualified_on|date:'SHORT_DATE_FORMAT' }}{% if qualification.qualification_level %} - {{ qualification.qualification_level }}{% endif %}', '{{ qualification.tool_id }}{% if qualification.qualification_level %}_{{ qualification.qualification_level_id }}{% endif %}');
+					add_tool_qualification('{{ qualification.tool.name }} - {{ qualification.qualified_on|date:'SHORT_DATE_FORMAT' }}{% if qualification.qualification_level %} - {{ qualification.qualification_level }}{% endif %}{% if qualification.trainingsession_set.exists %}{% if qualification.trainingsession_set.first.technique %} - {{ qualification.trainingsession_set.first.technique }}{% endif %}{% if qualification.trainingsession_set.first.comment %} ({{ qualification.trainingsession_set.first.comment }}){% endif %}{% endif %}', '{{ qualification.tool_id }}{% if qualification.qualification_level %}_{{ qualification.qualification_level_id }}{% endif %}');
 				{% endfor %}
 			{% endif %}
             if ({{ readonly|yesno:"true,false" }})

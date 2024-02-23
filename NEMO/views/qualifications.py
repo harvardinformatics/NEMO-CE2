@@ -15,6 +15,7 @@ from NEMO.models import (
     QualificationLevel,
     Tool,
     ToolQualificationGroup,
+    TrainingSession,
     User,
     create_training_history,
 )
@@ -88,6 +89,7 @@ def record_qualification(
     users: Iterable[User],
     qualification_level_id=None,
     disqualify_details=None,
+    training_session: TrainingSession = None,
 ):
     for user in users:
         original_qualifications = set(Qualification.objects.filter(user=user))
@@ -97,7 +99,9 @@ def record_qualification(
             else:
                 qualification_level = None
             for t in tools:
-                user.add_qualification(t, qualification_level)
+                qualification = user.add_qualification(t, qualification_level)
+                if training_session:
+                    training_session.qualification = qualification
             original_physical_access_levels = set(user.physical_access_levels.all())
             physical_access_level_automatic_enrollment = list(
                 set(
@@ -187,8 +191,10 @@ def record_qualification(
             create_training_history(request_user, qualification=entry, details=entry.details, status="Disqualified")
 
 
-def qualify(request_user: User, tool: Tool, user: User, qualification_level_id=None):
-    record_qualification(request_user, "qualify", [tool], [user], qualification_level_id)
+def qualify(request_user: User, tool: Tool, user: User, qualification_level_id=None, training_session=None):
+    record_qualification(
+        request_user, "qualify", [tool], [user], qualification_level_id, training_session=training_session
+    )
 
 
 def disqualify(request_user: User, tool: Tool, user: User, details=None):

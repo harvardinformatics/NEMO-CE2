@@ -147,7 +147,7 @@ def charge_training(request):
         for c in charges.values():
             if c.qualified:
                 for tool in c.qualify_tools:
-                    qualify(c.trainer, tool, c.trainee, c.qualification_level_id)
+                    qualify(c.trainer, tool, c.trainee, c.qualification_level_id, c)
             c.save()
         if TrainingCustomization.get_bool("training_module_enabled"):
             # Force to None if empty
