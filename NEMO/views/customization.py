@@ -28,6 +28,7 @@ from NEMO.models import (
     Project,
     RecurringConsumableCharge,
     Tool,
+    TrainingSession,
 )
 from NEMO.utilities import RecurrenceFrequency, date_input_format, datetime_input_format, quiet_int
 
@@ -504,6 +505,7 @@ class TrainingCustomization(CustomizationBase):
         "training_event_default_duration": "",
         "training_event_default_capacity": "",
         "training_excluded_tools": "",
+        "training_only_type": "",
     }
 
     def context(self) -> Dict:
@@ -511,6 +513,7 @@ class TrainingCustomization(CustomizationBase):
         dictionary = super().context()
         dictionary["tools"] = Tool.objects.filter(visible=True)
         dictionary["excluded_tools"] = Tool.objects.filter(id__in=self.get_list_int("training_excluded_tools"))
+        dictionary["training_types"] = TrainingSession.Type.Choices
         return dictionary
 
     def validate(self, name, value):
@@ -527,6 +530,9 @@ class TrainingCustomization(CustomizationBase):
             type(self).set("training_excluded_tools", exclude_tools)
         except (ValidationError, InvalidCustomizationException) as e:
             errors["training_excluded_tools"] = {"error": str(e.message or e.msg), "value": exclude_tools}
+        training_types = request.POST.getlist("training_type_list", [])
+        if training_types and len(training_types) == 1:
+            type(self).set("training_only_type", training_types[0])
         return errors
 
     @classmethod

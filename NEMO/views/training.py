@@ -47,11 +47,16 @@ def get_training_dictionary(request):
         tool_groups = (
             tool_groups.annotate(num_tools=Count("tools")).filter(tools__in=tools).filter(num_tools=len(tools))
         )
+    training_types = TrainingSession.Type.Choices
+    training_only_type = TrainingCustomization.get_int("training_only_type")
+    if training_only_type is not None:
+        # only keep the one type
+        training_types = [typ for typ in training_types if typ[0] == training_only_type]
     return {
         "users": users,
         "tools": list(tools),
         "tool_groups": list(tool_groups),
-        "charge_types": TrainingSession.Type.Choices,
+        "charge_types": training_types,
         "qualification_levels": QualificationLevel.objects.all(),
         "techniques": TrainingTechnique.objects.all(),
     }
