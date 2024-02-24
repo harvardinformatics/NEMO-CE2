@@ -337,12 +337,12 @@ def get_users_for_email(audience: str, selection: List, no_type: bool) -> (Query
 def check_user_allowed(user: User, audience: str, selection: str) -> Optional[str]:
     if not user.is_any_part_of_staff:
         tool_qualified_broadcast = ToolCustomization.get_bool("tool_control_broadcast_qualified_users")
-        upcoming_reservation_broadcast = ToolCustomization.get_bool("tool_control_broadcast_upcoming_reservation")
+        upcoming_reservation_broadcast = ToolCustomization.get("tool_control_broadcast_upcoming_reservation")
         if not (tool_qualified_broadcast and audience == "tool") and not (
             upcoming_reservation_broadcast and audience == "tool-reservation"
         ):
             return "You may not broadcast email to this audience"
         else:
             tool = Tool.objects.filter(id__in=selection).first()
-            if not tool or user not in tool.user_set.all():
+            if not tool or (upcoming_reservation_broadcast == "qualified" and user not in tool.user_set.all()):
                 return "You can only send a broadcast email to users of a tool you are qualified to use"

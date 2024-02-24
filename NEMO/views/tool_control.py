@@ -96,12 +96,12 @@ def tool_status(request, tool_id):
     """Gets the current status of the tool (that is, whether it is currently in use or not)."""
     from NEMO.rates import rate_class
 
+    user: User = request.user
     tool = get_object_or_404(Tool, id=tool_id, visible=True)
     qualification_levels = QualificationLevel.objects.all()
     qualifications = Qualification.objects.filter(tool=tool)
     user_is_qualified = tool.user_set.filter(id=request.user.id).exists()
-    user_is_staff = request.user.is_staff
-    broadcast_upcoming_reservation_enabled = ToolCustomization.get_bool("tool_control_broadcast_upcoming_reservation")
+    broadcast_upcoming_reservation_enabled = ToolCustomization.get("tool_control_broadcast_upcoming_reservation")
     broadcast_qualified_user_enabled = ToolCustomization.get_bool("tool_control_broadcast_qualified_users")
     dictionary = {
         "tool": tool,
@@ -114,11 +114,12 @@ def tool_status(request, tool_id):
         "qualification_levels": qualification_levels,
         "qualifications": qualifications,
         "allow_take_over": ToolCustomization.get_bool("tool_control_allow_take_over"),
-        "show_broadcast_qualified_for_regular_user": not user_is_staff
+        "show_broadcast_qualified_for_regular_user": not user.is_staff
         and user_is_qualified
         and broadcast_qualified_user_enabled,
-        "show_broadcast_upcoming_reservation": user_is_staff
-        or (user_is_qualified and broadcast_upcoming_reservation_enabled),
+        "show_broadcast_upcoming_reservation": user.is_any_part_of_staff
+        or (user_is_qualified and broadcast_upcoming_reservation_enabled == "qualified")
+        or broadcast_upcoming_reservation_enabled == "all",
         "tool_control_show_task_details": ToolCustomization.get_bool("tool_control_show_task_details"),
     }
 
