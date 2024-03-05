@@ -2122,6 +2122,28 @@ class Qualification(BaseModel):
     qualification_level = models.ForeignKey(QualificationLevel, blank=True, null=True, on_delete=models.CASCADE)
     qualified_on = models.DateField(default=datetime.date.today)
 
+    def training_details(self) -> str:
+        latest_techniques = {
+            training.technique: training
+            for training in self.trainingsession_set.all().order_by("date")
+            if training.technique
+        }
+        if latest_techniques:
+            return " - ".join(
+                [
+                    self.format_training(training)
+                    for training in sorted(latest_techniques.values(), key=lambda training: training.date, reverse=True)
+                ]
+            )
+        else:
+            last_training = self.trainingsession_set.first()
+            return last_training.comment if last_training and last_training.comment else ""
+
+    def format_training(self, training: TrainingSession) -> str:
+        date = format_datetime(training.date, "SHORT_DATE_FORMAT")
+        comment = f" ({training.comment})" if training.comment else ""
+        return f"{training.technique} {date}{comment}"
+
     def clean(self):
         # Forcing qualification level to be set if we have at least one
         if QualificationLevel.objects.exists() and not self.qualification_level_id:

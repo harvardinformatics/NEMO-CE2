@@ -9,8 +9,7 @@
     <div id="qualified_users" class="collapse {% if expanded %}in{% endif %}">
         <p>Only qualified users are able to operate the {{ tool.name }}.</p>
         {% if tool.grant_physical_access_level_upon_qualification %}<p class="danger-highlight">Qualifying a user for
-        this tool automatically grants them the physical access level &quot;{{
-        tool.grant_physical_access_level_upon_qualification }}&quot;.</p>{% endif %}
+        this tool automatically grants them the physical access level &quot;{{ tool.grant_physical_access_level_upon_qualification }}&quot;.</p>{% endif %}
 
         <form id="add_qualified_user_form" style="margin-bottom:10px">
             <div class="row">
@@ -55,7 +54,7 @@
 						<a href="javascript:remove_qualified_user('{{ user.id }}', '{{ tool.id }}')" class="grey hover-black" title="Disqualify {{ user.first_name }}">
 							<span class="glyphicon glyphicon-remove-circle"></span>
 						</a>
-						{{ user }} - {{ qualification.qualified_on|date:"SHORT_DATE_FORMAT" }}{% if qualification.qualification_level %} - {{ qualification.qualification_level.name }}{% endif %}
+						{{ user }} - {{ qualification.qualified_on|date:"SHORT_DATE_FORMAT" }}{% if qualification.qualification_level %} - {{ qualification.qualification_level.name }}{% endif %}{% if request.user.is_any_part_of_staff and qualification.training_details %} - {{ qualification.training_details }}{% endif %}
 					{% else %}
 						<a href="javascript:remove_qualified_user('{{ user.id }}', '{{ tool.id }}')" class="grey hover-black" title="Disqualify {{ user.first_name }}">
 							<span class="glyphicon glyphicon-remove-circle"></span>

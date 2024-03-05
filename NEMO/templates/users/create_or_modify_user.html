@@ -458,7 +458,7 @@
 					add_project('{{ project.display_with_pis }}', {{ project.id }});
 				{% endfor %}
 				{% for qualification in qualifications %}
-					add_tool_qualification('{{ qualification.tool.name }} - {{ qualification.qualified_on|date:'SHORT_DATE_FORMAT' }}{% if qualification.qualification_level %} - {{ qualification.qualification_level }}{% endif %}{% if qualification.trainingsession_set.exists %}{% if qualification.trainingsession_set.first.technique %} - {{ qualification.trainingsession_set.first.technique }}{% endif %}{% if qualification.trainingsession_set.first.comment %} ({{ qualification.trainingsession_set.first.comment }}){% endif %}{% endif %}', '{{ qualification.tool_id }}{% if qualification.qualification_level %}_{{ qualification.qualification_level_id }}{% endif %}');
+                    add_tool_qualification('{{ qualification.tool.name }} - {{ qualification.qualified_on|date:'SHORT_DATE_FORMAT' }}{% if qualification.qualification_level %} - {{ qualification.qualification_level }}{% endif %}{% if qualification.training_details %} - {{ qualification.training_details }}{% endif %}', '{{ qualification.tool_id }}{% if qualification.qualification_level %}_{{ qualification.qualification_level_id }}{% endif %}');
 				{% endfor %}
 			{% endif %}
             if ({{ readonly|yesno:"true,false" }})
