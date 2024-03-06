@@ -1,3 +1,4 @@
+import datetime
 from logging import getLogger
 from re import search
 
@@ -20,7 +21,7 @@ from NEMO.models import (
     User,
 )
 from NEMO.policy import policy_class as policy
-from NEMO.utilities import quiet_int
+from NEMO.utilities import datetime_input_format, quiet_int
 from NEMO.views.customization import TrainingCustomization
 from NEMO.views.qualifications import qualify
 
@@ -79,7 +80,8 @@ def training_entry(request):
 def is_valid_field(field):
     return (
         search(
-            "^(chosen_user|chosen_tool|chosen_project|duration|charge_type|technique|qualify|comment)__[0-9]+$", field
+            "^(chosen_user|chosen_tool|chosen_project|date|duration|charge_type|technique|qualify|comment)__[0-9]+$",
+            field,
         )
         is not None
     )
@@ -89,6 +91,7 @@ def is_valid_field(field):
 @require_POST
 def charge_training(request):
     trainer: User = request.user
+    date_allowed = TrainingCustomization.get_bool("training_allow_date")
     try:
         charges = {}
         for key, value in request.POST.items():
@@ -119,6 +122,8 @@ def charge_training(request):
                     charges[index].project = Project.objects.get(id=to_int_or_negative(value))
                 if attribute == "duration":
                     charges[index].duration = int(value)
+                if value and attribute == "date" and date_allowed:
+                    charges[index].date = datetime.datetime.strptime(value, datetime_input_format).astimezone()
                 if attribute == "charge_type":
                     charges[index].type = int(value)
                 if attribute == "comment":

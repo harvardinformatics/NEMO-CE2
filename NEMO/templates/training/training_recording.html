@@ -23,6 +23,7 @@ Remove a participant or blank row by clicking the circled X on that row.</p>
 
 <script type="text/javascript">
 
+    let timepicker_properties = {format: '{{ datetime_input_js_format }}'};
 	let current_entry_number = 1;
 	function add_participant(data)
 	{
@@ -44,6 +45,7 @@ Remove a participant or blank row by clicking the circled X on that row.</p>
 		$(id).autocomplete('user', on_autocomplete_selection, {{ users|json_search_base }}).prop('required', true).focus();
 		id = "#tool_textbox__" + entry_number;
 		$(id).autocomplete('tool', on_autocomplete_selection, {% json_search_base_with_extra_fields tools|add:tool_groups %}, {% if tool_groups %}false{% else %}true{% endif %}).prop('required', true);
+        $("#date__" + entry_number).datetimepicker(timepicker_properties);
 	}
 
 	function remove_row(number)

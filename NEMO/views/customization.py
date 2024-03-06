@@ -506,6 +506,7 @@ class TrainingCustomization(CustomizationBase):
         "training_event_default_capacity": "",
         "training_excluded_tools": "",
         "training_only_type": "",
+        "training_allow_date": "",
     }
 
     def context(self) -> Dict:
