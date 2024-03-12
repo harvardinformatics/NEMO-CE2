@@ -19,6 +19,9 @@
 					await wait_for_element("#project__{{ forloop.counter }} select");
 					$("#project__{{ forloop.counter }} select").val("{{ project.id }}");
                     {% endif %}
+                    {% if "training"|customization:"training_allow_date" == "enabled" %}
+						$("#date__" + {{ forloop.counter }}).val("{{ training_event.start|input_date_format }}");
+                    {% endif %}
                 {% endwith %}
             {% endfor %}
             remove_row(0);
