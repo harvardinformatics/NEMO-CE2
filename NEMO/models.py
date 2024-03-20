@@ -941,11 +941,11 @@ class User(BaseModel, PermissionsMixin):
         return first_name_initial + last_name_initial
 
     def add_qualification(self, tool: Tool, qualification_level: QualificationLevel = None) -> Qualification:
-        qualification, created = Qualification.objects.update_or_create(
-            user=self,
-            tool=tool,
-            defaults={"qualification_level": qualification_level},
-        )
+        qualification, created = Qualification.objects.get_or_create(user=self, tool=tool)
+        if qualification.qualification_level != qualification_level:
+            qualification.qualification_level = qualification_level
+            qualification.qualified_on = datetime.date.today()
+            qualification.save()
         return qualification
 
     def remove_qualifications(self, tools: Iterable[Tool]):
