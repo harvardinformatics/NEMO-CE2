@@ -52,7 +52,7 @@ def get_training_dictionary(request):
     training_only_type = TrainingCustomization.get_int("training_only_type")
     if training_only_type is not None:
         # only keep the one type
-        training_types = [typ for typ in training_types if typ[0] == training_only_type]
+        training_types = [training_type for training_type in training_types if training_type[0] == training_only_type]
     return {
         "users": users,
         "tools": list(tools),

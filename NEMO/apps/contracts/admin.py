@@ -88,7 +88,10 @@ class ContractorAgreementDocumentsInline(admin.TabularInline):
 class ContractorAgreementAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["contract"].empty_label = ContractsCustomization.get("contracts_contractors_default_empty_label")
+        if "contract" in self.fields:
+            self.fields["contract"].empty_label = ContractsCustomization.get(
+                "contracts_contractors_default_empty_label"
+            )
 
 
 @admin.register(ContractorAgreement)

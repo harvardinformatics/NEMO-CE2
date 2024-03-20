@@ -215,6 +215,7 @@ class ToolViewSet(ModelViewSet):
         "_location": ["exact", "iexact"],
         "_requires_area_access": ["exact", "isnull"],
         "_post_usage_questions": ["isempty"],
+        "_pre_usage_questions": ["isempty"],
     }
 
 
@@ -305,9 +306,9 @@ class ResourceViewSet(ModelViewSet):
         "id": ["exact", "in"],
         "name": ["exact", "iexact"],
         "available": ["exact"],
-        "fully_dependent_tools": ["in"],
-        "partially_dependent_tools": ["in"],
-        "dependent_areas": ["in"],
+        "fully_dependent_tools": ["exact"],
+        "partially_dependent_tools": ["exact"],
+        "dependent_areas": ["exact"],
     }
 
 
@@ -420,7 +421,7 @@ class ReservationViewSet(ModelViewSet):
         "missed": ["exact"],
         "validated": ["exact"],
         "validated_by": ["exact", "in", "isnull"],
-        "question_data": ["isempty"],
+        "question_data": ["isnull", "isempty"],
     }
 
 
@@ -706,7 +707,7 @@ class ToolStatusViewSet(XLSXFileMixin, viewsets.GenericViewSet):
         return Response(serializer.data)
 
     def check_permissions(self, request):
-        if not request or not request.user.has_perm("NEMO.use_billing_api"):
+        if not request or not request.user.has_perm("NEMO.view_tool"):
             self.permission_denied(request)
 
     def get_queryset(self) -> QuerySetType[Tool]:
