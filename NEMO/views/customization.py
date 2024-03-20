@@ -29,6 +29,7 @@ from NEMO.models import (
     RecurringConsumableCharge,
     Tool,
     TrainingSession,
+    UserPreferences,
 )
 from NEMO.utilities import RecurrenceFrequency, date_input_format, datetime_input_format, quiet_int
 
@@ -174,6 +175,7 @@ class ApplicationCustomization(CustomizationBase):
         "self_log_out": "",
         "calendar_login_logout": "",
         "area_logout_already_logged_in": "",
+        "show_badge_number": "",
         "default_badge_reader_id": "",
         "consumable_user_self_checkout": "",
         "consumable_category_collapse": "",
@@ -268,7 +270,26 @@ class CalendarCustomization(CustomizationBase):
         "calendar_outage_recurrence_limit": "90",
         "calendar_qualified_tools": "",
         "calendar_configuration_in_reservations": "",
+        "create_reservation_confirmation": "",
+        "change_reservation_confirmation": "",
+        "reservation_confirmation_date_format": "MMMM D, yyyy",
+        "reservation_confirmation_time_format": "h:mma",
     }
+
+    @classmethod
+    def set(cls, name: str, value):
+        if name == "create_reservation_confirmation" or name == "change_reservation_confirmation":
+            value_changed = value != cls.get(name)
+            if value_changed:
+                if name == "create_reservation_confirmation":
+                    UserPreferences.objects.filter(create_reservation_confirmation_override=True).update(
+                        create_reservation_confirmation_override=False
+                    )
+                elif name == "change_reservation_confirmation":
+                    UserPreferences.objects.filter(change_reservation_confirmation_override=True).update(
+                        change_reservation_confirmation_override=False
+                    )
+        super().set(name, value)
 
 
 @customization(key="dashboard", title="Status dashboard")
@@ -436,6 +457,8 @@ class ToolCustomization(CustomizationBase):
         "tool_control_broadcast_qualified_users": "",
         "tool_control_broadcast_upcoming_reservation": "",
         "tool_control_show_task_details": "",
+        "tool_control_show_qualified_users_to_all": "",
+        "tool_control_show_documents_only_qualified_users": "",
         "tool_qualification_reminder_days": "",
         "tool_qualification_expiration_days": "",
         "tool_qualification_expiration_never_used_days": "",
@@ -485,6 +508,14 @@ class SafetyCustomization(CustomizationBase):
     }
 
 
+@customization(key="knowledge_base", title="Knowledge base")
+class KnowledgeBaseCustomization(CustomizationBase):
+    variables = {
+        "knowledge_base_user_expand_categories": "",
+        "knowledge_base_staff_expand_categories": "",
+    }
+
+
 @customization(key="remote_work", title="Remote work")
 class RemoteWorkCustomization(CustomizationBase):
     variables = {
@@ -510,7 +541,7 @@ class TrainingCustomization(CustomizationBase):
     }
 
     def context(self) -> Dict:
-        # Override to add list of tools
+        # Override to add list of tools and training types
         dictionary = super().context()
         dictionary["tools"] = Tool.objects.filter(visible=True)
         dictionary["excluded_tools"] = Tool.objects.filter(id__in=self.get_list_int("training_excluded_tools"))

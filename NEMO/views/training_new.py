@@ -731,7 +731,15 @@ def send_ics(training: TrainingEvent, user, cancelled=False):
     )
     # Check if this is sent to the trainer by himself, in which case we need to remove him as organizer in ICS
     if user == trainer:
-        ics = create_ics(training.id, event_name, training.start, training.end, trainer, cancelled=cancelled)
+        ics = create_ics(
+            training.id,
+            event_name,
+            training.start,
+            training.end,
+            trainer,
+            cancelled=cancelled,
+            description=training.message,
+        )
     if should_send_ics(user, cancelled):
         user.email_user(
             subject=event_name,

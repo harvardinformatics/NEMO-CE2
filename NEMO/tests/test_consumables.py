@@ -119,34 +119,52 @@ class ConsumableTestCase(TestCase):
             # restore consumable_user_self_checkout value
             ApplicationCustomization.set("consumable_user_self_checkout", consumable_user_self_checkout)
 
-    def test_post_self_checkout_not_allowed(self):
+    def test_post_self_checkout_user_not_allowed(self):
         # save consumable_user_self_checkout value
         consumable_user_self_checkout = ApplicationCustomization.get("consumable_user_self_checkout")
+        staff, staff_project = create_user_and_project(is_staff=True)
         try:
             ApplicationCustomization.set("consumable_user_self_checkout", "enabled")
-            consumable_no_self_checkout = Consumable.objects.create(
-                name="Consumable No Self Checkout",
+            consumable_self_checkout = Consumable.objects.create(
+                name="Consumable Self Checkout Only By User",
                 quantity=10,
                 reminder_threshold=5,
                 reminder_email="test@test.com",
-                allow_self_checkout=False,
+                allow_self_checkout=True,
             )
+            consumable_self_checkout.self_checkout_only_users.set([staff])
             customer, customer_project = create_user_and_project()
-            quantity = consumable_no_self_checkout.quantity
+            quantity = consumable_self_checkout.quantity
             login_as(self.client, customer)
             data = {
                 "customer": customer.id,
                 "project": customer_project.id,
-                "consumable": consumable_no_self_checkout.id,
+                "consumable": consumable_self_checkout.id,
                 "quantity": "1",
             }
             response = self.client.post(reverse("consumables"), data, follow=True)
-            # Should fail because consumable is not tagged with allow_self_checkout = True
+            # Should fail because consumable is only available to staff user
             self.assertEqual(response.status_code, 400)
             # Checkout, nothing should happen since the order did not go through
             response = self.client.post(reverse("withdraw_consumables"), follow=True)
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(quantity, Consumable.objects.get(pk=consumable_no_self_checkout.id).quantity)
+            self.assertEqual(quantity, Consumable.objects.get(pk=consumable_self_checkout.id).quantity)
+            consumable_self_checkout.self_checkout_only_users.set([customer])
+            response = self.client.post(reverse("consumables"), data, follow=True)
+            # Should work now for customer
+            self.assertEqual(response.status_code, 200)
+            # Checkout, it should go through
+            response = self.client.post(reverse("withdraw_consumables"), follow=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(quantity - 1, Consumable.objects.get(pk=consumable_self_checkout.id).quantity)
+            # Should also still work for staff
+            login_as(self.client, staff)
+            response = self.client.post(reverse("consumables"), data, follow=True)
+            self.assertEqual(response.status_code, 200)
+            # Checkout, it should go through
+            response = self.client.post(reverse("withdraw_consumables"), follow=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(quantity - 2, Consumable.objects.get(pk=consumable_self_checkout.id).quantity)
         finally:
             # restore consumable_user_self_checkout value
             ApplicationCustomization.set("consumable_user_self_checkout", consumable_user_self_checkout)

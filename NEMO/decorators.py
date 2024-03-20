@@ -2,12 +2,15 @@ import importlib
 import inspect
 import sys
 from functools import wraps
+from logging import getLogger
 from threading import Lock, RLock, Thread
 
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import user_passes_test
 
 from NEMO.utilities import is_trainer, slugify_underscore
+
+decorators_logger = getLogger(__name__)
 
 
 def disable_session_expiry_refresh(f):
@@ -134,17 +137,25 @@ any_staff_or_trainer = permission_decorator(lambda u: u.is_active and (u.is_any_
 # For example, to replace NEMO.views.policy.check_policy_to_save_reservation(arg1, arg2)
 # @replace_function("NEMO.views.policy.check_policy_to_save_reservation")
 # def new_function(old_function, arg1, arg2)
-def replace_function(old_function_name):
-    pkg, fun_name = old_function_name.rsplit(".", 1)
-    pkg_mod = importlib.import_module(pkg)
-    old_function = getattr(pkg_mod, fun_name)
+def replace_function(old_function_name, raise_exception=True):
+    try:
+        pkg, fun_name = old_function_name.rsplit(".", 1)
+        pkg_mod = importlib.import_module(pkg)
+        old_function = getattr(pkg_mod, fun_name)
+    except:
+        old_function = None
+        if raise_exception:
+            raise
+        else:
+            decorators_logger.warning(f"Could not replace function: {old_function_name}", exc_info=True)
 
     def decorator(function):
         @wraps(function)
         def wrapper(*args, **kwargs):
             return function(old_function, *args, **kwargs)
 
-        setattr(pkg_mod, fun_name, wrapper)
+        if old_function:
+            setattr(pkg_mod, fun_name, wrapper)
         return wrapper
 
     return decorator

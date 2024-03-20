@@ -14,7 +14,7 @@
 		<label class="control-label {{ label_class }}" for="tool_textbox__{{ entry_number }}">Tool</label>
 		<div class="{{ input_class }}">
 			<input type="text" class="form-control input-sm" id="tool_textbox__{{ entry_number }}" name="chosen_tool__{{ entry_number }}" data-row="{{ entry_number }}">
-			<input type="hidden" id="tool_textbox_type__{{ entry_number }}" name="chosen_type__{{ entry_number }}" data-row="{{ entry_number }}">
+		<input type="hidden" id="tool_textbox_type__{{ entry_number }}" name="chosen_type__{{ entry_number }}" data-row="{{ entry_number }}">
 			<input type="button" class="btn btn-sm btn-default" style="display:none" id="tool_button__{{ entry_number }}" onclick="purge_tool({{ entry_number }})" value="tool">
 		</div>
 		<label class="control-label {{ label_class }}" for="project__{{ entry_number }}">Project</label>
@@ -27,10 +27,10 @@
         {% endif %}
 		<label class="control-label {{ label_class }}" for="duration__{{ entry_number }}">Duration</label>
 		<div class="{{ input_class }}">
-			<div class="input-group">
+		<div class="input-group">
 				<input type="number" class="form-control input-sm" name="duration__{{ entry_number }}" id="duration__{{ entry_number }}" min="1" inputmode="numeric" pattern="[0-9]*" required value="{{ duration|default_if_none:"" }}">
-				<div class="input-group-addon">min</div>
-			</div>
+			<div class="input-group-addon">min</div>
+		</div>
 		</div>
 		<label class="control-label {{ label_class }}" for="charge_type__{{ entry_number }}">Type</label>
 		<div class="{{ input_class }}">
@@ -38,8 +38,8 @@
 				{% if charge_types|length_is:1 %}
 					<option value="{{ charge_types.0.0 }}" selected>{{ charge_types.0.1 }}</option>
 				{% else %}
-					<option disabled selected value="">&nbsp;</option>
-					{% for charge_type in charge_types %}
+			<option disabled selected value="">&nbsp;</option>
+			{% for charge_type in charge_types %}
 						<option value="{{ charge_type.0 }}" {% if charge_type_id|to_int == charge_type.0 %}selected{% endif %}>{{ charge_type.1 }}</option>
 					{% endfor %}
 				{% endif %}
@@ -71,8 +71,8 @@
 					<option disabled selected value="">&nbsp;</option>
 					{% for ql in qualification_levels %}
 						<option value="{{ ql.id }}">{{ ql.name }}</option>
-					{% endfor %}
-				</select>
+			{% endfor %}
+		</select>
 			</div>
 		{% endif %}
 	</div>

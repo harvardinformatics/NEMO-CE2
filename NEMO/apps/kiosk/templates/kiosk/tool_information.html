@@ -268,12 +268,18 @@
 			{% if enable_is_take_over %}
 				<h1>Take over using this tool</h1>
 			{% endif %}
-			{% include 'kiosk/tool_project_selection_snippet.html' with active_projects=customer.active_projects tool=tool take_over=enable_is_take_over %}
-			<div id="start_reserve" style="display:none; margin-top:20px">
+			{% include 'kiosk/tool_project_selection_snippet.html' with active_projects=customer.active_projects tool=tool %}
+			{% if pre_usage_questions %}
+				<div id="pre_usage_questions" style="display:none">
+                <h2>Pre usage questions</h2>
+				{{ pre_usage_questions }}
+                </div>
+			{% endif %}
+            <div id="start_reserve" style="display:none; margin-top:20px">
 				{% if tool.is_parent_tool %}
 					<h4>You have {{ tool.tool_children_set.all|length|add:1 }} options to use this tool:</h4>
 					<div class="col-xs-6" style="margin-top: 15px">
-						<div class="alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="enable_tool()">
+						<div class="start_button alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large; display:none" onclick="enable_tool()">
 							<span class="glyphicon glyphicon-play"></span>
 							{% if enable_is_take_over %}
 								Take over using the {{ tool.name }}
@@ -284,7 +290,7 @@
 					</div>
 					{% for alternate_tool in tool.tool_children_set.all %}
 						<div class="col-xs-6" style="margin-top: 15px">
-							<div class="alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="enable_tool('{{ alternate_tool.id }}')">
+							<div class="start_button alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large; display:none" onclick="enable_tool('{{ alternate_tool.id }}')">
 								<span class="glyphicon glyphicon-play"></span>
 								{% if enable_is_take_over %}
 									Take over using the {{ alternate_tool.name }}
@@ -301,7 +307,7 @@
 					</div>
 				{% else %}
 					<div class="col-xs-offset-1 col-xs-5">
-						<div class="alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large" onclick="enable_tool()">
+						<div class="start_button alert alert-success" style="text-align:center; margin-bottom:0; font-size:x-large; display:none" onclick="enable_tool()">
 							<span class="glyphicon glyphicon-play"></span>
 							{% if enable_is_take_over %}
 								Take over using the {{ tool.name }}
@@ -369,9 +375,32 @@
 		}
 	}
 
+    function update_start_button()
+	{
+		$("#start_reserve").show();
+
+		if(document.querySelector('#tool_control').checkValidity())
+		{
+			$(".start_button").show();
+		}
+		else
+		{
+			$(".start_button").hide();
+		}
+	}
+
 	update_stop_button();
-	$('body').on('question-group-changed', update_stop_button);
-	$('body').on('change keyup', '#tool_control input, #tool_control select, #tool_control textarea, #downtime', update_stop_button);
+	{% if customer.active_projects|length == 1 %}
+		update_start_button();
+	{% endif %}
+
+	{% if tool.in_use %}
+		$('body').on('question-group-changed', update_stop_button);
+		$('body').on('change keyup', '#tool_control input, #tool_control select, #tool_control textarea, #downtime', update_stop_button);
+	{% else %}
+    	$('body').on('question-group-changed', update_start_button);
+		$('body').on('change keyup', '#tool_control input, #tool_control select, #tool_control textarea, #downtime', update_start_button);
+	{% endif %}
 	$('#downtime').numpad({'readonly': false, 'hidePlusMinusButton': true, 'hideDecimalButton': true});
 	$('#delayed_logoff_help').popover();
 	revert(60);
