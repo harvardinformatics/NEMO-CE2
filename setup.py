@@ -2,7 +2,7 @@ from setuptools import find_namespace_packages, setup
 
 setup(
     name="NEMO-CE",
-    version="2.3.0",
+    version="2.3.1",
     python_requires=">=3.8, <4",
     packages=find_namespace_packages(exclude=["resources", "resources.*", "build", "build.*"]),
     include_package_data=True,
