@@ -84,7 +84,7 @@ def shadowing_verification_requests(request):
                 ),
                 "qualification_levels_exist": qualification_levels_exist,
                 "allowed_tools_exist": allowed_tools_exist,
-                "table_col_number": 4 + (1 if user_is_reviewer else 0) + (1 if qualification_levels_exist else 0),
+                "table_col_number": 5 + (1 if user_is_reviewer else 0) + (1 if qualification_levels_exist else 0),
                 "user_is_reviewer": user_is_reviewer,
             }
         )
