@@ -12,7 +12,7 @@ def hide_logout_button(request):
 
 
 def base_context(request):
-    user: User = request.user
+    user: User = getattr(request, "user", None)
     customization_values = {customization.name: customization.value for customization in Customization.objects.all()}
     try:
         if "no_header" in request.GET:
@@ -39,7 +39,7 @@ def base_context(request):
     except:
         access_user_request_allowed_exist = False
     try:
-        notification_counts = get_notification_counts(request.user)
+        notification_counts = get_notification_counts(user)
         notification_counts[Notification.Types.TRAINING_ALL] = notification_counts.get(
             Notification.Types.TRAINING_REQUEST, 0
         ) + notification_counts.get(Notification.Types.TRAINING_INVITATION, 0)
