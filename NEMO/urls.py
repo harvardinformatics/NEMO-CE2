@@ -614,7 +614,11 @@ urlpatterns += [
                 path(
                     "events/<int:training_event_id>/record/", training_new.record_events, name="record_training_event"
                 ),
-                path("tool_search/", training_new.tool_training_search, name="training_tool_search"),
+                re_path(
+                    r"^tool_search/(?P<training_type>(request|event))/$",
+                    training_new.tool_training_search,
+                    name="training_tool_search",
+                ),
                 path("user_search/", training_new.user_for_training_search, name="user_for_training_search"),
             ]
         ),

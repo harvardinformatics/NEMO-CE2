@@ -550,10 +550,18 @@ def review_invitation(request, training_invitation_id):
 
 @login_required
 @require_GET
-def tool_training_search(request):
+def tool_training_search(request, training_type="request"):
+    user: User = request.user
     tools = Tool.objects.filter(visible=True).exclude(
         id__in=TrainingCustomization.get_list_int("training_excluded_tools")
     )
+    if training_type == "request":
+        excluded_tools = set()
+        for tool_detail in ToolTrainingDetail.objects.filter(dont_allow_request_without_area_access=True):
+            area = tool_detail.tool.requires_area_access
+            if area and area not in user.accessible_areas():
+                excluded_tools.add(tool_detail.tool.id)
+            tools = tools.exclude(id__in=excluded_tools)
     return queryset_search_filter(tools, ["name"], request)
 
 

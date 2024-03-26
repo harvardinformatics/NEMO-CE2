@@ -132,6 +132,7 @@ url_kwargs_get_post = {
     "knowledge_base_items_search": {"kwargs": {"kind": "user"}},
     "knowledge_base_categories": {"kwargs": {"kind": "user"}},
     "knowledge_base_all_in_one": {"kwargs": {"kind": "user"}},
+    "training_tool_search": {"kwargs": {"training_type": "request"}},
 }
 
 urls_to_skip = [

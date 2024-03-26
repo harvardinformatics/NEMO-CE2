@@ -240,7 +240,7 @@
 		function on_load()
 		{
             {% if not selected_tool %}
-				$("#tool_search").autocomplete('tools', select_tool, '{% url 'training_tool_search' %}', true);
+				$("#tool_search").autocomplete('tools', select_tool, '{% url 'training_tool_search' 'event' %}', true);
             {% else %}
 				$("#invited_search").autocomplete('users', select_invited_user, '{% url 'user_for_training_search' %}', true);
             {% endif %}

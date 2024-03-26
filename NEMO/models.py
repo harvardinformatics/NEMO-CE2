@@ -5056,6 +5056,10 @@ class TrainingTechnique(SerializationByNameModel):
 
 class ToolTrainingDetail(BaseModel):
     tool = models.OneToOneField(Tool, on_delete=models.CASCADE)
+    dont_allow_request_without_area_access = models.BooleanField(
+        default=False,
+        help_text="Check this box to prevent users from requesting training on this tool if they don't have the required area access",
+    )
     techniques = models.ManyToManyField(
         TrainingTechnique, blank=True, help_text="The techniques available for training on this tool"
     )
@@ -5081,6 +5085,12 @@ class ToolTrainingDetail(BaseModel):
         max_length=CHAR_FIELD_MAXIMUM_LENGTH,
         help_text="The placeholder for the user's message when submitting a training request. Leave blank to use the default",
     )
+
+    def clean(self):
+        if self.dont_allow_request_without_area_access and self.tool and not self.tool.requires_area_access:
+            raise ValidationError(
+                {"dont_allow_request_without_area_access": "This tool doesn't require any area access"}
+            )
 
     def __str__(self):
         return f"{self.tool.name} training details"

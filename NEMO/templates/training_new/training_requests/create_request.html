@@ -196,7 +196,7 @@
 		function on_load()
 		{
             {% if not selected_tool %}
-				$("#tool_search").autocomplete('tools', select_tool, '{% url 'training_tool_search' %}', true);
+				$("#tool_search").autocomplete('tools', select_tool, '{% url 'training_tool_search' 'request' %}', true);
             {% endif %}
             {% if not time_forms %}
 				add_requested_time();
