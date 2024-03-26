@@ -24,12 +24,20 @@
 							</li>
                         {% endif %}
                     {% endif %}
-                    {% if buddy_system_areas_exist or access_user_request_allowed_exist and facility_managers_exist or adjustment_request_allowed and facility_managers_exist %}
+                    {% if buddy_system_areas_exist or access_user_request_allowed_exist and facility_managers_exist or adjustment_request_allowed and facility_managers_exist or training_show_in_user_requests %}
                         <li><a href="{% url 'user_requests' %}">
 							{{ requests_page_title }}
-                            {% if buddy_notification_count or temporary_access_notification_count or adjustment_notification_count %}
-                                <span class="badge active">{{ buddy_notification_count|add:temporary_access_notification_count|add:adjustment_notification_count }}</span>
-                            {% endif %}
+						{% with notification_except_training=buddy_notification_count|add:temporary_access_notification_count|add:adjustment_notification_count %}
+							{% if training_show_in_user_requests %}
+								{% if buddy_notification_count or temporary_access_notification_count or adjustment_notification_count or training_request_notification_count %}
+									<span class="badge active">{{ notification_except_training|add:training_request_notification_count }}</span>
+								{% endif %}
+							{% else %}
+								{% if buddy_notification_count or temporary_access_notification_count or adjustment_notification_count %}
+									<span class="badge active">{{ notification_except_training }}</span>
+								{% endif %}
+							{% endif %}
+						{% endwith %}
                         </a></li>
                     {% endif %}
                     {% if safety_menu_item %}

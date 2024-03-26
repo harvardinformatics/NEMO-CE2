@@ -1,7 +1,7 @@
 import datetime
 from collections import defaultdict
 from datetime import timedelta
-from typing import Any, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from dateutil.rrule import DAILY, rrule
 from django.contrib.auth.decorators import login_required
@@ -294,6 +294,24 @@ def upcoming_events(request):
 @any_staff_or_trainer
 @require_GET
 def schedule_events(request):
+    return render(
+        request,
+        "training_new/training_events/schedule_training_events.html",
+        get_schedule_events_context(request),
+    )
+
+
+@any_staff_or_trainer
+@require_GET
+def schedule_events_ajax(request):
+    return render(
+        request,
+        "training_new/training_events/schedule_training_events_list.html",
+        get_schedule_events_context(request),
+    )
+
+
+def get_schedule_events_context(request) -> Dict:
     user: User = request.user
     mark_training_objects_expired()
     training_requests = TrainingRequest.objects.filter(
@@ -333,19 +351,15 @@ def schedule_events(request):
                     requests_to_exclude.append(training_request.id)
         training_requests = training_requests.exclude(id__in=requests_to_exclude)
 
-    return render(
-        request,
-        "training_new/training_events/schedule_training_events.html",
-        {
-            "training_requests": training_requests,
-            "selected_tool": tool_filter,
-            "tools": tools,
-            "selected_user": user_filter,
-            "users": users,
-            "selected_date": date_filter,
-            "dates": dates,
-        },
-    )
+    return {
+        "training_requests": training_requests,
+        "selected_tool": tool_filter,
+        "tools": tools,
+        "selected_user": user_filter,
+        "users": users,
+        "selected_date": date_filter,
+        "dates": dates,
+    }
 
 
 @any_staff_or_trainer

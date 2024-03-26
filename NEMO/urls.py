@@ -187,7 +187,9 @@ urlpatterns += [
     path("reset_tool_counter/<int:counter_id>/", tool_control.reset_tool_counter, name="reset_tool_counter"),
     # User requests
     path("user_requests/", user_requests.user_requests, name="user_requests"),
-    re_path(r"^user_requests/(?P<tab>buddy|access|adjustment)/$", user_requests.user_requests, name="user_requests"),
+    re_path(
+        r"^user_requests/(?P<tab>training|buddy|access|adjustment)/$", user_requests.user_requests, name="user_requests"
+    ),
     # Access requests
     path("access_requests/", access_requests.access_requests, name="access_requests"),
     path("create_access_request/", access_requests.create_access_request, name="create_access_request"),
@@ -584,6 +586,7 @@ urlpatterns += [
                 path("history/", training_new.history, name="training_history"),
                 path("events/upcoming/", training_new.upcoming_events, name="upcoming_training_events"),
                 path("events/schedule/", training_new.schedule_events, name="schedule_training_events"),
+                path("events/schedule/ajax/", training_new.schedule_events_ajax, name="schedule_training_events_ajax"),
                 path("events/manage/", training_new.manage_events, name="manage_training_events"),
                 path("events/record/", training_new.record_events, name="record_training_events"),
                 path("events/create/", training_new.create_event, name="create_training_event"),

@@ -538,6 +538,7 @@ class TrainingCustomization(CustomizationBase):
         "training_excluded_tools": "",
         "training_only_type": "",
         "training_allow_date": "",
+        "training_show_in_user_requests": "",
     }
 
     def context(self) -> Dict:

@@ -28,6 +28,7 @@
 				<div class="checkbox">
 					<input type="hidden" name="training_module_enabled" value="off"/>
 					<label><input type="checkbox" name="training_module_enabled" {% if training_module_enabled == "enabled" %}checked{% endif %} value="enabled">Enable training requests/sessions scheduling</label><br/>
+					<label><input type="checkbox" name="training_show_in_user_requests" {% if training_show_in_user_requests %}checked{% endif %} value="enabled">Show training requests in user requests page</label><br/>
 				</div>
 			</div>
         </div>

@@ -1,0 +1,110 @@
+{% load custom_tags_and_filters %}
+<div class="row form-inline" style="margin-top: 15px; padding: 0 8px">
+	<div class="col-sm-9">
+		<label style="margin-right: 15px" class="control-label" for="tool_filter">Tool:</label>
+		<select style="margin-right: 15px" id="tool_filter" class="form-control" onchange="filter_requests()">
+			{% if user.is_any_part_of_staff %}<option value="all-tools" {% if selected_tool == "all-tools" %}selected{% endif %}>All tools</option>{% endif %}
+			<option value="my-tools" {% if selected_tool == "my-tools" %}selected{% endif %}>My tools</option>
+			{% for tool in tools %}
+				<option value="{{ tool.id }}" {% if tool.id == selected_tool|to_int %}selected{% endif %}>{{ tool.name }}</option>
+			{% endfor %}
+		</select>
+		<label style="margin-right: 15px" for="user_filter">User:</label>
+		<select style="margin-right: 15px" id="user_filter" class="form-control" onchange="filter_requests()">
+			<option value="all-users" {% if selected_user == "all-users" %}selected{% endif %}>All users</option>
+			{% for user in users %}
+				<option value="{{ user.id }}" {% if user.id == selected_user|to_int %}selected{% endif %}>{{ user.get_name }}</option>
+			{% endfor %}
+		</select>
+		<label style="margin-right: 15px" for="date_filter">Date:</label>
+		<select id="date_filter" class="form-control" onchange="filter_requests()">
+			<option value="all-dates" {% if selected_date == "all-dates" %}selected{% endif %}>All dates</option>
+			{% for date in dates %}
+				<option value="{{ date|input_date_format }}" {% if date|input_date_format == selected_date %}selected{% endif %}>{{ date|date:"SHORT_DATE_FORMAT" }}</option>
+			{% endfor %}
+		</select>
+	</div>
+	<div class="col-sm-3">
+		<div class="text-right" {% if training_requests %}style="margin-bottom: 15px;"{% endif %}>
+			{% url "create_training_event" as create_training_event_url %}
+			{% button type="add" value="New training session" onclick="new_get_request('"|concat:create_training_event_url|concat:"')" %}
+		</div>
+	</div>
+</div>
+{% if training_requests %}
+	<div class="table-responsive" style="border: none; width: 100%">
+		<table class="table table-borderless table-align-middle" style="margin-bottom: 0">
+			<tr>
+				<th>User</th>
+				<th>Tool</th>
+				<th>Created</th>
+				<th>Availability</th>
+				<th>Status</th>
+				<th class="text-right">Actions</th>
+			</tr>
+			{% for training_request in training_requests %}
+				<tr>
+					<td>{{ training_request.user }}</td>
+					<td>{{ training_request.tool }}</td>
+					<td>{{ training_request.creation_time }}</td>
+					<td>
+						<div class="training-dates">
+							{% for date_time in training_request.trainingrequesttime_set.all %}
+								{% url 'create_training_event_for_time' date_time.id as create_training_event_url %}
+								{{ date_time }} <span class="success-highlight glyphicon glyphicon-plus-sign" title="Schedule training" onclick="new_get_request('{% url 'create_training_event_for_time' date_time.id %}')"></span><br>
+							{% endfor %}
+						</div>
+					</td>
+					<td>
+						{% if training_request.status == 1 %} {# 1 == SENT #}
+							Received
+						{% else %}
+							{{ training_request.get_status_display }}
+						{% endif %}
+					</td>
+					<td class="text-right">
+						{% url 'decline_training_request' training_request.id as decline_training_request_url %}
+						{% url 'create_training_event_for_training_request' training_request.id as create_training_event_for_training_request_url %}
+						{% button type="delete" size="small" value="Reject" icon="glyphicon-ban-circle" onclick="confirm_action('"|concat:decline_training_request_url|concat:"', true, training_callback_success, 'rejecting', 'request', 'Reject this request')" data_toggle="modal" data_target="#confirm-actions" %}
+						{% button type="add" size="small" value="New training session" onclick="new_get_request('"|concat:create_training_event_for_training_request_url|concat:"')" %}
+					</td>
+				</tr>
+			{% endfor %}
+		</table>
+	</div>
+{% else %}
+	<div class="pull-left form-control-static"><i>You do not have any pending training requests from users.</i></div>
+{% endif %}
+<script>
+	function training_callback_success()
+	{
+		location.reload();
+	}
+	
+	function new_get_request(url)
+	{
+		new_request(url);
+	}
+
+	function new_request(url, post)
+	{
+		{% if request.device == "mobile" %}
+			window.location = url;
+		{% else %}
+			post = post || false;
+			if (post) ajax_post(url, undefined, ajax_success_callback, general_failure_callback);
+			else ajax_get(url, undefined, ajax_success_callback, general_failure_callback);
+		{% endif %}
+	}
+	
+	function filter_requests()
+	{
+		window.location.href = "?tool=" + $("#tool_filter").val() + "&user=" + $("#user_filter").val() + "&date=" + $("#date_filter").val();
+	}
+    
+	{% for training_request in training_requests %}
+		{% if training_request.status == 1 and user in training_request.tool.trainers %} {# 1:SENT #}
+	ajax_get('{% url "review_training_request" training_request.id %}');
+		{% endif %}
+	{% endfor %}
+</script>

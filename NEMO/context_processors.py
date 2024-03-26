@@ -1,5 +1,5 @@
 from NEMO.models import Area, Customization, Notification, PhysicalAccessLevel, Tool, User
-from NEMO.utilities import date_input_js_format, datetime_input_js_format, time_input_js_format
+from NEMO.utilities import date_input_js_format, datetime_input_js_format, time_input_js_format, is_trainer
 from NEMO.views.notifications import get_notification_counts
 
 
@@ -12,6 +12,8 @@ def hide_logout_button(request):
 
 
 def base_context(request):
+    user: User = request.user
+    customization_values = {customization.name: customization.value for customization in Customization.objects.all()}
     try:
         if "no_header" in request.GET:
             if request.GET["no_header"] == "True":
@@ -66,6 +68,14 @@ def base_context(request):
     except:
         training_invitation_notification_count = 0
     try:
+        training_show_in_user_requests = (
+            is_trainer(user)
+            and customization_values.get("training_module_enabled", "") == "enabled"
+            and customization_values.get("training_show_in_user_requests", "") == "enabled"
+        )
+    except:
+        training_show_in_user_requests = False
+    try:
         safety_notification_count = notification_counts.get(Notification.Types.SAFETY, 0)
     except:
         safety_notification_count = 0
@@ -73,7 +83,6 @@ def base_context(request):
         facility_managers_exist = User.objects.filter(is_active=True, is_facility_manager=True).exists()
     except:
         facility_managers_exist = False
-    customization_values = {customization.name: customization.value for customization in Customization.objects.all()}
     return {
         "facility_name": customization_values.get("facility_name", "Facility"),
         "recurring_charges_name": customization_values.get("recurring_charges_name", "Recurring charges"),
@@ -90,6 +99,7 @@ def base_context(request):
         "temporary_access_notification_count": temporary_access_notification_count,
         "adjustment_notification_count": adjustment_notification_count,
         "training_request_notification_count": training_request_notification_count,
+        "training_show_in_user_requests": training_show_in_user_requests,
         "training_invitation_notification_count": training_invitation_notification_count,
         "safety_notification_count": safety_notification_count,
         "facility_managers_exist": facility_managers_exist,
