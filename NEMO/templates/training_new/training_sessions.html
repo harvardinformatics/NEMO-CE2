@@ -1,10 +1,10 @@
 {% extends 'training_new/training_base.html' %}
 {% load custom_tags_and_filters %}
 {% block tab_content %}
-	{% include 'training/training_recording.html' %}
-	<script>
+    {% include 'training/training_recording.html' %}
+    <script>
 		{# Add training event id if provided, so the training can be marked as recorded #}
-		$('#training_session_form').append('<input type="hidden" name="training_event_id" value="{{ training_event.id }}"/>');
+		$('#training_session_form').append('<input type="hidden" name="training_event_id" value="{{ training_event.id }}" />');
         async function add_training_entries()
         {
             {% for trained_user in training_event.users.all %}
@@ -27,5 +27,6 @@
             remove_row(0);
 		}
         if ('{{ training_event.id }}') add_training_entries();
-	</script>
+	
+    </script>
 {% endblock %}

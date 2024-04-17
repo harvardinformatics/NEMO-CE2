@@ -3,138 +3,168 @@
 {% load static %}
 {% block title %}Transfer charges to another project{% endblock %}
 {% block extrahead %}
-	<script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
-	<link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}"/>
+    <script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
+    <link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}" />
 {% endblock %}
 {% block content %}
-	<h1>Transfer charges to another project</h1>
-	<p>
-		This page allows managers and accounting officers to transfer charges from one project to another.
-	</p>
-	<div style="height: 20px"></div>
-	<form class="form-horizontal" role="form" method="post">
-		{% if form.errors %}
-			<div class="form-group">
-				<div class="col-sm-8 col-lg-6">
-					<div class="alert alert-danger">
-						Oops! Something went wrong. Please correct the errors highlighted below:
-						{% if form.non_field_errors %}
-							<br><br>
-							<ul>
-								<li>{{ form.non_field_errors }}</li>
-							</ul>
-						{% endif %}
-					</div>
-				</div>
-				<div class="col-sm-4 col-lg-6"></div>
-			</div>
-		{% endif %}
-		{% csrf_token %}
-		<div class="form-group">
-			<div class="control-label col-sm-1">
-				<label for="start_date">Start</label>
-			</div>
-			<div class="col-sm-3 col-md-3 col-lg-2">
-				<input type="text" id="start_date" name="start" class="form-control text-center"
-					   placeholder="Choose a date" value="{{ form.start.value|input_date_format }}" required>
-			</div>
-			<div class="control-label col-sm-1">
-				<label for="end_date">End</label>
-			</div>
-			<div class="col-sm-3 col-md-3 col-lg-2">
-				<input type="text" id="end_date" name="end" class="form-control text-center" placeholder="Optional"
-					   value="{{ form.end.value|input_date_format }}">
-			</div>
-		</div>
-		{% if form.start.errors or form.end.errors %}
-			<div class="col-md-4 col-lg-3 form-control-static danger-highlight">{{ form.start.errors|striptags }}</div>
-			<div class="col-md-8 col-lg-9 form-control-static danger-highlight">{{ form.end.errors|striptags }}</div>
-		{% endif %}
-		<div class="form-group">
-			<div class="control-label col-sm-1">
-				<label for="project_search">Original</label>
-			</div>
-			<div class="col-sm-7 col-lg-5">
-				<input type="text" id="project_search" name="project_id" class="form-control"
-					   placeholder="Choose a project" required>
-				<input type="button" id="selected_project" class="btn btn-default"
-					   onclick="clear_project_selection('projects')" style="display:none">
-			</div>
-			{% if form.project_id.errors %}
-				<div class="col-sm-offset-1 col-sm-8 col-log-6 form-control-static danger-highlight">{{ form.project_id.errors|striptags }}</div>
-			{% endif %}
-		</div>
-		<div class="form-group">
-			<div class="control-label col-sm-1">
-				<label for="user_search">User</label>
-			</div>
-			<div class="col-sm-7 col-lg-5">
-				<input type="text" id="user_search" name="user_id" class="form-control"
-					   placeholder="[Optional] search for a specific user">
-				<input type="button" id="selected_user" class="btn btn-default" onclick="clear_user_selection()"
-					   style="display:none">
-			</div>
-			{% if form.user_id.errors or form.username.errors %}
-				<div class="col-sm-offset-1 col-sm-7 col-lg-5 form-control-static danger-highlight">
-					{{ form.user_id.errors|striptags }}{{ form.username.errors|striptags }}</div>
-			{% endif %}
-		</div>
-		<div class="form-group">
-			<div class="col-sm-offset-1 col-sm-11">
-				{% button type="export" submit=True value="Search" icon="glyphicon-search" %}
-			</div>
-		</div>
-		{% if charges %}
-			<div class="form-group">
-				<div class="control-label col-sm-1">
-					<label for="new_project_search">New</label>
-				</div>
-				<div class="col-sm-7 col-lg-5">
-					<input type="text" id="new_project_search" name="new_project_id" class="form-control"
-						   placeholder="Choose the new project to transfer charges to">
-					<input type="button" id="selected_new_project" class="btn btn-default"
-						   onclick="clear_project_selection('new_projects')" style="display:none">
-				</div>
-				{% if form.new_project_id.errors %}
-					<div class="col-sm-offset-1 col-sm-7 col-log-5 form-control-static danger-highlight">{{ form.new_project_id.errors|striptags }}</div>
-				{% endif %}
-			</div>
-			{% with number_of_charges=charges|length %}
-				<div class="form-group">
-					<div class="col-sm-offset-1 col-sm-11">
-						{% button type="save" submit=False value="Confirm" name="confirm" onclick="if (this.form.reportValidity()){ if(window.confirm('Are you sure you want to transfer these "|concat:number_of_charges|concat:" charges?')){submit_and_disable(this)}}" %}
-					</div>
-				</div>
-				<div class="danger-highlight" style="margin-top: 25px;">{{ number_of_charges }} charges were found:
-				</div>
-			{% endwith %}
-
-			<table class="table table-striped">
-				<thead>
-				<tr>
-					<th>Date</th>
-					<th>Type</th>
-					<th>Item</th>
-					<th>Quantity</th>
-					<th>User</th>
-					<th>Project</th>
-					<th class="text-right">{{ "projects_and_accounts"|customization:"project_application_identifier_name" }}</th>
-				</tr>
-				</thead>
-				{% for charge in charges %}
-					<tr>
-						<td>{{ charge.end|date:"SHORT_DATETIME_FORMAT" }}</td>
-						<td>{{ charge.type }}</td>
-						<td>{{ charge.name }}</td>
-						<td>{{ charge.quantity }}</td>
-						<td>{{ charge.user }}</td>
-						<td>{{ charge.project }}</td>
-						<td class="text-right">{{ charge.application }}</td>
-					</tr>
-				{% endfor %}
-			</table>
-		{% endif %}
-		<script>
+    <h1>Transfer charges to another project</h1>
+    <p>This page allows managers and accounting officers to transfer charges from one project to another.</p>
+    <div style="height: 20px"></div>
+    <form class="form-horizontal" role="form" method="post">
+        {% if form.errors %}
+            <div class="form-group">
+                <div class="col-sm-8 col-lg-6">
+                    <div class="alert alert-danger">
+                        Oops! Something went wrong. Please correct the errors highlighted below:
+                        {% if form.non_field_errors %}
+                            <br>
+                            <br>
+                            <ul>
+                                <li>{{ form.non_field_errors }}</li>
+                            </ul>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-sm-4 col-lg-6"></div>
+            </div>
+        {% endif %}
+        {% csrf_token %}
+        <div class="form-group">
+            <div class="control-label col-sm-1">
+                <label for="start_date">Start</label>
+            </div>
+            <div class="col-sm-3 col-md-3 col-lg-2">
+                <input type="text"
+                       id="start_date"
+                       name="start"
+                       class="form-control text-center"
+                       placeholder="Choose a date"
+                       value="{{ form.start.value|input_date_format }}"
+                       required>
+            </div>
+            <div class="control-label col-sm-1">
+                <label for="end_date">End</label>
+            </div>
+            <div class="col-sm-3 col-md-3 col-lg-2">
+                <input type="text"
+                       id="end_date"
+                       name="end"
+                       class="form-control text-center"
+                       placeholder="Optional"
+                       value="{{ form.end.value|input_date_format }}">
+            </div>
+        </div>
+        {% if form.start.errors or form.end.errors %}
+            <div class="col-md-4 col-lg-3 form-control-static danger-highlight">{{ form.start.errors|striptags }}</div>
+            <div class="col-md-8 col-lg-9 form-control-static danger-highlight">{{ form.end.errors|striptags }}</div>
+        {% endif %}
+        <div class="form-group">
+            <div class="control-label col-sm-1">
+                <label for="project_search">Original</label>
+            </div>
+            <div class="col-sm-7 col-lg-5">
+                <input type="text"
+                       id="project_search"
+                       name="project_id"
+                       class="form-control"
+                       placeholder="Choose a project"
+                       required>
+                <input type="button"
+                       id="selected_project"
+                       class="btn btn-default"
+                       onclick="clear_project_selection('projects')"
+                       style="display:none">
+            </div>
+            {% if form.project_id.errors %}
+                <div class="col-sm-offset-1 col-sm-8 col-log-6 form-control-static danger-highlight">
+                    {{ form.project_id.errors|striptags }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <div class="control-label col-sm-1">
+                <label for="user_search">User</label>
+            </div>
+            <div class="col-sm-7 col-lg-5">
+                <input type="text"
+                       id="user_search"
+                       name="user_id"
+                       class="form-control"
+                       placeholder="[Optional] search for a specific user">
+                <input type="button"
+                       id="selected_user"
+                       class="btn btn-default"
+                       onclick="clear_user_selection()"
+                       style="display:none">
+            </div>
+            {% if form.user_id.errors or form.username.errors %}
+                <div class="col-sm-offset-1 col-sm-7 col-lg-5 form-control-static danger-highlight">
+                    {{ form.user_id.errors|striptags }}{{ form.username.errors|striptags }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <div class="col-sm-offset-1 col-sm-11">
+                {% button type="export" submit=True value="Search" icon="glyphicon-search" %}
+            </div>
+        </div>
+        {% if charges %}
+            <div class="form-group">
+                <div class="control-label col-sm-1">
+                    <label for="new_project_search">New</label>
+                </div>
+                <div class="col-sm-7 col-lg-5">
+                    <input type="text"
+                           id="new_project_search"
+                           name="new_project_id"
+                           class="form-control"
+                           placeholder="Choose the new project to transfer charges to">
+                    <input type="button"
+                           id="selected_new_project"
+                           class="btn btn-default"
+                           onclick="clear_project_selection('new_projects')"
+                           style="display:none">
+                </div>
+                {% if form.new_project_id.errors %}
+                    <div class="col-sm-offset-1 col-sm-7 col-log-5 form-control-static danger-highlight">
+                        {{ form.new_project_id.errors|striptags }}
+                    </div>
+                {% endif %}
+            </div>
+            {% with number_of_charges=charges|length %}
+                <div class="form-group">
+                    <div class="col-sm-offset-1 col-sm-11">
+                        {% button type="save" submit=False value="Confirm" name="confirm" onclick="if (this.form.reportValidity()){ if(window.confirm('Are you sure you want to transfer these "|concat:number_of_charges|concat:" charges?')){submit_and_disable(this)}}" %}
+                    </div>
+                </div>
+                <div class="danger-highlight" style="margin-top: 25px;">{{ number_of_charges }} charges were found:</div>
+            {% endwith %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Item</th>
+                        <th>Quantity</th>
+                        <th>User</th>
+                        <th>Project</th>
+                        <th class="text-right">{{ "projects_and_accounts"|customization:"project_application_identifier_name" }}</th>
+                    </tr>
+                </thead>
+                {% for charge in charges %}
+                    <tr>
+                        <td>{{ charge.end|date:"SHORT_DATETIME_FORMAT" }}</td>
+                        <td>{{ charge.type }}</td>
+                        <td>{{ charge.name }}</td>
+                        <td>{{ charge.quantity }}</td>
+                        <td>{{ charge.user }}</td>
+                        <td>{{ charge.project }}</td>
+                        <td class="text-right">{{ charge.application }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+        <script>
             const js_date_format = "{{ date_input_js_format }}";
 
             let start_date_jq = $('#start_date');
@@ -191,6 +221,7 @@
             }
 
             $(on_load);
-		</script>
-	</form>
+		
+        </script>
+    </form>
 {% endblock %}

@@ -2,7 +2,7 @@
 {% load custom_tags_and_filters %}
 {% block title %}History for {{ name }}{% endblock %}
 {% block content %}
-	{% if action_list %}
+    {% if action_list %}
         <div class="row">
             <div class="col-xs-10">
                 <h1>History for {{ name }}</h1>
@@ -11,27 +11,27 @@
                 <h1>{% button type="export" value="Export" url=request.path|concat:"?csv=true" target="_blank" %}</h1>
             </div>
         </div>
-		<table class="table">
-			<thead>
-			<tr>
-				<th>Date & time</th>
-				<th>User</th>
-				<th>Action</th>
-				{% if has_details %}<th>Details</th>{% endif %}
-			</tr>
-			</thead>
-			<tbody>
-			{% for row in action_list.rows %}
-				<tr>
-					<td class="text-nowrap">{{ row.date }}</td>
-					<td>{{ row.authorizer }}</td>
-					<td>{{ row.message|linebreaksbr }}</td>
-					{% if has_details %}<td>{{ row.details|default_if_none:"" }}</td>{% endif %}
-				</tr>
-			{% endfor %}
-			</tbody>
-		</table>
-	{% else %}
-		<p>{{ name }} doesn't have a change history.</p>
-	{% endif %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date & time</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    {% if has_details %}<th>Details</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in action_list.rows %}
+                    <tr>
+                        <td class="text-nowrap">{{ row.date }}</td>
+                        <td>{{ row.authorizer }}</td>
+                        <td>{{ row.message|linebreaksbr }}</td>
+                        {% if has_details %}<td>{{ row.details|default_if_none:"" }}</td>{% endif %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>{{ name }} doesn't have a change history.</p>
+    {% endif %}
 {% endblock %}

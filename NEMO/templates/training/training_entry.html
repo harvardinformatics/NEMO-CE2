@@ -1,81 +1,139 @@
 {% load custom_tags_and_filters %}
-<div id="row_{{ entry_number }}" class="row well" style="display: flex; flex-flow: row wrap; padding: 15px 0">
+<div id="row_{{ entry_number }}"
+     class="row well"
+     style="display: flex;
+            flex-flow: row wrap;
+            padding: 15px 0">
     {% with date_allowed="training"|customization:"training_allow_date" %}
-    {% with label_class=date_allowed|yesno:"col-sm-2 col-md-1,col-sm-2 col-md-1" input_class=date_allowed|yesno:"col-sm-4 col-md-3,col-sm-4 col-md-2" %}
-	<div class="text-center" style="width: 3%; margin-left: 5px">
-		<div class="glyphicon glyphicon-remove-circle grey pointer" style="padding: 3px; z-index: 10" onclick="remove_row({{ entry_number }})"></div>
-	</div>
-	<div class="row" style="width: 97%; padding-left: 5px">
-		<label class="control-label {{ label_class }}" for="user_textbox__{{ entry_number }}">Trainee</label>
-		<div class="{{ input_class }}">
-			<input type="text" class="form-control input-sm" id="user_textbox__{{ entry_number }}" name="chosen_user__{{ entry_number }}" data-row="{{ entry_number }}">
-			<input type="button" class="btn btn-sm btn-default" style="display:none" id="user_button__{{ entry_number }}" onclick="purge_trainee({{ entry_number }})" value="user">
-		</div>
-		<label class="control-label {{ label_class }}" for="tool_textbox__{{ entry_number }}">Tool</label>
-		<div class="{{ input_class }}">
-			<input type="text" class="form-control input-sm" id="tool_textbox__{{ entry_number }}" name="chosen_tool__{{ entry_number }}" data-row="{{ entry_number }}">
-		<input type="hidden" id="tool_textbox_type__{{ entry_number }}" name="chosen_type__{{ entry_number }}" data-row="{{ entry_number }}">
-			<input type="button" class="btn btn-sm btn-default" style="display:none" id="tool_button__{{ entry_number }}" onclick="purge_tool({{ entry_number }})" value="tool">
-		</div>
-		<label class="control-label {{ label_class }}" for="project__{{ entry_number }}">Project</label>
-		<div class="{{ input_class }}" id="project__{{ entry_number }}" style="min-height: 30px; vertical-align: middle;"></div>
-        {% if date_allowed %}
-            <label class="control-label {{ label_class }}" for="date__{{ entry_number }}">Date</label>
-            <div class="{{ input_class }}">
-                <input type="text" class="form-control input-sm" name="date__{{ entry_number }}" id="date__{{ entry_number }}" value="{{ date|default_if_none:"" }}">
+        {% with label_class=date_allowed|yesno:"col-sm-2 col-md-1,col-sm-2 col-md-1" input_class=date_allowed|yesno:"col-sm-4 col-md-3,col-sm-4 col-md-2" %}
+            <div class="text-center" style="width: 3%; margin-left: 5px">
+                <div class="glyphicon glyphicon-remove-circle grey pointer"
+                     style="padding: 3px;
+                            z-index: 10"
+                     onclick="remove_row({{ entry_number }})"></div>
             </div>
-        {% endif %}
-		<label class="control-label {{ label_class }}" for="duration__{{ entry_number }}">Duration</label>
-		<div class="{{ input_class }}">
-		<div class="input-group">
-				<input type="number" class="form-control input-sm" name="duration__{{ entry_number }}" id="duration__{{ entry_number }}" min="1" inputmode="numeric" pattern="[0-9]*" required value="{{ duration|default_if_none:"" }}">
-			<div class="input-group-addon">min</div>
-		</div>
-		</div>
-		<label class="control-label {{ label_class }}" for="charge_type__{{ entry_number }}">Type</label>
-		<div class="{{ input_class }}">
-			<select class="form-control input-sm" id="charge_type__{{ entry_number }}" name="charge_type__{{ entry_number }}" required>
-				{% if charge_types|length_is:1 %}
-					<option value="{{ charge_types.0.0 }}" selected>{{ charge_types.0.1 }}</option>
-				{% else %}
-			<option disabled selected value="">&nbsp;</option>
-			{% for charge_type in charge_types %}
-						<option value="{{ charge_type.0 }}" {% if charge_type_id|to_int == charge_type.0 %}selected{% endif %}>{{ charge_type.1 }}</option>
-					{% endfor %}
-				{% endif %}
-			</select>
-		</div>
-		<label class="control-label {{ label_class }}" for="technique__{{ entry_number }}">Technique</label>
-		<div class="{{ input_class }}">
-			<select class="form-control input-sm" id="technique__{{ entry_number }}" name="technique__{{ entry_number }}">
-				<option selected value="">{{ "training"|customization:"training_technique_empty_label" }}</option>
-				{% for technique in techniques %}
-					<option class="technique-option" {% if technique_id|to_int == technique.id %}selected{% else %}style="display: none"{% endif %} value="{{ technique.id }}" {% for tool_id in technique.tool_ids %}technique-tool-{{ tool_id }} {% endfor %}>{{ technique.name }}</option>
-				{% endfor %}
-			</select>
-		</div>
-		<label class="control-label {{ label_class }}" for="comment__{{ entry_number }}">Comment</label>
-		<div class="{{ input_class }}">
-			<input type="text" class="form-control input-sm" name="comment__{{ entry_number }}" id="comment__{{ entry_number }}" maxlength="255">
-		</div>
-		<label class="control-label {{ label_class }}" for="qualify__{{ entry_number }}">Qualified</label>
-		{% if not qualification_levels %}
-			<div class="col-sm-2 col-md-1">
-				<div class="checkbox">
-					<label><input type="checkbox" id="qualify__{{ entry_number }}" name="qualify__{{ entry_number }}" checked></label>
-				</div>
-			</div>
-		{% else %}
-			<div class="{{ input_class }}">
-				<select class="form-control input-sm" name="qualify__{{ entry_number }}" id="qualify__{{ entry_number }}" required>
-					<option disabled selected value="">&nbsp;</option>
-					{% for ql in qualification_levels %}
-						<option value="{{ ql.id }}">{{ ql.name }}</option>
-			{% endfor %}
-		</select>
-			</div>
-		{% endif %}
-	</div>
-    {% endwith %}
+            <div class="row" style="width: 97%; padding-left: 5px">
+                <label class="control-label {{ label_class }}" for="user_textbox__{{ entry_number }}">Trainee</label>
+                <div class="{{ input_class }}">
+                    <input type="text"
+                           class="form-control input-sm"
+                           id="user_textbox__{{ entry_number }}"
+                           name="chosen_user__{{ entry_number }}"
+                           data-row="{{ entry_number }}">
+                    <input type="button"
+                           class="btn btn-sm btn-default"
+                           style="display:none"
+                           id="user_button__{{ entry_number }}"
+                           onclick="purge_trainee({{ entry_number }})"
+                           value="user">
+                </div>
+                <label class="control-label {{ label_class }}" for="tool_textbox__{{ entry_number }}">Tool</label>
+                <div class="{{ input_class }}">
+                    <input type="text"
+                           class="form-control input-sm"
+                           id="tool_textbox__{{ entry_number }}"
+                           name="chosen_tool__{{ entry_number }}"
+                           data-row="{{ entry_number }}">
+                    <input type="hidden"
+                           id="tool_textbox_type__{{ entry_number }}"
+                           name="chosen_type__{{ entry_number }}"
+                           data-row="{{ entry_number }}">
+                    <input type="button"
+                           class="btn btn-sm btn-default"
+                           style="display:none"
+                           id="tool_button__{{ entry_number }}"
+                           onclick="purge_tool({{ entry_number }})"
+                           value="tool">
+                </div>
+                <label class="control-label {{ label_class }}" for="project__{{ entry_number }}">Project</label>
+                <div class="{{ input_class }}"
+                     id="project__{{ entry_number }}"
+                     style="min-height: 30px;
+                            vertical-align: middle"></div>
+                {% if date_allowed %}
+                    <label class="control-label {{ label_class }}" for="date__{{ entry_number }}">Date</label>
+                    <div class="{{ input_class }}">
+                        <input type="text"
+                               class="form-control input-sm"
+                               name="date__{{ entry_number }}"
+                               id="date__{{ entry_number }}"
+                               value="{{ date|default_if_none:"" }}">
+                    </div>
+                {% endif %}
+                <label class="control-label {{ label_class }}" for="duration__{{ entry_number }}">Duration</label>
+                <div class="{{ input_class }}">
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control input-sm"
+                               name="duration__{{ entry_number }}"
+                               id="duration__{{ entry_number }}"
+                               min="1"
+                               inputmode="numeric"
+                               pattern="[0-9]*"
+                               required
+                               value="{{ duration|default_if_none:"" }}">
+                        <div class="input-group-addon">min</div>
+                    </div>
+                </div>
+                <label class="control-label {{ label_class }}" for="charge_type__{{ entry_number }}">Type</label>
+                <div class="{{ input_class }}">
+                    <select class="form-control input-sm"
+                            id="charge_type__{{ entry_number }}"
+                            name="charge_type__{{ entry_number }}"
+                            required>
+                        {% if charge_types|length_is:1 %}
+                            <option value="{{ charge_types.0.0 }}" selected>{{ charge_types.0.1 }}</option>
+                        {% else %}
+                            <option disabled selected value="">&nbsp;</option>
+                            {% for charge_type in charge_types %}
+                                <option value="{{ charge_type.0 }}" {% if charge_type_id|to_int == charge_type.0 %}selected{% endif %}>
+                                    {{ charge_type.1 }}
+                                </option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <label class="control-label {{ label_class }}" for="technique__{{ entry_number }}">Technique</label>
+                <div class="{{ input_class }}">
+                    <select class="form-control input-sm"
+                            id="technique__{{ entry_number }}"
+                            name="technique__{{ entry_number }}">
+                        <option selected value="">{{ "training"|customization:"training_technique_empty_label" }}</option>
+                        {% for technique in techniques %}
+                            <option class="technique-option" {% if technique_id|to_int == technique.id %}selected{% else %}style="display: none"{% endif %} value="{{ technique.id }}" {% for tool_id in technique.tool_ids %}technique-tool-{{ tool_id }}{% endfor %}>{{ technique.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <label class="control-label {{ label_class }}" for="comment__{{ entry_number }}">Comment</label>
+                <div class="{{ input_class }}">
+                    <input type="text"
+                           class="form-control input-sm"
+                           name="comment__{{ entry_number }}"
+                           id="comment__{{ entry_number }}"
+                           maxlength="255">
+                </div>
+                <label class="control-label {{ label_class }}" for="qualify__{{ entry_number }}">Qualified</label>
+                {% if not qualification_levels %}
+                    <div class="col-sm-2 col-md-1">
+                        <div class="checkbox">
+                            <label>
+                                <input type="checkbox" id="qualify__{{ entry_number }}" name="qualify__{{ entry_number }}" checked>
+                            </label>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="{{ input_class }}">
+                        <select class="form-control input-sm"
+                                name="qualify__{{ entry_number }}"
+                                id="qualify__{{ entry_number }}"
+                                required>
+                            <option disabled selected value="">&nbsp;</option>
+                            {% for ql in qualification_levels %}<option value="{{ ql.id }}">{{ ql.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                {% endif %}
+            </div>
+        {% endwith %}
     {% endwith %}
 </div>

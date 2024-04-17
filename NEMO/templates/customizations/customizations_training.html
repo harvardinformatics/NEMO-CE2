@@ -3,113 +3,175 @@
     <h3 class="customization-section-title">Training module</h3>
     <form method="POST" action="{% url 'customize' 'training' %}" class="form-horizontal">
         {% csrf_token %}
-		<div class="form-group">
+        <div class="form-group">
             <label class="control-label col-lg-3 col-md-4 col-sm-5">Training types allowed</label>
             <div class="col-lg-9 col-md-8 col-sm-7">
-				<div class="checkbox">
-					{% for val, name in training_types %}
-						<label><input type="checkbox" name="training_type_list" {% if not training_only_type or training_only_type == val|stringformat:'i' %}checked{% endif %} value="{{ val }}">{{ name }}</label><br/>
-					{% endfor %}
-				</div>
-			</div>
+                <div class="checkbox">
+                    {% for val, name in training_types %}
+                        <label>
+                            <input type="checkbox"
+                                   name="training_type_list"
+                                   {% if not training_only_type or training_only_type == val|stringformat:'i' %}checked{% endif %}
+                                   value="{{ val }}">
+                            {{ name }}
+                        </label>
+                        <br />
+                    {% endfor %}
+                </div>
+            </div>
         </div>
         <div class="form-group">
             <label class="control-label col-lg-3 col-md-4 col-sm-5">Training date</label>
             <div class="col-lg-9 col-md-8 col-sm-7">
-				<div class="checkbox">
-                    <label><input type="checkbox" id="training_allow_date" name="training_allow_date" {% if training_allow_date %}checked{% endif %} value="enabled">Allow trainer to pick the training date for each entry</label>
-				</div>
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox"
+                               id="training_allow_date"
+                               name="training_allow_date"
+                               {% if training_allow_date %}checked{% endif %}
+                               value="enabled">
+                        Allow trainer to pick the training date for each entry
+                    </label>
+                </div>
                 <div class="help-block light-grey" style="margin-bottom: 0">Qualifications will still happen in real time</div>
-			</div>
+            </div>
         </div>
         <div class="form-group">
             <label class="control-label col-lg-3 col-md-4 col-sm-5">Training module</label>
             <div class="col-lg-9 col-md-8 col-sm-7">
-				<div class="checkbox">
-					<input type="hidden" name="training_module_enabled" value="off"/>
-					<label><input type="checkbox" name="training_module_enabled" {% if training_module_enabled == "enabled" %}checked{% endif %} value="enabled">Enable training requests/sessions scheduling</label><br/>
-					<label><input type="checkbox" name="training_show_in_user_requests" {% if training_show_in_user_requests %}checked{% endif %} value="enabled">Show training requests in user requests page</label><br/>
-				</div>
-			</div>
+                <div class="checkbox">
+                    <input type="hidden" name="training_module_enabled" value="off" />
+                    <label>
+                        <input type="checkbox"
+                               name="training_module_enabled"
+                               {% if training_module_enabled == "enabled" %}checked{% endif %}
+                               value="enabled">
+                        Enable training requests/sessions scheduling
+                    </label>
+                    <br />
+                    <label>
+                        <input type="checkbox"
+                               name="training_show_in_user_requests"
+                               {% if training_show_in_user_requests %}checked{% endif %}
+                               value="enabled">
+                        Show training requests in user requests page
+                    </label>
+                    <br />
+                </div>
+            </div>
         </div>
-		<div class="form-group">
-			<label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_technique_empty_label">Technique empty label</label>
-			<div class="col-lg-3 col-md-4 col-sm-5">
-				<input class="form-control" name="training_technique_empty_label" id="training_technique_empty_label" type="text" value="{{ training_technique_empty_label|default_if_none:'' }}">
-			</div>
-		</div>
-		<div class="customization-separation" style="margin-bottom: 15px"></div>
-    	<h3 class="customization-section-title">Defaults</h3>
-		<div class="form-group{% if errors.training_event_default_duration %}has-error{% endif %}">
-            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_event_default_duration">Session default duration</label>
-			<div class="col-lg-3 col-md-4 col-sm-5">
-				<div class="input-group">
-					<input class="form-control" name="training_event_default_duration" id="training_event_default_duration" type="number" value="{{ training_event_default_duration|default_if_none:'' }}">
-					<span class="input-group-addon">minutes</span>
-				</div>
-			</div>
-			{% if errors.training_event_default_duration %}
-				<div class="col-lg-offset-3 col-md-offset-4 col-sm-offset-5 col-lg-9 col-md-8 col-sm-7 help-block light-grey">
+        <div class="form-group">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_technique_empty_label">
+                Technique empty label
+            </label>
+            <div class="col-lg-3 col-md-4 col-sm-5">
+                <input class="form-control"
+                       name="training_technique_empty_label"
+                       id="training_technique_empty_label"
+                       type="text"
+                       value="{{ training_technique_empty_label|default_if_none:'' }}">
+            </div>
+        </div>
+        <div class="customization-separation" style="margin-bottom: 15px"></div>
+        <h3 class="customization-section-title">Defaults</h3>
+        <div class="form-group{% if errors.training_event_default_duration %}has-error{% endif %}">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_event_default_duration">
+                Session default duration
+            </label>
+            <div class="col-lg-3 col-md-4 col-sm-5">
+                <div class="input-group">
+                    <input class="form-control"
+                           name="training_event_default_duration"
+                           id="training_event_default_duration"
+                           type="number"
+                           value="{{ training_event_default_duration|default_if_none:'' }}">
+                    <span class="input-group-addon">minutes</span>
+                </div>
+            </div>
+            {% if errors.training_event_default_duration %}
+                <div class="col-lg-offset-3 col-md-offset-4 col-sm-offset-5 col-lg-9 col-md-8 col-sm-7 help-block light-grey">
                     {{ errors.training_event_default_duration.error }}
-            	</div>
-			{% endif %}
+                </div>
+            {% endif %}
         </div>
-		<div class="form-group{% if errors.training_event_default_capacity %}has-error{% endif %}">
-            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_event_default_capacity">Session default capacity</label>
-			<div class="col-lg-3 col-md-4 col-sm-5">
-				<div class="input-group">
-					<input class="form-control" name="training_event_default_capacity" id="training_event_default_capacity" type="number" value="{{ training_event_default_capacity|default_if_none:'' }}">
-					<span class="input-group-addon">attendees</span>
-				</div>
-			</div>
-			{% if errors.training_event_default_capacity %}
-				<div class="col-lg-offset-3 col-md-offset-4 col-sm-offset-5 col-lg-9 col-md-8 col-sm-7 help-block light-grey">
+        <div class="form-group{% if errors.training_event_default_capacity %}has-error{% endif %}">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_event_default_capacity">
+                Session default capacity
+            </label>
+            <div class="col-lg-3 col-md-4 col-sm-5">
+                <div class="input-group">
+                    <input class="form-control"
+                           name="training_event_default_capacity"
+                           id="training_event_default_capacity"
+                           type="number"
+                           value="{{ training_event_default_capacity|default_if_none:'' }}">
+                    <span class="input-group-addon">attendees</span>
+                </div>
+            </div>
+            {% if errors.training_event_default_capacity %}
+                <div class="col-lg-offset-3 col-md-offset-4 col-sm-offset-5 col-lg-9 col-md-8 col-sm-7 help-block light-grey">
                     {{ errors.training_event_default_capacity.error }}
-            	</div>
-			{% endif %}
+                </div>
+            {% endif %}
         </div>
         <div class="form-group">
             <label class="control-label col-lg-3 col-md-4 col-sm-5">Request default availability</label>
             <div class="col-lg-9 col-md-8 col-sm-7">
-				<div class="checkbox">
-					<label><input type="checkbox" name="training_request_default_availability_allowed" {% if training_request_default_availability_allowed %}checked{% endif %} value="enabled">Allow users to submit their availability when creating requests</label><br/>
-				</div>
-			</div>
-		</div>
-		<div class="form-group">
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox"
+                               name="training_request_default_availability_allowed"
+                               {% if training_request_default_availability_allowed %}checked{% endif %}
+                               value="enabled">
+                        Allow users to submit their availability when creating requests
+                    </label>
+                    <br />
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
             <label class="control-label col-lg-3 col-md-4 col-sm-5">User message</label>
             <div class="col-lg-9 col-md-8 col-sm-7">
-				<div class="checkbox">
-					<label><input type="checkbox" name="training_request_default_message_required" {% if training_request_default_message_required %}checked{% endif %} value="enabled">Require users to submit a message when creating requests</label>
-				</div>
-			</div>
-		</div>
-		<div class="form-group">
-            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_request_default_message_placeholder">Message placeholder</label>
-			<div class="col-md-7">
-				<textarea oninput="auto_size_textarea(this);" id="training_request_default_message_placeholder" name="training_request_default_message_placeholder" class="form-control">{{ training_request_default_message_placeholder }}</textarea>
-			</div>
-		</div>
-		<div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
-			<label class="control-label col-md-3" for="exclude_tool">Excluded tools</label>
-			<div class="col-md-7">
-				<input id="exclude_tool" type="text" autocomplete="off" class="form-control" placeholder="Search for a tool to exclude">
-			</div>
-			{% if errors.training_excluded_tools %}
-				<div class="col-md-offset-3 col-md-9 help-block light-grey">
-					{{ errors.training_excluded_tools.error }}
-				</div>
-			{% endif %}
-		</div>
-		<div class="form-group">
-			<div id="exclude-list" class="col-md-offset-3 col-md-4">
-				No tools are excluded.
-			</div>
-		</div>
-        <div class="customization-separation" style="margin-bottom: 15px"></div>
-        <div class="text-center">
-            {% button type="save" value="Save settings" %}
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox"
+                               name="training_request_default_message_required"
+                               {% if training_request_default_message_required %}checked{% endif %}
+                               value="enabled">
+                        Require users to submit a message when creating requests
+                    </label>
+                </div>
+            </div>
         </div>
+        <div class="form-group">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_request_default_message_placeholder">
+                Message placeholder
+            </label>
+            <div class="col-md-7">
+                <textarea oninput="auto_size_textarea(this);"
+                          id="training_request_default_message_placeholder"
+                          name="training_request_default_message_placeholder"
+                          class="form-control">{{ training_request_default_message_placeholder }}</textarea>
+            </div>
+        </div>
+        <div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
+            <label class="control-label col-md-3" for="exclude_tool">Excluded tools</label>
+            <div class="col-md-7">
+                <input id="exclude_tool"
+                       type="text"
+                       autocomplete="off"
+                       class="form-control"
+                       placeholder="Search for a tool to exclude">
+            </div>
+            {% if errors.training_excluded_tools %}
+                <div class="col-md-offset-3 col-md-9 help-block light-grey">{{ errors.training_excluded_tools.error }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <div id="exclude-list" class="col-md-offset-3 col-md-4">No tools are excluded.</div>
+        </div>
+        <div class="customization-separation" style="margin-bottom: 15px"></div>
+        <div class="text-center">{% button type="save" value="Save settings" %}</div>
     </form>
 </div>
 <script>

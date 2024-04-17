@@ -1295,9 +1295,11 @@ def create_training_event(request):
         training.end = training.start + timedelta(minutes=default_duration)
     initial = {
         "duration": training.duration,
-        "capacity": training_details.capacity
-        if training_details and training_details.capacity
-        else TrainingCustomization.get_int("training_event_default_capacity"),
+        "capacity": (
+            training_details.capacity
+            if training_details and training_details.capacity
+            else TrainingCustomization.get_int("training_event_default_capacity")
+        ),
     }
 
     # Check for policy issues

@@ -6,35 +6,45 @@
     </head>
     <body>
         <!--[if mso]><table width="600" align="center"><tr><td><![endif]-->
-        <table align="center" style="width:100%; max-width:600px; font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
+        <table align="center"
+               style="width:100%;
+                      max-width:600px;
+                      font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
             <tr>
                 <td align="center" style="color: white; background: #5bc0de; padding: 50px 0;" bgcolor="#5bc0de">
-                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">
-                        TRAINING INVITATION
-                    </h1>
+                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">TRAINING INVITATION</h1>
                 </td>
             </tr>
             <tr>
                 <td style="padding: 10px;">
                     <p>Dear {{ training_invitation.user.first_name }},</p>
-                    <p>You have been invited to the following training session:
-					<br><u>Tool</u>: {{ training_invitation.tool.name }}
-					{% if training_invitation.technique %}
-					<br><u>Technique</u>: {{ training_invitation.technique.name }}
-					{% endif %}
-					<br><u>Start</u>: {{ training_invitation.start }}
-					<br><u>Duration</u>: {{ training_invitation.duration }} minutes
-					<br><u>Trainer</u>: {{ training_invitation.trainer }}
-					{% if training_invitation.message %}
-                        <br><u>Additional information</u>:
-                        <br>{{ training_invitation.message|linebreaksbr }}
-                    {% endif %}
-					</p>
+                    <p>
+                        You have been invited to the following training session:
+                        <br>
+                        <u>Tool</u>: {{ training_invitation.tool.name }}
+                        {% if training_invitation.technique %}
+                            <br>
+                            <u>Technique</u>: {{ training_invitation.technique.name }}
+                        {% endif %}
+                        <br>
+                        <u>Start</u>: {{ training_invitation.start }}
+                        <br>
+                        <u>Duration</u>: {{ training_invitation.duration }} minutes
+                        <br>
+                        <u>Trainer</u>: {{ training_invitation.trainer }}
+                        {% if training_invitation.message %}
+                            <br>
+                            <u>Additional information</u>:
+                            <br>
+                            {{ training_invitation.message|linebreaksbr }}
+                        {% endif %}
+                    </p>
                 </td>
             </tr>
             <tr>
                 <td style="padding: 10px;">
-                    Visit the <a href="{% absolute_url 'training_requests' %}">Training dashboard</a> to respond to this invitation.<br/>
+                    Visit the <a href="{% absolute_url 'training_requests' %}">Training dashboard</a> to respond to this invitation.
+                    <br />
                 </td>
             </tr>
         </table>

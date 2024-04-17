@@ -210,12 +210,12 @@ class ToolAdminForm(forms.ModelForm):
                 not cleaned_data["_allow_user_shadowing_verification_request"]
                 and cleaned_data["_shadowing_verification_request_qualification_levels"]
             ):
-                errors[
-                    "_allow_user_shadowing_verification_request"
-                ] = "You cannot set qualification levels without allowing user shadowing verification."
-                errors[
-                    "_shadowing_verification_request_qualification_levels"
-                ] = "You cannot set qualification levels without allowing user shadowing verification."
+                errors["_allow_user_shadowing_verification_request"] = (
+                    "You cannot set qualification levels without allowing user shadowing verification."
+                )
+                errors["_shadowing_verification_request_qualification_levels"] = (
+                    "You cannot set qualification levels without allowing user shadowing verification."
+                )
 
         # only resize if an image is present and has changed
         if image and not isinstance(image, FieldFile):

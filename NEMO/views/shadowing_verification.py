@@ -164,15 +164,17 @@ def get_tools_and_qualification_levels_json(tools):
             {
                 "name": tool.__str__(),
                 "id": tool.id,
-                "qualification_levels": [
-                    {
-                        "name": qualification_level.__str__(),
-                        "id": qualification_level.id,
-                    }
-                    for qualification_level in tool.shadowing_verification_request_qualification_levels.all()
-                ]
-                if tool.shadowing_verification_request_qualification_levels
-                else None,
+                "qualification_levels": (
+                    [
+                        {
+                            "name": qualification_level.__str__(),
+                            "id": qualification_level.id,
+                        }
+                        for qualification_level in tool.shadowing_verification_request_qualification_levels.all()
+                    ]
+                    if tool.shadowing_verification_request_qualification_levels
+                    else None
+                ),
             }
         )
     return mark_safe(dumps(tool_list))
@@ -213,9 +215,11 @@ def handle_decision(request, user, shadowing_verification_request):
                 user,
                 shadowing_verification_request.tool,
                 shadowing_verification_request.creator,
-                shadowing_verification_request.qualification_level.id
-                if shadowing_verification_request.qualification_level
-                else None,
+                (
+                    shadowing_verification_request.qualification_level.id
+                    if shadowing_verification_request.qualification_level
+                    else None
+                ),
             )
         else:
             shadowing_verification_request.status = RequestStatus.DENIED
@@ -286,11 +290,11 @@ def send_request_received_email(
         status = (
             "approved"
             if shadowing_verification_request.status == RequestStatus.APPROVED
-            else "denied"
-            if shadowing_verification_request.status == RequestStatus.DENIED
-            else "updated"
-            if edit
-            else "received"
+            else (
+                "denied"
+                if shadowing_verification_request.status == RequestStatus.DENIED
+                else "updated" if edit else "received"
+            )
         )
         absolute_url = get_full_url(reverse("shadowing_verifications"), request)
         color_type = "success" if status == "approved" else "danger" if status == "denied" else "info"
