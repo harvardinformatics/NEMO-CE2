@@ -1055,7 +1055,15 @@ def get_granted_badge_reader_access(
     for qualification in new_qualifications:
         # Only add the ones that qualify with qualification level
         if qualification.tool.apply_grant_access(qualification.qualification_level):
-            badge_reader_user[qualification.tool.grant_badge_reader_access_upon_qualification].add(qualification.user)
+            previous_grants = Qualification.objects.filter(
+                user=qualification.user,
+                tool___grant_badge_reader_access_upon_qualification__isempty=False,
+                qualified_on__lt=qualification_since,
+            ).values_list("tool___grant_badge_reader_access_upon_qualification", flat=True)
+            if qualification.tool.grant_badge_reader_access_upon_qualification not in previous_grants:
+                badge_reader_user[qualification.tool.grant_badge_reader_access_upon_qualification].add(
+                    qualification.user
+                )
     return badge_reader_user
 
 
