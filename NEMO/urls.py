@@ -74,12 +74,14 @@ def sort_urls(url_path):
 
 # REST API URLs
 router = routers.DefaultRouter()
-router.register(r"auth_groups", api.GroupViewSet)
-router.register(r"auth_permissions", api.PermissionViewSet)
 router.register(r"account_types", api.AccountTypeViewSet)
 router.register(r"accounts", api.AccountViewSet)
+router.register(r"alert_categories", api.AlertCategoryViewSet)
+router.register(r"alerts", api.AlertViewSet)
 router.register(r"area_access_records", api.AreaAccessRecordViewSet)
 router.register(r"areas", api.AreaViewSet)
+router.register(r"auth_groups", api.GroupViewSet)
+router.register(r"auth_permissions", api.PermissionViewSet)
 router.register(r"billing", api.BillingViewSet, basename="billing")
 router.register(r"configurations", api.ConfigurationViewSet)
 router.register(r"configuration_precursors", api.ConfigurationPrecursorViewSet)
@@ -171,6 +173,8 @@ urlpatterns += [
         name="enable_tool",
     ),
     path("disable_tool/<int:tool_id>/", tool_control.disable_tool, name="disable_tool"),
+    path("enter_wait_list/", tool_control.enter_wait_list, name="enter_wait_list"),
+    path("exit_wait_list/", tool_control.exit_wait_list, name="exit_wait_list"),
     path("tool_config_history/<int:tool_id>/", tool_control.tool_config_history, name="tool_config_history"),
     path("usage_data_history/<int:tool_id>/", tool_control.usage_data_history, name="usage_data_history"),
     path("past_comments_and_tasks/", tool_control.past_comments_and_tasks, name="past_comments_and_tasks"),
@@ -232,6 +236,16 @@ urlpatterns += [
         "delete_adjustment_request/<int:request_id>/",
         adjustment_requests.delete_adjustment_request,
         name="delete_adjustment_request",
+    ),
+    path(
+        "mark_adjustment_as_applied/<int:request_id>/",
+        adjustment_requests.mark_adjustment_as_applied,
+        name="mark_adjustment_as_applied",
+    ),
+    path(
+        "apply_adjustment/<int:request_id>/",
+        adjustment_requests.apply_adjustment,
+        name="apply_adjustment",
     ),
     # Shadowing Verification requests
     path(
@@ -688,6 +702,11 @@ if settings.ALLOW_CONDITIONAL_URLS:
             timed_services.email_reservation_reminders,
             name="email_reservation_reminders",
         ),
+        path(
+            "email_scheduled_outage_reminders/",
+            timed_services.email_scheduled_outage_reminders,
+            name="email_scheduled_outage_reminders",
+        ),
         path("email_usage_reminders/", timed_services.email_usage_reminders, name="email_usage_reminders"),
         path(
             "email_weekend_access_notification/",
@@ -704,6 +723,9 @@ if settings.ALLOW_CONDITIONAL_URLS:
         ),
         path("manage_recurring_charges/", timed_services.manage_recurring_charges, name="manage_recurring_charges"),
         path("auto_logout_users/", timed_services.auto_logout_users, name="auto_logout_users"),
+        path(
+            "check_and_update_wait_list/", timed_services.check_and_update_wait_list, name="check_and_update_wait_list"
+        ),
         # Reminders and periodic events - NEMO CE
         path("email_grant_access/", timed_services.email_grant_access, name="email_grant_access"),
         path("auto_validate_charges/", timed_services.auto_validate_charges, name="auto_validate_charges"),

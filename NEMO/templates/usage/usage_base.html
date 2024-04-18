@@ -181,13 +181,11 @@
 				}
 			}
 			$(set_dropdown_selected());
-		
+
         </script>
         {% if project_autocomplete %}
             <div class="form-group">
-                <label class="control-label col-sm-2" for="search">
-                    <strong>For</strong>
-                </label>
+                <label class="control-label col-sm-2" for="search">For</label>
                 <div class="col-sm-7 col-md-7 col-lg-5" id="search_container">
                     <input id="search"
                            type="text"
@@ -216,7 +214,7 @@
 					$('#search').autocomplete('accounts_and_projects_for_usage', get_search_item, {% json_search_base_with_extra_fields search_items %});
 				}
 				$(on_load);
-			
+
             </script>
             <style>
 				#search_container .tt-dropdown-menu
@@ -224,13 +222,11 @@
 					min-width: 400px;
 					max-height: 600px;
 				}
-			
+
             </style>
         {% endif %}
     </form>
     <div style="height: 5px; border-top: 1px dotted #eee"></div>
-    {% if not project_autocomplete or project_autocomplete and selection %}
-        {% block usage_content %}
-        {% endblock %}
-    {% endif %}
+    {% block usage_content %}
+    {% endblock %}
 {% endblock %}
