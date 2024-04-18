@@ -3,13 +3,9 @@
     <thead>
         <tr>
             <th>Created</th>
-            {% if user_is_reviewer or user.is_any_part_of_staff %}
-                <th>User</th>
-            {% endif %}
+            {% if user_is_reviewer or user.is_any_part_of_staff %}<th>User</th>{% endif %}
             <th class="text-center">Tool</th>
-            {% if qualification_levels_exist %}
-                <th class="text-center">Qualification Level</th>
-            {% endif %}
+            {% if qualification_levels_exist %}<th class="text-center">Qualification Level</th>{% endif %}
             <th class="text-center">Shadowed User</th>
             <th class="text-center">Shadowed On</th>
             <th class="text-right text-nowrap">
@@ -26,7 +22,10 @@
     <tbody>
         {% for s_request in request_list %}
             <tr>
-                <td style="vertical-align: middle">{% if s_request.id in request_notifications %}<span class="label label-success">New</span> {% endif %}{{ s_request.creation_time|date:'SHORT_DATETIME_FORMAT' }}</td>
+                <td style="vertical-align: middle">
+                    {% if s_request.id in request_notifications %}<span class="label label-success">New</span>{% endif %}
+                    {{ s_request.creation_time|date:'SHORT_DATETIME_FORMAT' }}
+                </td>
                 {% if user_is_reviewer or user.is_any_part_of_staff %}
                     <td style="vertical-align: middle">{{ s_request.creator.get_name }}</td>
                 {% endif %}
@@ -41,7 +40,9 @@
                         {{ s_request.reviewer.get_name }}
                     {% elif allowed_tools_exist %}
                         {% if request_status == 'pending' and user in s_request.reviewers %}
-                            <a class="btn btn-sm btn-default" title="Approve/Deny" href="{% url 'edit_shadowing_verification' s_request.id %}"><i class="glyphicon glyphicon-ok-circle success-highlight"></i>&nbsp;&nbsp;<i class="glyphicon glyphicon-ban-circle danger-highlight"></i> Review</a>
+                            <a class="btn btn-sm btn-default"
+                               title="Approve/Deny"
+                               href="{% url 'edit_shadowing_verification' s_request.id %}"><i class="glyphicon glyphicon-ok-circle success-highlight"></i>&nbsp;&nbsp;<i class="glyphicon glyphicon-ban-circle danger-highlight"></i> Review</a>
                         {% endif %}
                         {% if request_status == 'pending' and s_request.creator == user %}
                             {% url 'edit_shadowing_verification' s_request.id as edit_request_url %}
@@ -52,13 +53,14 @@
                     {% endif %}
                 </td>
             </tr>
-        <tr>
-            <td colspan="{{ table_col_number }}" >
-                <strong>Details</strong><br>
-                {{ s_request.description }}
-            </td>
-            <td style="border-top: none"></td>
-        </tr>
+            <tr>
+                <td colspan="{{ table_col_number }}">
+                    <strong>Details</strong>
+                    <br>
+                    {{ s_request.description }}
+                </td>
+                <td style="border-top: none"></td>
+            </tr>
         {% endfor %}
     </tbody>
 </table>

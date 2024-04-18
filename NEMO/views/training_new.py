@@ -263,9 +263,11 @@ def export_training_history(user, training_histories) -> HttpResponse:
                 "tool": training_history.tool,
                 "dates": ", ".join(
                     [
-                        format_datetime(training_date)
-                        if isinstance(training_date, datetime.datetime)
-                        else str(training_date)
+                        (
+                            format_datetime(training_date)
+                            if isinstance(training_date, datetime.datetime)
+                            else str(training_date)
+                        )
                         for training_date in training_history.dates
                     ]
                 ),
@@ -395,12 +397,16 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
         initial = {"duration": training_event.duration}
     else:
         initial = {
-            "duration": tool_training_details.duration
-            if tool_training_details and tool_training_details.duration
-            else TrainingCustomization.get_int("training_event_default_duration"),
-            "capacity": tool_training_details.capacity
-            if tool_training_details and tool_training_details.capacity
-            else TrainingCustomization.get_int("training_event_default_capacity"),
+            "duration": (
+                tool_training_details.duration
+                if tool_training_details and tool_training_details.duration
+                else TrainingCustomization.get_int("training_event_default_duration")
+            ),
+            "capacity": (
+                tool_training_details.capacity
+                if tool_training_details and tool_training_details.capacity
+                else TrainingCustomization.get_int("training_event_default_capacity")
+            ),
         }
     if training_request:
         invited_user_ids.add(training_request.user_id)

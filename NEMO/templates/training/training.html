@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% load custom_tags_and_filters %}
 {% block extrahead %}
-	{% load static %}
-	<script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
-	<link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}"/>
+    {% load static %}
+    <script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
+    <link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}" />
 {% endblock %}
 {% block title %}Training{% endblock %}
 {% block content %}
-	<h1>Training</h1>
-	{% include 'training/training_recording.html' %}
+    <h1>Training</h1>
+    {% include 'training/training_recording.html' %}
 {% endblock %}

@@ -7,12 +7,13 @@
     </head>
     <body>
         <!--[if mso]><table width="600" align="center"><tr><td><![endif]-->
-        <table align="center" style="width:100%; max-width:600px; font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
+        <table align="center"
+               style="width:100%;
+                      max-width:600px;
+                      font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
             <tr>
                 <td align="center" style="color: white; background: #5bc0de; padding: 50px 0;" bgcolor="#5bc0de">
-                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">
-                        NEW TRAINING REQUEST
-                    </h1>
+                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">NEW TRAINING REQUEST</h1>
                 </td>
             </tr>
             <tr>
@@ -23,23 +24,30 @@
             </tr>
             <tr>
                 <td style="padding: 10px;">
-					<p>{{ training_request.user }} is requesting training on the {{ training_request.tool.name }}{% if training_request.technique %} ({{ training_request.technique.name }}){% endif %}{% if training_request.message %}:{% else %}.{% endif %}</p>
-					{% if training_request.message %}
-						<p>{{ training_request.message|linebreaksbr }}</p>
-					{% endif %}
-					{% if training_request.trainingrequesttime_set.exists %}
-						<p>They submitted their availability as the following:</p>
-						<ul>
-						{% for available_time in training_request.trainingrequesttime_set.all %}
-							<li>{{ available_time.start_time }} to {{ available_time.end_time }}</li>
-						{% endfor %}
-						</ul>
-					{% endif %}
+                    <p>
+                        {{ training_request.user }} is requesting training on the {{ training_request.tool.name }}
+                        {% if training_request.technique %}({{ training_request.technique.name }}){% endif %}
+                        {% if training_request.message %}
+                            :
+                        {% else %}
+                            .
+                        {% endif %}
+                    </p>
+                    {% if training_request.message %}<p>{{ training_request.message|linebreaksbr }}</p>{% endif %}
+                    {% if training_request.trainingrequesttime_set.exists %}
+                        <p>They submitted their availability as the following:</p>
+                        <ul>
+                            {% for available_time in training_request.trainingrequesttime_set.all %}
+                                <li>{{ available_time.start_time }} to {{ available_time.end_time }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
                 </td>
             </tr>
             <tr>
                 <td style="padding: 10px;">
-                    Visit the <a href="{% absolute_url 'schedule_training_events' %}">Training sessions page</a> to schedule or invite them to a training session.<br/>
+                    Visit the <a href="{% absolute_url 'schedule_training_events' %}">Training sessions page</a> to schedule or invite them to a training session.
+                    <br />
                 </td>
             </tr>
         </table>

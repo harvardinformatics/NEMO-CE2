@@ -5,9 +5,16 @@
     </head>
     <body>
         <!--[if mso]><table width="600" align="center"><tr><td><![endif]-->
-        <table align="center" style="width:100%; max-width:600px; font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
+        <table align="center"
+               style="width:100%;
+                      max-width:600px;
+                      font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
             <tr>
-                <td align="center" style="color: white; background: {{ template_color }}; padding: 50px 0;" bgcolor="{{ template_color }}">
+                <td align="center"
+                    style="color: white;
+                           background: {{ template_color }};
+                           padding: 50px 0"
+                    bgcolor="{{ template_color }}">
                     <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">
                         {{ shadowing_verification.tool.name|upper }} SHADOWING VERIFICATION {{ status|upper }}
                     </h1>
@@ -16,24 +23,40 @@
             <tr>
                 <td style="padding: 10px;">
                     <p>Dear {{ shadowing_verification.creator.first_name }},</p>
-                    <p>Your shadowing verification for the "{{ shadowing_verification.tool.name }}" has been {{ status }}{% if shadowing_verification.creator != shadowing_verification.last_updated_by %} by {{ shadowing_verification.last_updated_by.get_name }}{% endif %}.</p>
-                </td>
-            </tr>
-            <tr>
-                <td style="padding: 10px;">
-                    <p style="margin-bottom: 0;">Details:
-                    <br><u>Tool</u>: {{ shadowing_verification.tool.name }}
-					{% if qualification_levels_exist %}<br><u>Qualification Level</u>: {{ shadowing_verification.qualification_level.name }}{% endif %}
-					<br><u>Shadowed User</u>: {{ shadowing_verification.shadowed_qualified_user.get_name }}
-					<br><u>Shadowed On</u>: {{ shadowing_verification.event_date|date }}
-					<br><u>Description</u>:
-                    <br>{{ shadowing_verification.description }}
+                    <p>
+                        Your shadowing verification for the "{{ shadowing_verification.tool.name }}" has been {{ status }}
+                        {% if shadowing_verification.creator != shadowing_verification.last_updated_by %}
+                            by {{ shadowing_verification.last_updated_by.get_name }}
+                        {% endif %}
+                        .
                     </p>
                 </td>
             </tr>
             <tr>
                 <td style="padding: 10px;">
-                    Visit the <a href="{{ shadowing_verification_url }}">{{ site_title }} shadowing verification page</a> for more information.<br/>
+                    <p style="margin-bottom: 0;">
+                        Details:
+                        <br>
+                        <u>Tool</u>: {{ shadowing_verification.tool.name }}
+                        {% if qualification_levels_exist %}
+                            <br>
+                            <u>Qualification Level</u>: {{ shadowing_verification.qualification_level.name }}
+                        {% endif %}
+                        <br>
+                        <u>Shadowed User</u>: {{ shadowing_verification.shadowed_qualified_user.get_name }}
+                        <br>
+                        <u>Shadowed On</u>: {{ shadowing_verification.event_date|date }}
+                        <br>
+                        <u>Description</u>:
+                        <br>
+                        {{ shadowing_verification.description }}
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">
+                    Visit the <a href="{{ shadowing_verification_url }}">{{ site_title }} shadowing verification page</a> for more information.
+                    <br />
                 </td>
             </tr>
         </table>

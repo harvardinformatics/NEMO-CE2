@@ -18,7 +18,7 @@ from NEMO.models import (
     Tool,
     User,
 )
-from NEMO.tests.test_utilities import login_as, login_as_access_user, login_as_user
+from NEMO.tests.test_utilities import create_user_and_project, login_as
 from NEMO.utilities import get_class_from_settings
 from NEMO.views.customization import ToolCustomization
 
@@ -70,13 +70,19 @@ class ToolTestCase(TestCase):
             "_policy_off_end_time": "4:00 PM",
             "_policy_off_weekend": True,
             "visible": True,
+            "_operation_mode": Tool.OperationMode.REGULAR,
         }
         area_door = Door.objects.create(name="cleanroom door", interlock=cleanroom_interlock)
         area_door.areas.set([cleanroom])
         tool_form = ToolAdminForm(tool_data)
         self.assertTrue(tool_form.is_valid(), tool_form.errors.as_text())
         tool = tool_form.save()
-        alternate_tool_data = {"name": "alt_test_tool", "parent_tool": tool.id, "visible": True}
+        alternate_tool_data = {
+            "name": "alt_test_tool",
+            "parent_tool": tool.id,
+            "visible": True,
+            "_operation_mode": Tool.OperationMode.REGULAR,
+        }
         alternate_tool_form = ToolAdminForm(alternate_tool_data)
         self.assertTrue(alternate_tool_form.is_valid(), alternate_tool_form.errors.as_text())
         alternate_tool = alternate_tool_form.save()
@@ -122,14 +128,10 @@ class ToolTestCase(TestCase):
         self.assertEqual(tool.get_absolute_url(), alternate_tool.get_absolute_url())
 
     def test_tool_in_use(self):
-        user = login_as_user(self.client)
+        user, project = create_user_and_project(add_area_access_permissions=True)
         # make the tool operational
         tool.operational = True
         tool.save()
-        project = Project.objects.create(
-            name="test project", application_identifier="sadasd", account=Account.objects.create(name="test account")
-        )
-        user.projects.add(project)
         # user needs to be qualified to use the tool
         user.add_qualification(tool, qualification_level)
         user.physical_access_levels.add(PhysicalAccessLevel.objects.get(name="cleanroom access"))
@@ -137,7 +139,7 @@ class ToolTestCase(TestCase):
         user.training_required = False
         user.save()
         # log into the area
-        login_as_access_user(self.client)
+        login_as(self.client, user)
         response = self.client.post(
             reverse("login_to_area", kwargs={"door_id": area_door.id}), {"badge_number": user.badge_number}, follow=True
         )
@@ -159,22 +161,14 @@ class ToolTestCase(TestCase):
         self.assertEqual(tool.get_current_usage_event(), alternate_tool.get_current_usage_event())
 
     def login_as_user_and_enable_tool(self, target_tool, badge):
-        user, created = User.objects.get_or_create(
-            username="test_user " + str(badge), first_name="Testy", last_name="McTester", badge_number=badge
-        )
-        project = Project.objects.create(
-            name="test project " + str(badge),
-            application_identifier="sadasd",
-            account=Account.objects.create(name="test account " + str(badge)),
-        )
-        user.projects.add(project)
+        user, project = create_user_and_project(add_area_access_permissions=True)
         # user needs to be qualified to use the tool
         user.add_qualification(target_tool, qualification_level)
         user.physical_access_levels.add(PhysicalAccessLevel.objects.get(name="cleanroom access"))
         user.badge_number = badge
         user.training_required = False
         user.save()
-        login_as_access_user(self.client)
+        login_as(self.client, user)
         response = self.client.post(
             reverse("login_to_area", kwargs={"door_id": area_door.id}), {"badge_number": user.badge_number}, follow=True
         )

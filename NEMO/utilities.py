@@ -374,9 +374,7 @@ def export_format_datetime(
     datetime_format = (
         export_date_format
         if d_format and not t_format
-        else export_time_format
-        if not d_format and t_format
-        else export_date_format + separator + export_time_format
+        else export_time_format if not d_format and t_format else export_date_format + separator + export_time_format
     )
     return format_datetime(this_time, datetime_format, as_current_timezone)
 
@@ -415,6 +413,13 @@ def week_date_range(given_date: datetime) -> (datetime, datetime):
     start = given_date - timedelta(days=given_date.weekday())  # Monday
     end = start + timedelta(days=6)  # Sunday
     return beginning_of_the_day(start), end_of_the_day(end)
+
+
+def is_date_in_datetime_range(date_to_check: date, start_date: datetime, end_date: datetime) -> bool:
+    # use timezone of start_date for date_to_check
+    start_of_day = beginning_of_the_day(datetime.combine(date_to_check, time()))
+    end_of_day = end_of_the_day(datetime.combine(date_to_check, time()))
+    return start_date <= end_of_day and start_of_day <= end_date
 
 
 def remove_duplicates(iterable: Union[List, Set, Tuple]) -> List:

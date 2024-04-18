@@ -5,17 +5,21 @@ from django.db import migrations, models
 
 from NEMO.apps.nemo_ce.migration_utils import NEMOMigration
 
+
 class Migration(NEMOMigration):
 
     dependencies = [
-        ('NEMO', '0068_door_multiple_areas'),
-        ('nemo_ce', '0018_ce_training_qualification'),
+        ("NEMO", "0068_door_multiple_areas"),
+        ("nemo_ce", "0018_ce_training_qualification"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='tooltrainingdetail',
-            name='dont_allow_request_without_area_access',
-            field=models.BooleanField(default=False, help_text="Check this box to prevent users from requesting training on this tool if they don't have the required area access"),
+            model_name="tooltrainingdetail",
+            name="dont_allow_request_without_area_access",
+            field=models.BooleanField(
+                default=False,
+                help_text="Check this box to prevent users from requesting training on this tool if they don't have the required area access",
+            ),
         ),
     ]

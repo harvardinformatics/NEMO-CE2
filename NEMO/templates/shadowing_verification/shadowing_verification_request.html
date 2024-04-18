@@ -2,52 +2,93 @@
 {% load custom_tags_and_filters %}
 {% load static %}
 {% load tz %}
-{% block title %}{% if form.instance.id %}Modify shadowing verification{% else %}New shadowing verification{% endif %}{% endblock %}
+{% block title %}
+    {% if form.instance.id %}
+        Modify shadowing verification
+    {% else %}
+        New shadowing verification
+    {% endif %}
+{% endblock %}
 {% block extrahead %}
-	<script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
-	<link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}"/>
+    <script type="text/javascript" src="{% static "datetimepicker/bootstrap-datetimepicker.js" %}"></script>
+    <link rel="stylesheet" type="text/css" href="{% static "datetimepicker/bootstrap-datetimepicker.css" %}" />
 {% endblock %}
 {% block content %}
     {% with instance_id=form.instance.id %}
-        <h1 class="form-group">{% if instance_id %}Modify shadowing verification{% else %}New shadowing verification{% endif %}</h1>
-        <form class="well" action="{% if instance_id %}{% url 'edit_shadowing_verification' instance_id %}{% else %}{% url 'create_shadowing_verification' %}{% endif %}" method="post">
-            {% csrf_token %}
-            {% if form.non_field_errors %}
-                <div class="alert alert-danger">
-                    {{ form.non_field_errors }}
-                </div>
+        <h1 class="form-group">
+            {% if instance_id %}
+                Modify shadowing verification
+            {% else %}
+                New shadowing verification
             {% endif %}
+        </h1>
+        <form class="well"
+              action="{% if instance_id %}{% url 'edit_shadowing_verification' instance_id %}{% else %}{% url 'create_shadowing_verification' %}{% endif %}"
+              method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
             {% if instance_id and user in form.instance.reviewers %}
                 <div class="form-group">
                     <div class="row">
                         <div class="col-sm-6">
                             <label for="creator_readonly" class="control-label">Creator</label>
-                            <input id="creator_readonly" class="form-control" style="min-width: 250px;" disabled value="{{ form.instance.creator }}">
+                            <input id="creator_readonly"
+                                   class="form-control"
+                                   style="min-width: 250px"
+                                   disabled
+                                   value="{{ form.instance.creator }}">
                         </div>
                     </div>
                 </div>
             {% endif %}
             <div class="form-group">
-			    <label for="tool_search">Tool</label>{% if form.tool.errors %} - <span style="color:red">{{ form.tool.errors|striptags }}</span>{% endif %}
-			    <input type="text" id="tool_search" name="tool" class="form-control" required>
-			    <input type="button" id="selected_tool" class="btn btn-default" onclick="clear_tool_selection()" style="display:none">
+                <label for="tool_search">Tool</label>
+                {% if form.tool.errors %}- <span style="color:red">{{ form.tool.errors|striptags }}</span>{% endif %}
+                <input type="text" id="tool_search" name="tool" class="form-control" required>
+                <input type="button"
+                       id="selected_tool"
+                       class="btn btn-default"
+                       onclick="clear_tool_selection()"
+                       style="display:none">
             </div>
             <div class="form-group" id="level_field" style="display: none;">
-			    <label for="qualification_level">Qualification Level</label>{% if form.qualification_level.errors %} - <span style="color:red">{{ form.qualification_level.errors|striptags }}</span>{% endif %}
+                <label for="qualification_level">Qualification Level</label>
+                {% if form.qualification_level.errors %}
+                    - <span style="color:red">{{ form.qualification_level.errors|striptags }}</span>
+                {% endif %}
                 <select class="form-control" id="qualification_level" name="qualification_level"></select>
             </div>
             <div class="form-group">
-                <label for="user_search">Shadowed User</label>{% if form.shadowed_qualified_user.errors %} - <span style="color:red">{{ form.shadowed_qualified_user.errors|striptags }}</span>{% endif %}
+                <label for="user_search">Shadowed User</label>
+                {% if form.shadowed_qualified_user.errors %}
+                    - <span style="color:red">{{ form.shadowed_qualified_user.errors|striptags }}</span>
+                {% endif %}
                 <input type="text" id="user_search" name="shadowed_qualified_user" class="form-control" required>
-                <input type="button" id="selected_user" class="btn btn-default" onclick="clear_selection('#user_search', '#selected_user')" style="display:none">
+                <input type="button"
+                       id="selected_user"
+                       class="btn btn-default"
+                       onclick="clear_selection('#user_search', '#selected_user')"
+                       style="display:none">
             </div>
             <div class="form-group"  style="position: relative;">
-                <label for="event_date">Shadowed On</label>{% if form.event_date.errors %} - <span style="color:red">{{ form.event_date.errors|striptags }}</span>{% endif %}
-                <input type="text" class="form-control text-center" name="event_date" id="event_date"  value="{{ form.event_date.value|input_date_format }}" required>
+                <label for="event_date">Shadowed On</label>
+                {% if form.event_date.errors %}- <span style="color:red">{{ form.event_date.errors|striptags }}</span>{% endif %}
+                <input type="text"
+                       class="form-control text-center"
+                       name="event_date"
+                       id="event_date"
+                       value="{{ form.event_date.value|input_date_format }}"
+                       required>
             </div>
             <div class="form-group">
-                <label for="description" class="control-label">Description</label>{% if form.description.errors %} - <span style="color:red">{{ form.description.errors|striptags }}</span>{% endif %}
-                <textarea class="form-control" rows="3" name="description" id="description" placeholder="{{shadowing_verification_request_description_placeholder}}" required>{{ form.description.value|default_if_none:"" }}</textarea>
+                <label for="description" class="control-label">Description</label>
+                {% if form.description.errors %}- <span style="color:red">{{ form.description.errors|striptags }}</span>{% endif %}
+                <textarea class="form-control"
+                          rows="3"
+                          name="description"
+                          id="description"
+                          placeholder="{{shadowing_verification_request_description_placeholder}}"
+                          required>{{ form.description.value|default_if_none:"" }}</textarea>
             </div>
             <div class="text-right">
                 {% if form.instance.get_status_display == "Pending" %}
@@ -62,7 +103,7 @@
             </div>
         </form>
     {% endwith %}
-	<script>
+    <script>
         let timepicker_properties =
 		{
 			format: '{{ date_input_js_format }}',
@@ -189,5 +230,6 @@
 		}
 
 		$(on_load);
-	</script>
+	
+    </script>
 {% endblock %}

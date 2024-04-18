@@ -6,33 +6,40 @@
     </head>
     <body>
         <!--[if mso]><table width="600" align="center"><tr><td><![endif]-->
-        <table align="center" style="width:100%; max-width:600px; font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
+        <table align="center"
+               style="width:100%;
+                      max-width:600px;
+                      font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
             <tr>
                 <td align="center" style="color: white; background: #d9534f; padding: 50px 0;" bgcolor="#d9534f">
-                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">
-                        TRAINING INVITATION DECLINED
-                    </h1>
+                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">TRAINING INVITATION DECLINED</h1>
                 </td>
             </tr>
             <tr>
                 <td style="padding: 10px;">
                     <p>Dear {{ training_invitation.trainer.first_name }},</p>
-                    <p>This email is to inform you that {{ training_invitation.user }} declined your invitation to the {{ training_invitation.tool }} training on {{ training_invitation.start }}.
-					{% if reason %}
-                        <br><u>Additional information</u>:
-                        <br>{{ reason }}
-                    {% endif %}
-					</p>
-                </td>
-            </tr>
-			<tr>
-                <td style="padding: 10px;">
-					<p>There are currently <b>{{ training_invitation.training_event.users|length }}</b> attendees and <b>{{ training_invitation.training_event.pending_invitations.count }}</b> pending invitations for this session</p>
+                    <p>
+                        This email is to inform you that {{ training_invitation.user }} declined your invitation to the {{ training_invitation.tool }} training on {{ training_invitation.start }}.
+                        {% if reason %}
+                            <br>
+                            <u>Additional information</u>:
+                            <br>
+                            {{ reason }}
+                        {% endif %}
+                    </p>
                 </td>
             </tr>
             <tr>
                 <td style="padding: 10px;">
-                    Visit the <a href="{% absolute_url 'manage_training_events' %}">Manage training session page</a> to reschedule or cancel this training.<br/>
+                    <p>
+                        There are currently <b>{{ training_invitation.training_event.users|length }}</b> attendees and <b>{{ training_invitation.training_event.pending_invitations.count }}</b> pending invitations for this session
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">
+                    Visit the <a href="{% absolute_url 'manage_training_events' %}">Manage training session page</a> to reschedule or cancel this training.
+                    <br />
                 </td>
             </tr>
         </table>

@@ -6,16 +6,21 @@
         <div class="form-group">
             <label class="control-label col-md-4" for="shadowing_verification_request_title">Page title</label>
             <div class="col-md-7">
-                <input type="text" id="shadowing_verification_request_title" name="shadowing_verification_request_title" class="form-control" value="{{ shadowing_verification_request_title }}"/>
+                <input type="text"
+                       id="shadowing_verification_request_title"
+                       name="shadowing_verification_request_title"
+                       class="form-control"
+                       value="{{ shadowing_verification_request_title }}" />
             </div>
-            <div class="col-md-offset-4 col-md-8 help-block light-grey">
-                The title for the shadowing verification page.
-            </div>
+            <div class="col-md-offset-4 col-md-8 help-block light-grey">The title for the shadowing verification page.</div>
         </div>
         <div class="form-group">
             <label class="control-label col-md-4" for="shadowing_verification_request_description">Description</label>
             <div class="col-md-7">
-                <textarea oninput="auto_size_textarea(this);" id="shadowing_verification_request_description" name="shadowing_verification_request_description" class="form-control">{{ shadowing_verification_request_description }}</textarea>
+                <textarea oninput="auto_size_textarea(this);"
+                          id="shadowing_verification_request_description"
+                          name="shadowing_verification_request_description"
+                          class="form-control">{{ shadowing_verification_request_description }}</textarea>
             </div>
             <div class="col-md-offset-4 col-md-8 help-block light-grey">
                 The description/instructions to display on the shadowing verification page.
@@ -25,7 +30,13 @@
             <label class="control-label col-md-4" for="shadowing_verification_request_display_max">Display maximum</label>
             <div class="col-md-3">
                 <div class="input-group">
-                    <input type="number" step="1" min="0" id="shadowing_verification_request_display_max" name="shadowing_verification_request_display_max" class="form-control text-right" value="{{ shadowing_verification_request_display_max }}"/>
+                    <input type="number"
+                           step="1"
+                           min="0"
+                           id="shadowing_verification_request_display_max"
+                           name="shadowing_verification_request_display_max"
+                           class="form-control text-right"
+                           value="{{ shadowing_verification_request_display_max }}" />
                     <span class="input-group-addon">requests</span>
                 </div>
             </div>
@@ -33,18 +44,21 @@
                 The maximum number of requests to display in each section (approved, denied). Leave blank for all.
             </div>
         </div>
-		<div class="form-group">
-            <label class="control-label col-md-4" for="shadowing_verification_request_description_placeholder">Form description field placeholder</label>
+        <div class="form-group">
+            <label class="control-label col-md-4" for="shadowing_verification_request_description_placeholder">
+                Form description field placeholder
+            </label>
             <div class="col-md-7">
-                <textarea oninput="auto_size_textarea(this);" id="shadowing_verification_request_description_placeholder" name="shadowing_verification_request_description_placeholder" class="form-control">{{ shadowing_verification_request_description_placeholder }}</textarea>
+                <textarea oninput="auto_size_textarea(this);"
+                          id="shadowing_verification_request_description_placeholder"
+                          name="shadowing_verification_request_description_placeholder"
+                          class="form-control">{{ shadowing_verification_request_description_placeholder }}</textarea>
             </div>
             <div class="col-md-offset-4 col-md-8 help-block light-grey">
                 The placeholder/instructions to display on the shadowing verification form's description field.
             </div>
         </div>
         <div class="customization-separation" style="margin-bottom: 15px"></div>
-        <div class="text-center">
-            {% button type="save" value="Save settings" %}
-        </div>
+        <div class="text-center">{% button type="save" value="Save settings" %}</div>
     </form>
 </div>
