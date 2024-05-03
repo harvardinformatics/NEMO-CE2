@@ -100,7 +100,7 @@
                             name="technique__{{ entry_number }}">
                         <option selected value="">{{ "training"|customization:"training_technique_empty_label" }}</option>
                         {% for technique in techniques %}
-                            <option class="technique-option" {% if technique_id|to_int == technique.id %}selected{% else %}style="display: none"{% endif %} value="{{ technique.id }}" {% for tool_id in technique.tool_ids %}technique-tool-{{ tool_id }}{% endfor %}>{{ technique.name }}
+                            <option class="technique-option" {% if technique_id|to_int == technique.id %}selected{% else %}style="display: none"{% endif %} value="{{ technique.id }}" {% for tool_id in technique.tool_ids %}technique-tool-{{ tool_id|concat:" " }}{% endfor %}>{{ technique.name }}
                             </option>
                         {% endfor %}
                     </select>
