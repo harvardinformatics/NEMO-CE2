@@ -5639,9 +5639,27 @@ def reset_training_request_to_pending(tool: Tool, actor: User, filter_by_users: 
 
 
 def fulfill_training_requests(tool: Tool, actor: User, users: Iterable[User]):
-    training_requests = TrainingRequest.objects.filter(tool=tool, user__in=users, status=TrainingRequestStatus.ACCEPTED)
+    # We want to fulfill any request that were sent, reviewed, accepted or invited
+    statuses = [
+        TrainingRequestStatus.SENT,
+        TrainingRequestStatus.REVIEWED,
+        TrainingRequestStatus.ACCEPTED,
+        TrainingRequestStatus.INVITED,
+    ]
+    training_requests = TrainingRequest.objects.filter(tool=tool, user__in=users, status__in=statuses)
     for training_request in training_requests:
         training_request.save_status(TrainingRequestStatus.FULFILLED, actor)
+        from NEMO.views.notifications import delete_notification
+
+        delete_notification(Notification.Types.TRAINING_REQUEST, training_request.id)
+    training_invitations = TrainingInvitation.objects.filter(
+        training_event__tool=tool, user__in=users, status__in=statuses
+    )
+    for training_invitation in training_invitations:
+        training_invitation.save_status(TrainingRequestStatus.FULFILLED, actor)
+        from NEMO.views.notifications import delete_notification
+
+        delete_notification(Notification.Types.TRAINING_INVITATION, training_invitation.id)
 
 
 def create_training_history(

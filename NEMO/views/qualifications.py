@@ -18,6 +18,7 @@ from NEMO.models import (
     TrainingSession,
     User,
     create_training_history,
+    fulfill_training_requests,
 )
 from NEMO.views.users import get_identity_service
 
@@ -102,6 +103,8 @@ def record_qualification(
                 qualification = user.add_qualification(t, qualification_level)
                 if training_session:
                     training_session.qualification = qualification
+                # Find and fulfill training request since they are now qualified
+                fulfill_training_requests(t, request_user, [user])
             original_physical_access_levels = set(user.physical_access_levels.all())
             physical_access_level_automatic_enrollment = list(
                 set(
