@@ -105,10 +105,10 @@
                                 {% if slot.permanent_position %}
                                     <option selected value="">{{ slot.position }}</option>
                                 {% else %}
-                                    <option value="">Any</option>
-                                    {% for av_slot in slot|precursor_slot_available_positions:reservation_start %}
-                                        <option value="{{ av_slot }}">{{ av_slot }}</option>
-                                    {% endfor %}
+                                    {% with av_slots=slot|precursor_slot_available_positions:reservation_start %}
+                                        {% if av_slots|length != 1 %}<option value="">Any</option>{% endif %}
+                                        {% for av_slot in av_slots %}<option class="disabled" value="{{ av_slot }}">{{ av_slot }}</option>{% endfor %}
+                                    {% endwith %}
                                 {% endif %}
                             </select>
                         </div>
