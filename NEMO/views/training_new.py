@@ -572,10 +572,12 @@ def review_invitation(request, training_invitation_id):
 @require_GET
 def tool_training_search(request, training_type="request"):
     user: User = request.user
-    tools = Tool.objects.filter(visible=True).exclude(
-        id__in=TrainingCustomization.get_list_int("training_excluded_tools")
-    )
+    tools = Tool.objects.filter(
+        Q(visible=True)
+        | Q(visible=False) & Q(id__in=TrainingCustomization.get_list_int("training_included_hidden_tools"))
+    ).exclude(id__in=TrainingCustomization.get_list_int("training_excluded_tools"))
     if training_type == "request":
+        tools = tools.filter(visible=True)
         excluded_tools = set()
         for tool_detail in ToolTrainingDetail.objects.filter(dont_allow_request_without_area_access=True):
             area = tool_detail.tool.requires_area_access
