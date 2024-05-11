@@ -91,6 +91,7 @@ def calendar(request, item_type=None, item_id=None):
                 & (Q(_primary_owner=user) | Q(_backup_owners__in=[user]) | Q(_superusers__in=[user]))
             )
         )
+        .distinct()
         .only("name", "_category", "parent_tool_id")
         .order_by("_category", "name")
     )
@@ -293,6 +294,8 @@ def reservation_event_feed(request, start, end):
         trainings = TrainingEvent.objects.filter(Q(users__in=[request.user]) | Q(trainer=request.user)).filter(
             cancelled=False
         )
+        trainings = trainings.exclude(start__lt=start, end__lt=start)
+        trainings = trainings.exclude(start__gt=end, end__gt=end)
 
     dictionary = {
         "events": events,
