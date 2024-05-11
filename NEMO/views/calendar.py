@@ -82,7 +82,18 @@ def calendar(request, item_type=None, item_id=None):
         else:
             return redirect("choose_item", "view_calendar")
 
-    tools = Tool.objects.filter(visible=True).only("name", "_category", "parent_tool_id").order_by("_category", "name")
+    tools = (
+        Tool.objects.filter(
+            Q(visible=True)
+            | (
+                Q(visible=False)
+                & Q(id__in=TrainingCustomization.get_list_int("training_included_hidden_tools"))
+                & (Q(_primary_owner=user) | Q(_backup_owners__in=[user]) | Q(_superusers__in=[user]))
+            )
+        )
+        .only("name", "_category", "parent_tool_id")
+        .order_by("_category", "name")
+    )
     areas = Area.objects.filter(requires_reservation=True).only("name")
 
     # We want to remove areas the user doesn't have access to
