@@ -21,7 +21,7 @@
         <div class="form-horizontal">
             <div class="form-group">
                 <label class="control-label col-sm-3 col-md-2" for="tool_search">Tool</label>
-                <div class="col-sm-6 col-md-4">
+                <div class="col-sm-8 col-md-9">
                     <input type="text" class="form-control" id="tool_search" placeholder="Search for a tool" required>
                 </div>
             </div>
@@ -105,6 +105,39 @@
                 </div>
             {% endif %}
         </div>
+        {% if schedule_help %}
+            <div class="col-md-offset-2 col-sm-offset-3 col-md-10 col-sm-9"
+                 style="margin-bottom: 15px;
+                        padding-left: 0">
+                <div onclick="toggle_details(this)"
+                     data-toggle="collapse"
+                     data-target="#scheduling_help"
+                     class="pointer">
+                    <span class="glyphicon glyphicon-chevron-right pull-left chevron"></span>Show the <span class="bg-warning">&nbsp;{{ selected_tool.name }}&nbsp;</span> and <span class="bg-success">&nbsp;my schedule&nbsp;</span> for the next {{ "training"|customization:"training_upcoming_schedule_days" }} days
+                </div>
+            </div>
+            <div id="scheduling_help" class="col-sm-12 collapse">
+                <table class="table table-condensed table-bordered table-align-middle thead-light"
+                       style="font-size: small">
+                    <thead>
+                        <tr>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Info</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in schedule_help.rows %}
+                            <tr class="{% if row|get_item:"user_schedule" %}success{% else %}warning{% endif %}">
+                                <td>{{ row|get_item:"start"|date:"SHORT_DATETIME_FORMAT" }}</td>
+                                <td>{{ row|get_item:"end"|date:"SHORT_DATETIME_FORMAT" }}</td>
+                                <td>{{ row|get_item:"info" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
         <div class="form-group">
             <label class="col-sm-3 col-md-2 control-label" for="duration">Duration</label>
             <div class="col-sm-5 col-md-4">

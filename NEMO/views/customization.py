@@ -575,6 +575,7 @@ class TrainingCustomization(CustomizationBase):
         "training_allow_date": "",
         "training_included_hidden_tools": "",
         "training_show_in_user_requests": "",
+        "training_upcoming_schedule_days": "7",
     }
 
     def context(self) -> Dict:

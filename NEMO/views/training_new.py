@@ -1,7 +1,7 @@
 import datetime
 from collections import defaultdict
 from datetime import timedelta
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from dateutil.rrule import DAILY, rrule
 from django.contrib.auth.decorators import login_required
@@ -419,6 +419,7 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
     invalid_times = invalid_times_for_training(selected_tool, timezone.now(), timezone.now() + timedelta(weeks=3))
     dictionary = {
         "selected_tool": selected_tool,
+        "schedule_help": get_schedule_help_for_tool(selected_tool, request.user) if selected_tool else None,
         "form": training_event_form,
         "training_details": tool_training_details,
         "invited_users": invited_users,
@@ -793,3 +794,61 @@ def should_send_ics(user: User, cancelled: bool = False):
 def user_main_tools(self) -> QuerySetType[Tool]:
     # Return the user's main tools, which are tools the user owns or is a superuser on
     return Tool.objects.filter(Q(_primary_owner=self) | Q(_backup_owners__in=[self]) | Q(_superusers__in=[self]))
+
+
+def get_schedule_help_for_tool(tool: Tool, user: User) -> Optional[BasicDisplayTable]:
+    upcoming_schedule_days = TrainingCustomization.get_int("training_upcoming_schedule_days")
+    if upcoming_schedule_days == 0:
+        return
+    tool_id = tool.id
+    start, end = timezone.now(), timezone.now() + timedelta(days=upcoming_schedule_days)
+    all_events = []
+    events = Reservation.objects.filter(cancelled=False, missed=False, shortened=False)
+    events = events.exclude(start__lt=start, end__lt=start).exclude(start__gt=end, end__gt=end)
+    if tool_id:
+        all_events.extend(events.filter(tool_id=tool_id))
+    if user:
+        all_events.extend(events.filter(user=user))
+
+    outages = ScheduledOutage.objects.filter(Q(tool=tool_id) | Q(resource__fully_dependent_tools__in=[tool_id]))
+    outages = outages.exclude(start__lt=start, end__lt=start).exclude(start__gt=end, end__gt=end)
+    all_events.extend(outages)
+    if tool_id:
+        trainings = TrainingEvent.objects.filter(cancelled=False)
+        trainings = trainings.exclude(start__lt=start, end__lt=start).exclude(start__gt=end, end__gt=end)
+        all_events.extend(trainings.filter(tool=tool_id))
+    if user:
+        trainings = TrainingEvent.objects.exclude(start__lt=start, end__lt=start).exclude(start__gt=end, end__gt=end)
+        all_events.extend(trainings.filter(Q(users__in=[user]) | Q(trainer=user)).filter(cancelled=False))
+
+    if not all_events:
+        return None
+
+    # Remove duplicates if same start/end
+    all_events = list({(e.start, e.end): e for e in all_events}.values())
+    # Sort objects by "start"
+    all_events = sorted(all_events, key=lambda o: o.start)
+
+    table = BasicDisplayTable()
+    table.add_header(("schedule", "Schedule"))
+    table.add_header(("start", "Start"))
+    table.add_header(("end", "End"))
+    table.add_header(("info", "Info"))
+    for event in all_events:
+        user_schedule = False
+        if isinstance(event, Reservation):
+            user_schedule = event.user == user
+            info = f"{event.tool.name} reservation"
+            if not user_schedule:
+                info += f" for {event.user.get_name()}"
+        elif isinstance(event, TrainingEvent):
+            user_schedule = event.trainer == user
+            info = f"{event.tool.name} training"
+            if not user_schedule:
+                info += f" by {event.trainer.get_name()}"
+        else:
+            # Outage is always on the tool
+            info = f"{event.tool.name} outage"
+        table.add_row({"start": event.start, "end": event.end, "info": info, "user_schedule": user_schedule})
+
+    return table

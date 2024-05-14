@@ -72,7 +72,25 @@
                        value="{{ training_technique_empty_label|default_if_none:'' }}">
             </div>
         </div>
-                <div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
+        <div class="form-group">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_upcoming_schedule_days">Scheduling help</label>
+            <div class="col-lg-3 col-md-4 col-sm-5">
+                <div class="input-group">
+                    <input class="form-control"
+                           name="training_upcoming_schedule_days"
+                           id="training_upcoming_schedule_days"
+                           type="text"
+                           value="{{ training_upcoming_schedule_days }}">
+                    <span class="input-group-addon">days</span>
+                </div>
+            </div>
+            <div class="col-lg-offset-3 col-md-offset-4 col-sm-offset-5 col-lg-9 col-md-8 col-sm-7">
+                <div class="help-block light-grey" style="margin-bottom: 0">
+                    When creating a training, show the tool and my schedule for this number of upcoming days. Set to 0 to disable
+                </div>
+            </div>
+        </div>
+        <div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
             <label class="control-label col-md-3" for="exclude_tool">Excluded tools</label>
             <div class="col-md-7">
                 <input id="exclude_tool"
@@ -88,7 +106,7 @@
         <div class="form-group">
             <div id="exclude-list" class="col-md-offset-3 col-md-4">No tools are excluded.</div>
         </div>
-                <div class="form-group {% if errors.training_included_hidden_tools %}has-error{% endif %}">
+        <div class="form-group {% if errors.training_included_hidden_tools %}has-error{% endif %}">
             <label class="control-label col-md-3" for="include_hidden_tool">Included hidden tools</label>
             <div class="col-md-7">
                 <input id="include_hidden_tool"
