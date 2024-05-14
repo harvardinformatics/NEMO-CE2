@@ -354,7 +354,19 @@ def create_tool_summary(tooltip_info=False):
     )
     tool_summary = merge(tools, tasks, unavailable_resources, usage_events, scheduled_outages, tooltip_info)
     tool_summary = list(tool_summary.values())
-    tool_summary.sort(key=lambda x: x["name"])
+    tool_sort = StatusDashboardCustomization.get("dashboard_tool_sort")
+    max_date_aware = (datetime.max - timedelta(days=1)).astimezone()
+    if tool_sort == "name":
+        tool_summary.sort(key=lambda x: x["name"].lower())
+    elif tool_sort == "time_desc":
+        tool_summary.sort(
+            key=lambda x: (
+                (max_date_aware - x["in_use_since"]) if x["in_use_since"] else timedelta.max,
+                x["name"].lower(),
+            )
+        )
+    else:
+        tool_summary.sort(key=lambda x: (x["in_use_since"] if x["in_use_since"] else max_date_aware, x["name"].lower()))
     return tool_summary
 
 
