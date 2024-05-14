@@ -336,6 +336,7 @@ class StatusDashboardCustomization(CustomizationBase):
         "dashboard_staff_status_absence_view_staff": "",
         "dashboard_staff_status_absence_view_user_office": "",
         "dashboard_staff_status_absence_view_accounting_officer": "",
+        "dashboard_tool_sort": "name",
     }
 
 
@@ -481,6 +482,7 @@ class ToolCustomization(CustomizationBase):
         "tool_location_required": "enabled",
         "tool_task_updates_facility_managers": "enabled",
         "tool_task_updates_superusers": "",
+        "tool_task_updates_allow_regular_user_preferences": "",
         "tool_control_hide_data_history_users": "",
         "tool_control_configuration_setting_template": "{{ current_setting }}",
         "tool_control_ongoing_reservation_force_off": "",
@@ -496,6 +498,7 @@ class ToolCustomization(CustomizationBase):
         "tool_qualification_cc": "",
         "tool_problem_max_image_size_pixels": "750",
         "tool_problem_send_to_all_qualified_users": "",
+        "tool_problem_allow_regular_user_preferences": "",
         "tool_configuration_near_future_days": "1",
         "tool_reservation_policy_superusers_bypass": "",
         "tool_grant_access_emails": "",
@@ -571,14 +574,19 @@ class TrainingCustomization(CustomizationBase):
         "training_excluded_tools": "",
         "training_only_type": "",
         "training_allow_date": "",
+        "training_included_hidden_tools": "",
         "training_show_in_user_requests": "",
+        "training_upcoming_schedule_days": "7",
     }
 
     def context(self) -> Dict:
         # Override to add list of tools and training types
         dictionary = super().context()
-        dictionary["tools"] = Tool.objects.filter(visible=True)
+        dictionary["tools"] = Tool.objects.all()
         dictionary["excluded_tools"] = Tool.objects.filter(id__in=self.get_list_int("training_excluded_tools"))
+        dictionary["included_hidden_tools"] = Tool.objects.filter(
+            id__in=self.get_list_int("training_included_hidden_tools")
+        )
         dictionary["training_types"] = TrainingSession.Type.Choices
         return dictionary
 
@@ -587,15 +595,23 @@ class TrainingCustomization(CustomizationBase):
             validate_integer(value)
         if name == "training_excluded_tools" and value:
             validate_comma_separated_integer_list(value)
+        if name == "training_included_hidden_tools" and value:
+            validate_comma_separated_integer_list(value)
 
     def save(self, request, element=None) -> Dict[str, Dict[str, str]]:
         errors = super().save(request, element)
         exclude_tools = ",".join(request.POST.getlist("training_excluded_tools_list", []))
+        include_hidden_tools = ",".join(request.POST.getlist("training_included_hidden_tools_list", []))
         try:
             self.validate("training_excluded_tools", exclude_tools)
             type(self).set("training_excluded_tools", exclude_tools)
         except (ValidationError, InvalidCustomizationException) as e:
             errors["training_excluded_tools"] = {"error": str(e.message or e.msg), "value": exclude_tools}
+        try:
+            self.validate("training_included_hidden_tools", include_hidden_tools)
+            type(self).set("training_included_hidden_tools", include_hidden_tools)
+        except (ValidationError, InvalidCustomizationException) as e:
+            errors["training_included_hidden_tools"] = {"error": str(e.message or e.msg), "value": include_hidden_tools}
         training_types = request.POST.getlist("training_type_list", [])
         if training_types and len(training_types) == 1:
             type(self).set("training_only_type", training_types[0])

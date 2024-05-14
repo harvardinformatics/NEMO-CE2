@@ -72,6 +72,56 @@
                        value="{{ training_technique_empty_label|default_if_none:'' }}">
             </div>
         </div>
+        <div class="form-group">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_upcoming_schedule_days">Scheduling help</label>
+            <div class="col-lg-3 col-md-4 col-sm-5">
+                <div class="input-group">
+                    <input class="form-control"
+                           name="training_upcoming_schedule_days"
+                           id="training_upcoming_schedule_days"
+                           type="text"
+                           value="{{ training_upcoming_schedule_days }}">
+                    <span class="input-group-addon">days</span>
+                </div>
+            </div>
+            <div class="col-lg-offset-3 col-md-offset-4 col-sm-offset-5 col-lg-9 col-md-8 col-sm-7">
+                <div class="help-block light-grey" style="margin-bottom: 0">
+                    When creating a training, show the tool and my schedule for this number of upcoming days. Set to 0 to disable
+                </div>
+            </div>
+        </div>
+        <div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
+            <label class="control-label col-md-3" for="exclude_tool">Excluded tools</label>
+            <div class="col-md-7">
+                <input id="exclude_tool"
+                       type="text"
+                       autocomplete="off"
+                       class="form-control"
+                       placeholder="Search for a tool to exclude">
+            </div>
+            {% if errors.training_excluded_tools %}
+                <div class="col-md-offset-3 col-md-9 help-block light-grey">{{ errors.training_excluded_tools.error }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <div id="exclude-list" class="col-md-offset-3 col-md-4">No tools are excluded.</div>
+        </div>
+        <div class="form-group {% if errors.training_included_hidden_tools %}has-error{% endif %}">
+            <label class="control-label col-md-3" for="include_hidden_tool">Included hidden tools</label>
+            <div class="col-md-7">
+                <input id="include_hidden_tool"
+                       type="text"
+                       autocomplete="off"
+                       class="form-control"
+                       placeholder="Search for a non-visible tool to include">
+            </div>
+            {% if errors.training_included_hidden_tools %}
+                <div class="col-md-offset-3 col-md-9 help-block light-grey">{{ errors.training_included_hidden_tools.error }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <div id="include-hidden-list" class="col-md-offset-3 col-md-4">No hidden tools are included.</div>
+        </div>
         <div class="customization-separation" style="margin-bottom: 15px"></div>
         <h3 class="customization-section-title">Defaults</h3>
         <div class="form-group{% if errors.training_event_default_duration %}has-error{% endif %}">
@@ -154,39 +204,38 @@
                           class="form-control">{{ training_request_default_message_placeholder }}</textarea>
             </div>
         </div>
-        <div class="form-group {% if errors.training_excluded_tools %}has-error{% endif %}">
-            <label class="control-label col-md-3" for="exclude_tool">Excluded tools</label>
-            <div class="col-md-7">
-                <input id="exclude_tool"
-                       type="text"
-                       autocomplete="off"
-                       class="form-control"
-                       placeholder="Search for a tool to exclude">
-            </div>
-            {% if errors.training_excluded_tools %}
-                <div class="col-md-offset-3 col-md-9 help-block light-grey">{{ errors.training_excluded_tools.error }}</div>
-            {% endif %}
-        </div>
-        <div class="form-group">
-            <div id="exclude-list" class="col-md-offset-3 col-md-4">No tools are excluded.</div>
-        </div>
         <div class="customization-separation" style="margin-bottom: 15px"></div>
         <div class="text-center">{% button type="save" value="Save settings" %}</div>
     </form>
 </div>
 <script>
-	function add_tool(jquery_event, search_selection, dataset_name)
+    function add_tool(jquery_event, search_selection, dataset_name)
 	{
         $(this).typeahead('val', '').focus();
-		add_to_list("#exclude-list", "remove_tool", search_selection.id, search_selection.name, "Remove " + search_selection.name, "training_excluded_tools_list");
+        switch(dataset_name) {
+            case "exclude_tools":
+                add_to_list("#exclude-list", "remove_excluded_tool", search_selection.id, search_selection.name, "Remove " + search_selection.name, "training_excluded_tools_list");
+                break;
+            case "include_hidden_tools":
+                add_to_list("#include-hidden-list", "remove_included_hidden_tool", search_selection.id, search_selection.name, "Remove " + search_selection.name, "training_included_hidden_tools_list");
+                break;
+        }
 	}
-    function remove_tool(tool_id)
+    function remove_excluded_tool(tool_id)
 	{
 		remove_from_list("#exclude-list", "#training_excluded_tools_list_" + tool_id, "No tools are excluded.");
 	}
-	$('#exclude_tool').autocomplete('tools', add_tool, {{ tools|json_search_base }});
+	function remove_included_hidden_tool(tool_id)
+	{
+		remove_from_list("#include-hidden-list", "#training_included_hidden_tools_list_" + tool_id, "No hidden tools are included.");
+	}
+	$('#exclude_tool').autocomplete('exclude_tools', add_tool, {{ tools|json_search_base }});
     {% for tool in excluded_tools %}
-		add_tool(undefined, {name:'{{ tool.name }}', id:{{ tool.id }}});
+		add_tool(undefined, {name:'{{ tool.name }}', id:{{ tool.id }}}, "exclude_tools");
+	{% endfor %}
+	$('#include_hidden_tool').autocomplete('include_hidden_tools', add_tool, {{ tools|json_search_base }});
+	{% for tool in included_hidden_tools %}
+		add_tool(undefined, {name:'{{ tool.name }}', id:{{ tool.id }}}, "include_hidden_tools");
 	{% endfor %}
 	auto_size_textarea(document.getElementById("training_request_default_message_placeholder"));
 </script>

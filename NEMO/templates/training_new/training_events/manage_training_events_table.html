@@ -17,8 +17,12 @@
         <tr>
             <td>{{ training_event.tool }}</td>
             <td>{{ training_event.start }}</td>
-            <td class="text-center">{{ training_event.pending_invitations.count }}</td>
-            <td class="text-center">{{ training_event.current_capacity }}</td>
+            <td class="text-center" data-toggle='tooltip' title="{{ training_event.pending_invitees|join:'<br>' }}">
+                {{ training_event.pending_invitations.count }}
+            </td>
+            <td class="text-center" data-toggle='tooltip' title="{{ training_event.users.all|join:'<br>' }}">
+                {{ training_event.current_capacity }}
+            </td>
             <td>{{ training_event.creation_time }}</td>
             <td class="text-right">
                 {% url 'training_event_details' training_event.id as view_training_details %}

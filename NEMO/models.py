@@ -5343,6 +5343,9 @@ class TrainingEvent(BaseModel):
             pending_invites = pending_invites.filter(user=user)
         return pending_invites
 
+    def pending_invitees(self):
+        return [invit.user for invit in self.pending_invitations()]
+
     def current_capacity(self) -> int:
         return self.users.count()
 

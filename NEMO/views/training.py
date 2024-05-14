@@ -2,7 +2,7 @@ import datetime
 from logging import getLogger
 from re import search
 
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -40,7 +40,10 @@ def training(request):
 def get_training_dictionary(request):
     user: User = request.user
     users = User.objects.filter(is_active=True).exclude(id=user.id)
-    tools = Tool.objects.filter(visible=True)
+    tools = Tool.objects.filter(
+        Q(visible=True)
+        | Q(visible=False) & Q(id__in=TrainingCustomization.get_list_int("training_included_hidden_tools"))
+    )
     tool_groups = ToolQualificationGroup.objects.all()
     if not user.is_staff and user.is_tool_superuser:
         tools = tools.filter(_superusers__in=[user])
