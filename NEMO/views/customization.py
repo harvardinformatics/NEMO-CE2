@@ -664,6 +664,7 @@ class TemplatesCustomization(CustomizationBase):
         ("training_invitation_received_email", ".html"),
         ("training_request_submitted_email", ".html"),
         ("training_session_cancelled_email", ".html"),
+        ("grant_access_email", ".html"),
         ("unauthorized_tool_access_email", ".html"),
         ("usage_reminder_email", ".html"),
         ("user_access_expiration_reminder_email", ".html"),

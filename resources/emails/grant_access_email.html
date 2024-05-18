@@ -1,0 +1,78 @@
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body>
+        <!--[if mso]><table width="600" align="center"><tr><td><![endif]-->
+        <table align="center"
+               style="width:100%;
+                      max-width:600px;
+                      font-family: 'Avenir Next', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'">
+            <tr>
+                <td align="center"
+                    style="color: white;
+                           background: {{ template_color }};
+                           padding: 50px 0"
+                    bgcolor='#5bc0de'>
+                    <h1 style="max-width: 90%; margin: 0 auto; padding: 0;">Grant Access Request</h1>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px;">
+                    Hello,
+                    <br>
+                    {% if badge_reader_users %}
+                        <br>
+                        <br>
+                        The following badge reader access levels have been granted:
+                        <br>
+                        <br>
+                        {% for access, users in badge_reader_users.items %}
+                            {{ access }}:
+                            <ul>
+                                {% for user in users %}
+                                    <li>
+                                        {{ user }}
+                                        {% if user.badge_number or user.details.employee_id %}
+                                            &nbsp;(
+                                            {% if user.badge_number %}badge number: {{ user.badge_number }}{% endif %}
+                                            {% if user.badge_number and user.details.employee_id %},{% endif %}
+                                            {% if user.details.employee_id %}employee id: {{ user.details.employee_id }}{% endif %}
+                                            )
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endfor %}
+                    {% endif %}
+                    {% if physical_access_users %}
+                        <br>
+                        <br>
+                        The following physical access levels have been granted:
+                        <br>
+                        <br>
+                        {% for access, users in physical_access_users.items %}
+                            {{ access }}:
+                            <ul>
+                                {% for user in users %}
+                                    <li>
+                                        {{ user }}
+                                        {% if user.badge_number or user.details.employee_id %}
+                                            &nbsp;(
+                                            {% if user.badge_number %}badge number: {{ user.badge_number }}{% endif %}
+                                            {% if user.badge_number and user.details.employee_id %},{% endif %}
+                                            {% if user.details.employee_id %}employee id: {{ user.details.employee_id }}{% endif %}
+                                            )
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endfor %}
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+    </body>
+</html>

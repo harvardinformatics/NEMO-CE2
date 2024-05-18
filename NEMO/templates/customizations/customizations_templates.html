@@ -543,6 +543,24 @@
         <div class="customization-separation"></div>
     </div>
     <div class="panel-body">
+        <h3 class="customization-section-title" id="grant_access_email_id">Grant access email</h3>
+        <p>
+            This email is sent by the timed service send_email_grant_access when users are qualified on tools which have the grant_badge_reader_access_upon_qualification set.
+            If enabled in Tool Customizations, same feature is extended to physical_access_level_upon_qualification field.
+        </p>
+        <p>The following context variables are provided when the email is rendered:</p>
+        <ul>
+            <li>
+                <b>badge_reader_users</b> - the dictionary containing new badge reader access qualifications (key = name of badge reader, value = list of users)
+            </li>
+            <li>
+                <b>physical_access_users</b> - the dictionary containing new badge reader access qualifications  (key = name of physical access, value = list of users)
+            </li>
+        </ul>
+        {% include 'customizations/customizations_upload.html' with element=grant_access_email name='grant access email' key='templates' %}
+        <div class="customization-separation"></div>
+    </div>
+    <div class="panel-body">
         <h3 class="customization-section-title" id="unauthorized_tool_access_email_id">Unauthorized tool access email</h3>
         <p>This email is sent when a user tries to access a tool:</p>
         <ul>

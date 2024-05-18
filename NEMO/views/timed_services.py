@@ -987,31 +987,37 @@ def do_auto_logout_users():
 @permission_required("NEMO.trigger_timed_services", raise_exception=True)
 @require_GET
 def email_grant_access(request):
-    return send_email_grant_access()
+    return send_email_grant_access(request)
 
 
-def send_email_grant_access():
+def send_email_grant_access(request=None):
     emails = ToolCustomization.get_list("tool_grant_access_emails")
     if emails:
+        message = get_media_file_contents("grant_access_email.html")
+        if not message:
+            timed_service_logger.error(
+                "Grant access email couldn't be send because grant_access_email.html is not defined"
+            )
+            return HttpResponseNotFound(
+                "The grant access email template has not been customized for your organization yet. Please visit the customization page to upload one, then grant access email notifications can be sent."
+            )
         today_date = date.today()
         last_event_date_read, created = Customization.objects.get_or_create(
             name="tool_email_grant_access_since", defaults={"value": (today_date - timedelta(days=1)).isoformat()}
         )
         qualification_since = datetime.fromisoformat(last_event_date_read.value).date()
-        badge_reader_users = get_granted_badge_reader_access(qualification_since, today_date)
-        physical_access_users = get_granted_physical_access(qualification_since, today_date)
+        badge_reader_users = dict(get_granted_badge_reader_access(qualification_since, today_date))
+        physical_access_users = dict(get_granted_physical_access(qualification_since, today_date))
         if badge_reader_users or physical_access_users:
-            message = "Hello,<br>\n"
-            if badge_reader_users:
-                message += "The following badge reader access have been granted:<br><br>\n\n"
-                message += add_access_list(badge_reader_users)
-            if physical_access_users:
-                message += "The following physical access levels have been granted:<br><br>\n\n"
-                message += add_access_list(physical_access_users)
+            rendered_message = render_email_template(
+                message,
+                {"badge_reader_users": badge_reader_users, "physical_access_users": physical_access_users},
+                request,
+            )
             subject = f"Grant access - {format_datetime(today_date, 'SHORT_DATE_FORMAT')}"
             send_mail(
                 subject=subject,
-                content=message,
+                content=rendered_message,
                 from_email=get_email_from_settings(),
                 to=emails,
                 email_category=EmailCategory.TIMED_SERVICES,
@@ -1019,28 +1025,6 @@ def send_email_grant_access():
         last_event_date_read.value = today_date.isoformat()
         last_event_date_read.save()
     return HttpResponse()
-
-
-def add_access_list(access_dict: Dict[str, Set[User]]) -> str:
-    message = ""
-    for access, users in access_dict.items():
-        message += f"{access}:\n<ul>\n"
-        for user in users:
-            details = []
-            if user.badge_number:
-                details.append(f"badge number: {user.badge_number}")
-            try:
-                # Try grabbing employee id from NEMO user details to add it
-                if user.details.employee_id:
-                    details.append(f"employee id: {user.details.employee_id}")
-            except:
-                pass
-            message += f"<li>{user}"
-            if details:
-                message += " (" + ", ".join(details) + ")"
-            message += "</li>\n"
-        message += "</ul>\n<br><br>"
-    return message
 
 
 def get_granted_badge_reader_access(
