@@ -90,7 +90,7 @@ from NEMO.serializers import (
     UserSerializer,
 )
 from NEMO.typing import QuerySetType
-from NEMO.utilities import export_format_datetime
+from NEMO.utilities import export_format_datetime, remove_duplicates
 from NEMO.views.api_billing import (
     BillingFilterForm,
     get_billing_charges,
@@ -99,7 +99,7 @@ from NEMO.views.qualifications import disqualify, qualify
 
 date_filters = ["exact", "in", "month", "year", "day", "gte", "gt", "lte", "lt", "isnull"]
 time_filters = ["exact", "in", "hour", "minute", "second", "gte", "gt", "lte", "lt", "isnull"]
-datetime_filters = list(set(date_filters + time_filters + ["week"]))
+datetime_filters = remove_duplicates(date_filters + time_filters + ["week"])
 string_filters = ["exact", "iexact", "in", "contains", "icontains", "isempty"]
 number_filters = ["exact", "in", "gte", "gt", "lte", "lt", "isnull"]
 key_filters = ["exact", "in", "isnull"]
