@@ -1,7 +1,7 @@
 {% load custom_tags_and_filters %}
 <div class="modal-header">
     <button type="button" class="close" data-dismiss="modal">&times;</button>
-    <h4 class="modal-title">New training event</h4>
+    <h4 class="modal-title">New training event: {{ tool }}</h4>
 </div>
 <div class="modal-body">
     <input type="hidden" id="dialog_cancelled" value="true">
@@ -14,6 +14,10 @@
     {% endif %}
     <form id="additional_event_parameters" class="form-horizontal" onsubmit="return false">
         <input type="hidden" name="training_configured" value="true">
+        <div class="form-group">
+            <label class="control-label col-sm-3 col-md-2">Start time:</label>
+            <div class="col-sm-5 col-md-4 form-control-static">{{ start | input_date_format }}</div>
+        </div>
         {% if training_details.techniques.all %}
             <div class="form-group">
                 <label class="col-sm-3 col-md-2 control-label" for="technique">Technique</label>
@@ -34,6 +38,22 @@
                 {% endif %}
             </div>
         {% endif %}
+        <div class="form-group">
+            <label class="col-sm-3 col-md-2 control-label" for="auto_cancel">Auto cancel</label>
+            <div class="col-sm-5 col-md-4">
+                <input class="form-control"
+                       name="auto_cancel"
+                       id="auto_cancel"
+                       value="{{ form.auto_cancel.value|input_date_format }}"
+                       type="text">
+                if no user registered before.
+            </div>
+            {% if form.auto_cancel.errors %}
+                <div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+                    {{ form.auto_cancel.errors|striptags }}
+                </div>
+            {% endif %}
+        </div>
         <div class="form-group">
             <label class="col-sm-3 col-md-2 control-label" for="duration">Duration</label>
             <div class="col-sm-5 col-md-4">
@@ -168,4 +188,13 @@
 	{
 		remove_from_list("#invited-user-list", "#user_ids_to_invite_" + user_id, "No users have been invited to this training yet.");
 	}
+	let timepicker_properties =
+    {
+        format: '{{ datetime_input_js_format }}',
+        showClose: true,
+        sideBySide: true,
+        useCurrent: false
+    };
+    let auto_cancel_jq = $("#auto_cancel");
+    auto_cancel_jq.datetimepicker(timepicker_properties);
 </script>

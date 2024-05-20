@@ -735,6 +735,11 @@ if settings.ALLOW_CONDITIONAL_URLS:
         # Reminders and periodic events - NEMO CE
         path("email_grant_access/", timed_services.email_grant_access, name="email_grant_access"),
         path("auto_validate_charges/", timed_services.auto_validate_charges, name="auto_validate_charges"),
+        path(
+            "auto_cancel_training_sessions/",
+            timed_services.auto_cancel_training_sessions,
+            name="auto_cancel_training_sessions",
+        ),
         # Abuse:
         path("abuse/", abuse.abuse, name="abuse"),
         path("abuse/user_drill_down/", abuse.user_drill_down, name="user_drill_down"),

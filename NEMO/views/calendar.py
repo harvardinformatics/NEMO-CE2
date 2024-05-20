@@ -1248,6 +1248,7 @@ def send_user_cancelled_reservation_notification(reservation: Reservation):
 
 
 # Training
+@login_required
 @require_POST
 def create_training_event(request):
     try:
@@ -1274,7 +1275,21 @@ def create_training_event(request):
     )
     if default_duration:
         training.end = training.start + timedelta(minutes=default_duration)
+    try:
+        tool_training_details = ToolTrainingDetail.objects.get(tool_id=tool)
+    except ToolTrainingDetail.DoesNotExist:
+        tool_training_details = None
+    initial_auto_cancel_hours = ""
+    if tool_training_details and tool_training_details.auto_cancel:
+        if tool_training_details.auto_cancel > -1:
+            initial_auto_cancel_hours = tool_training_details.auto_cancel
+    else:
+        initial_auto_cancel_hours = TrainingCustomization.get_int("training_event_default_auto_cancel")
+    auto_cancel = ""
+    if initial_auto_cancel_hours:
+        auto_cancel = start - timezone.timedelta(hours=initial_auto_cancel_hours)
     initial = {
+        "auto_cancel": auto_cancel,
         "duration": training.duration,
         "capacity": (
             training_details.capacity
@@ -1294,6 +1309,9 @@ def create_training_event(request):
         )
         if not training_configured or not training_event_form.is_valid():
             dictionary = {
+                "tool": tool,
+                "start": start,
+                "auto_cancel": auto_cancel,
                 "form": training_event_form,
                 "training_details": training_details,
                 "suggested_users": suggested_users_to_invite(tool),
@@ -1340,6 +1358,8 @@ def modify_training_event(request, start_delta, end_delta):
         return HttpResponseBadRequest("You are not allowed to modify this training")
     if start_delta:
         training_event.start += start_delta
+        if training_event.auto_cancel:
+            training_event.auto_cancel += start_delta
     training_event.end += end_delta
     policy_problem = policy.check_to_create_training(training_event)
     if policy_problem:

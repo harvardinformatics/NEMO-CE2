@@ -1212,6 +1212,11 @@ li.area-tree-node a, li.area-tree-node a:hover, li.area-tree-node a:focus
 	max-height: 4.5em;
 }
 
+.cancelled-training
+{
+    opacity: .4
+}
+
 .configuration-reservation-option
 {
 	padding: 2px;

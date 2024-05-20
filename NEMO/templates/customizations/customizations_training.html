@@ -164,6 +164,29 @@
                 </div>
             {% endif %}
         </div>
+        <div class="form-group{% if errors.training_event_default_auto_cancel %}has-error{% endif %}">
+            <label class="control-label col-lg-3 col-md-4 col-sm-5" for="training_event_default_auto_cancel">
+                Session default auto cancel
+            </label>
+            <div class="col-lg-3 col-md-4 col-sm-5">
+                <div class="input-group">
+                    <input class="form-control"
+                           name="training_event_default_auto_cancel"
+                           id="training_event_default_auto_cancel"
+                           type="number"
+                           value="{{ training_event_default_auto_cancel|default_if_none:'' }}">
+                    <span class="input-group-addon">hours</span>
+                </div>
+                <div class="help-block light-grey" style="margin-bottom: 0">
+                    Time before session start to cancel trainings with no users
+                </div>
+            </div>
+            {% if errors.training_event_default_auto_cancel %}
+                <div class="col-lg-offset-3 col-md-offset-4 col-sm-offset-5 col-lg-9 col-md-8 col-sm-7 help-block light-grey">
+                    {{ errors.training_event_default_auto_cancel.error }}
+                </div>
+            {% endif %}
+        </div>
         <div class="form-group">
             <label class="control-label col-lg-3 col-md-4 col-sm-5">Request default availability</label>
             <div class="col-lg-9 col-md-8 col-sm-7">

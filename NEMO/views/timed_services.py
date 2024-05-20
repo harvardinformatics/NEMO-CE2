@@ -34,6 +34,7 @@ from NEMO.models import (
     TemporaryPhysicalAccessRequest,
     Tool,
     ToolWaitList,
+    TrainingEvent,
     UsageEvent,
     User,
 )
@@ -1162,4 +1163,25 @@ def do_deactivate_access_expired_users():
     for user in users_about_to_expire:
         user.is_active = False
         user.save(update_fields=["is_active"])
+    return HttpResponse()
+
+
+@login_required
+@require_GET
+@permission_required("NEMO.trigger_timed_services", raise_exception=True)
+def auto_cancel_training_sessions(request):
+    return do_cancel_unused_reservations(request)
+
+
+def do_auto_cancel_training_sessions(request=None):
+    """
+    Auto cancel training sessions will cancel sessions which have no user registered before registration_end_date (<training start date> - <auto cancel time in hours>).
+    Additionally, it will also cancel any session where all registered users withdraw their registration between <registration_end_date> and <training start date>.
+    """
+    date_now = timezone.now()
+    training_events = TrainingEvent.objects.filter(
+        cancelled=False, auto_cancel__lte=date_now, start__gte=date_now, users=None
+    )
+    for training_event in training_events:
+        training_event.cancel(user=None, reason="No user registered", request=None)
     return HttpResponse()

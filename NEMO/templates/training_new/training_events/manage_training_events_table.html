@@ -14,9 +14,17 @@
 </thead>
 <tbody>
     {% for training_event in training_events %}
-        <tr>
+        <tr {% if training_event.cancelled %}class="cancelled-training"{% endif %}>
             <td>{{ training_event.tool }}</td>
-            <td>{{ training_event.start }}</td>
+            <td>
+                {{ training_event.start }}
+                {% if training_event.auto_cancel %}
+                    <br>
+                    <a href="#"
+                       data-toggle="tooltip"
+                       title="This event will be automatically cancelled if no user registrations are received by {{ training_event.auto_cancel }}."><span class="glyphicon glyphicon-info-sign"></span> Registration deadline</a>
+                {% endif %}
+            </td>
             <td class="text-center" data-toggle='tooltip' title="{{ training_event.pending_invitees|join:'<br>' }}">
                 {{ training_event.pending_invitations.count }}
             </td>
@@ -25,25 +33,33 @@
             </td>
             <td>{{ training_event.creation_time }}</td>
             <td class="text-right">
-                {% url 'training_event_details' training_event.id as view_training_details %}
-                {% button type="view" size="small" value="View" onclick="new_get_request('"|concat:view_training_details|concat:"?popup_view=true')" %}
-                {% url 'cancel_training_event' training_event.id as cancel_training_url %}
-                {% if not past_events %}
-                    {% url 'edit_training_event' training_event.id as edit_training_event_url %}
-                    {% button type="edit" size="small" value="Edit" onclick="new_get_request('"|concat:edit_training_event_url|concat:"')" %}
-                    {% with reason_required=training_event.users.exists|yesno:"true,false" %}
-                        {% button type="delete" size="small" value="Cancel" onclick="confirm_action('"|concat:cancel_training_url|concat:"', "|concat:reason_required|concat:", training_callback_success, 'cancelling', 'training', 'Confirm cancellation')" data_toggle="modal" data_target="#confirm-actions" %}
-                    {% endwith %}
+                {% if training_event.cancelled %}
+                    <button class="btn btn-outline-danger btn-sm" disabled>
+                        <i class="glyphicon glyphicon-trash"></i> {{ training_event.cancellation_time }}
+                    </button>
+                    <br>
+                    {{ training_event.cancellation_reason }}
                 {% else %}
-                    {% if training_event.recorded %}
-                        <button class="btn btn-default btn-sm" disabled>Recorded</button>
-                    {% elif training_event.users.all %}
-                        {% url 'record_training_event' training_event.id as record_training_event_url %}
-                        {% button type="save" size="small" value="Record" url=record_training_event_url %}
-                    {% else %}
+                    {% url 'training_event_details' training_event.id as view_training_details %}
+                    {% button type="view" size="small" value="View" onclick="new_get_request('"|concat:view_training_details|concat:"?popup_view=true')" %}
+                    {% url 'cancel_training_event' training_event.id as cancel_training_url %}
+                    {% if not past_events %}
+                        {% url 'edit_training_event' training_event.id as edit_training_event_url %}
+                        {% button type="edit" size="small" value="Edit" onclick="new_get_request('"|concat:edit_training_event_url|concat:"')" %}
                         {% with reason_required=training_event.users.exists|yesno:"true,false" %}
                             {% button type="delete" size="small" value="Cancel" onclick="confirm_action('"|concat:cancel_training_url|concat:"', "|concat:reason_required|concat:", training_callback_success, 'cancelling', 'training', 'Confirm cancellation')" data_toggle="modal" data_target="#confirm-actions" %}
                         {% endwith %}
+                    {% else %}
+                        {% if training_event.recorded %}
+                            <button class="btn btn-default btn-sm" disabled>Recorded</button>
+                        {% elif training_event.users.all %}
+                            {% url 'record_training_event' training_event.id as record_training_event_url %}
+                            {% button type="save" size="small" value="Record" url=record_training_event_url %}
+                        {% else %}
+                            {% with reason_required=training_event.users.exists|yesno:"true,false" %}
+                                {% button type="delete" size="small" value="Cancel" onclick="confirm_action('"|concat:cancel_training_url|concat:"', "|concat:reason_required|concat:", training_callback_success, 'cancelling', 'training', 'Confirm cancellation')" data_toggle="modal" data_target="#confirm-actions" %}
+                            {% endwith %}
+                        {% endif %}
                     {% endif %}
                 {% endif %}
             </td>

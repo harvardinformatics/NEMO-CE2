@@ -5177,6 +5177,11 @@ class ToolTrainingDetail(BaseModel):
     techniques = models.ManyToManyField(
         TrainingTechnique, blank=True, help_text="The techniques available for training on this tool"
     )
+    auto_cancel = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="The training auto-cancel time for this tool in hours. Leave blank to use the default or set to '-1' to disable auto cancel, overriding default time",
+    )
     duration = models.PositiveIntegerField(
         null=True,
         blank=True,
@@ -5320,6 +5325,9 @@ class TrainingEvent(BaseModel):
         default=False, help_text="If checked, users can only register if they have been invited"
     )
     users = models.ManyToManyField(User, blank=True)
+    auto_cancel = models.DateTimeField(
+        null=True, blank=True, help_text="Deadline for automatic cancellation, if no user registered before."
+    )
     capacity = models.PositiveIntegerField()
     recorded = models.BooleanField(
         default=False, help_text="Indicates this training event has completed and training session was recorded"
@@ -5364,6 +5372,9 @@ class TrainingEvent(BaseModel):
                 tool=self.tool
             ).values_list("techniques", flat=True):
                 errors["technique"] = _("This technique is not available for the selected tool")
+        if self.start and self.auto_cancel:
+            if self.auto_cancel > self.start:
+                errors["auto_cancel"] = _("Auto cancel deadline cannot be after training start date.")
         if errors:
             raise ValidationError(errors)
 
