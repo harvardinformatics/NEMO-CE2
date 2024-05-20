@@ -1170,7 +1170,7 @@ def do_deactivate_access_expired_users():
 @require_GET
 @permission_required("NEMO.trigger_timed_services", raise_exception=True)
 def auto_cancel_training_sessions(request):
-    return do_cancel_unused_reservations(request)
+    return do_auto_cancel_training_sessions(request)
 
 
 def do_auto_cancel_training_sessions(request=None):
