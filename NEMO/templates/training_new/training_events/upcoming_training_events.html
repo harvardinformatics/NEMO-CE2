@@ -21,7 +21,7 @@
                 </thead>
                 <tbody>
                     {% for training_event in training_events %}
-                        <tr>
+                        <tr {% if training_event.cancelled %}class="cancelled-training"{% endif %}>
                             <td>{{ training_event.tool }}</td>
                             <td>
                                 {% with default_technique_label="training"|customization:"training_technique_empty_label" %}
@@ -29,24 +29,40 @@
                                 {% endwith %}
                             </td>
                             <td>{{ training_event.trainer.get_name }}</td>
-                            <td>{{ training_event.start }}</td>
+                            <td>
+                                {{ training_event.start }}
+                                {% if training_event.auto_cancel %}
+                                    <br>
+                                    <a href="#"
+                                       data-toggle="tooltip"
+                                       title="This event will be automatically cancelled if no user registrations are received by {{ training_event.auto_cancel }}."><span class="glyphicon glyphicon-info-sign"></span> Registration deadline</a>
+                                {% endif %}
+                            </td>
                             <td>{{ training_event.duration }} minutes</td>
                             <td class="text-center">{{ training_event.current_capacity }}/{{ training_event.capacity }}</td>
                             <td class="text-right">
-                                {% url 'training_event_details' training_event.id as view_training_details %}
-                                {% button type="view" value="View" onclick="new_get_request('"|concat:view_training_details|concat:"?popup_view=true')" %}
-                                {% if user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
-                                    {% if training_event|training_event_invitations:request.user %}
-                                        {% for invite in training_event|training_event_invitations:request.user %}
-                                            {% url "decline_training_invitation" invite.id as decline_invitation_url %}
-                                            {% button type="delete" value="Decline" icon="glyphicon-ban-circle" onclick="confirm_action('"|concat:decline_invitation_url|concat:"', false, training_callback_success, 'declining', 'invitation', 'Decline')" data_toggle="modal" data_target="#confirm-actions" %}
-                                            {% url 'accept_training_invitation' invite.id as accept_training_invitation_url %}
-                                            {% button type="save" value="Accept training invitation" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:accept_training_invitation_url|concat:"');" %}
-                                        {% endfor %}
-                                    {% elif user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
-                                        {% if not training_event.invitation_only %}
-                                            {% url 'register_for_training' training_event.id as register_for_training_url %}
-                                            {% button type="save" submit="false" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:register_for_training_url|concat:"');" %}
+                                {% if training_event.cancelled %}
+                                    <button class="btn btn-outline-danger btn-sm" disabled>
+                                        <i class="glyphicon glyphicon-trash"></i> CANCELLED
+                                    </button>
+                                    <br>
+                                    {{ training_event.cancellation_reason }}
+                                {% else %}
+                                    {% url 'training_event_details' training_event.id as view_training_details %}
+                                    {% button type="view" value="View" onclick="new_get_request('"|concat:view_training_details|concat:"?popup_view=true')" %}
+                                    {% if user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
+                                        {% if training_event|training_event_invitations:request.user %}
+                                            {% for invite in training_event|training_event_invitations:request.user %}
+                                                {% url "decline_training_invitation" invite.id as decline_invitation_url %}
+                                                {% button type="delete" value="Decline" icon="glyphicon-ban-circle" onclick="confirm_action('"|concat:decline_invitation_url|concat:"', false, training_callback_success, 'declining', 'invitation', 'Decline')" data_toggle="modal" data_target="#confirm-actions" %}
+                                                {% url 'accept_training_invitation' invite.id as accept_training_invitation_url %}
+                                                {% button type="save" value="Accept training invitation" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:accept_training_invitation_url|concat:"');" %}
+                                            {% endfor %}
+                                        {% elif user not in training_event.users.all and user != training_event.trainer and training_event.current_capacity < training_event.capacity %}
+                                            {% if not training_event.invitation_only %}
+                                                {% url 'register_for_training' training_event.id as register_for_training_url %}
+                                                {% button type="save" submit="false" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_accept_training_invitation('"|concat:register_for_training_url|concat:"');" %}
+                                            {% endif %}
                                         {% endif %}
                                     {% endif %}
                                 {% endif %}

@@ -36,6 +36,20 @@
             <td>{{ training.end }}</td>
         </tr>
         <tr>
+            <th>Auto cancel if no users registered</th>
+            <td>
+                {% if training.auto_cancel is not None %}
+                    {% if training.auto_cancel == training.start %}
+                        at training start time
+                    {% else %}
+                        {{ training.auto_cancel }}
+                    {% endif %}
+                {% else %}
+                    No
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
             <th>Duration</th>
             <td>{{ training.duration }} minutes</td>
         </tr>

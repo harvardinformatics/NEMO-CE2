@@ -2,20 +2,40 @@
 {% load custom_tags_and_filters %}
 {% block tab_content %}
     {% if training_events or past_training_events %}
-        <div class="table-responsive" style="border: none; width: 100%">
-            <table class="table table-borderless table-align-middle" style="margin-bottom: 0">
-                {% if training_events %}
-                    {% include "training_new/training_events/manage_training_events_table.html" with training_title="Upcoming training sessions" %}
-                {% endif %}
-                {% if past_training_events %}
-                    {% include "training_new/training_events/manage_training_events_table.html" with training_events=past_training_events training_title="Past training sessions" past_events=True %}
-                {% endif %}
-            </table>
-        </div>
-    {% else %}
-        <div class="pull-left form-control-static">
-            <i>You don't have any training sessions.</i>
-        </div>
-    {% endif %}
+        <div class="form-check form-switch" align="right">
+            <input class="form-check-input"
+                   type="checkbox"
+                   role="switch"
+                   id="show-cancelled-training-events"
+                   {% if show_cancelled %}
+                   onclick="location.href = '?show_cancelled=False'"
+                   checked>
+        {% else %}
+            onclick="location.href = '?show_cancelled=True'">
+        {% endif %}
+        <label class="form-check-label" for="show-cancelled-training-events">Show cancelled training events</label>
+    </div>
+    <div class="table-responsive" style="border: none; width: 100%">
+        <table class="table table-borderless table-align-middle" style="margin-bottom: 0">
+            {% if training_events %}
+                {% include "training_new/training_events/manage_training_events_table.html" with training_title="Upcoming training sessions" %}
+            {% endif %}
+            {% if past_training_events %}
+                {% include "training_new/training_events/manage_training_events_table.html" with training_events=past_training_events training_title="Past training sessions" past_events=True %}
+            {% endif %}
+        </table>
+        <table class="table table-borderless table-align-middle"
+               style="margin-bottom: 0"
+               id="cancelled-training-events">
+            {% if cancelled_training_events is not None %}
+                {% include "training_new/training_events/manage_training_events_table.html" with training_events=cancelled_training_events training_title="Cancelled training sessions" past_events=True %}
+            {% endif %}
+        </table>
+    </div>
+{% else %}
+    <div class="pull-left form-control-static">
+        <i>You don't have any training sessions.</i>
+    </div>
+{% endif %}
     <script>$("[data-toggle='tooltip']").tooltip({ container: 'body', html: true });</script>
 {% endblock %}

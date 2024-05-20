@@ -288,7 +288,7 @@ def export_training_history(user, training_histories) -> HttpResponse:
 def upcoming_events(request):
     mark_training_objects_expired()
     date_now = timezone.now()
-    training_events = TrainingEvent.objects.filter(cancelled=False, end__gte=date_now).exclude(start__lte=date_now)
+    training_events = TrainingEvent.objects.filter(end__gte=date_now).exclude(start__lte=date_now)
     dictionary = {"training_events": training_events}
     return render(request, "training_new/training_events/upcoming_training_events.html", dictionary)
 
@@ -393,10 +393,17 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
     invited_user_ids = (
         distinct_qs_value_list(training_event.pending_invitations(), "user_id") if training_event else set()
     )
+    initial_auto_cancel_hours = ""
     if training_event:
-        initial = {"duration": training_event.duration}
+        initial = {"auto_cancel": training_event.auto_cancel, "duration": training_event.duration}
     else:
+        if tool_training_details and tool_training_details.auto_cancel:
+            if tool_training_details.auto_cancel > -1:
+                initial_auto_cancel_hours = tool_training_details.auto_cancel
+        else:
+            initial_auto_cancel_hours = TrainingCustomization.get_int("training_event_default_auto_cancel")
         initial = {
+            "auto_cancel_hours": initial_auto_cancel_hours,
             "duration": (
                 tool_training_details.duration
                 if tool_training_details and tool_training_details.duration
@@ -418,6 +425,7 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
     invited_users = set(User.objects.in_bulk(submitted_user_ids_to_invite or invited_user_ids).values())
     invalid_times = invalid_times_for_training(selected_tool, timezone.now(), timezone.now() + timedelta(weeks=3))
     dictionary = {
+        "auto_cancel_hours": initial_auto_cancel_hours,
         "selected_tool": selected_tool,
         "schedule_help": get_schedule_help_for_tool(selected_tool, request.user) if selected_tool else None,
         "form": training_event_form,
@@ -458,13 +466,25 @@ def manage_events(request):
     mark_training_objects_expired()
     user: User = request.user
     date_now = timezone.now()
+    show_cancelled = request.GET.get("show_cancelled")
+    request.session.setdefault("show_cancelled", False)
+    if show_cancelled is not None:
+        request.session["show_cancelled"] = bool(show_cancelled == "True")
+    show_cancelled = request.session["show_cancelled"]
     past_training_events = TrainingEvent.objects.filter(creator=user, cancelled=False).filter(
         Q(end__lte=date_now) | Q(start__lte=date_now, end__gte=date_now)
     )
     training_events = TrainingEvent.objects.filter(creator=user, cancelled=False, end__gte=date_now).exclude(
         start__lte=date_now
     )
-    dictionary = {"training_events": training_events, "past_training_events": past_training_events, "now": date_now}
+    dictionary = {
+        "training_events": training_events,
+        "past_training_events": past_training_events,
+        "show_cancelled": show_cancelled,
+        "now": date_now,
+    }
+    if show_cancelled:
+        dictionary["cancelled_training_events"] = TrainingEvent.objects.filter(creator=user, cancelled=True)
     return render(request, "training_new/training_events/manage_training_events.html", dictionary)
 
 

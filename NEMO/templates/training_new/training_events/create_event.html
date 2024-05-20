@@ -139,6 +139,24 @@
             </div>
         {% endif %}
         <div class="form-group">
+            <label class="col-sm-3 col-md-2 control-label" for="auto_cancel">Auto cancel</label>
+            <div class="col-sm-5 col-md-4">
+                <div class="input-group">
+                    <input class="form-control"
+                           name="auto_cancel"
+                           id="auto_cancel"
+                           value="{{ form.auto_cancel.value|input_date_format }}"
+                           type="text">
+                </div>
+                if no users registered before.
+            </div>
+            {% if form.auto_cancel.errors %}
+                <div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10 form-control-static danger-highlight">
+                    {{ form.auto_cancel.errors|striptags }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="form-group">
             <label class="col-sm-3 col-md-2 control-label" for="duration">Duration</label>
             <div class="col-sm-5 col-md-4">
                 <div class="input-group">
@@ -329,12 +347,23 @@
 				$("#invited_search").autocomplete('users', select_invited_user, '{% url 'user_for_training_search' %}', true);
             {% endif %}
 			let start_jq = $("#start");
+			let auto_cancel_jq = $("#auto_cancel");
+			auto_cancel_jq.datetimepicker({
+                format: '{{ datetime_input_js_format }}',
+                showClose: true,
+                useCurrent: false
+            });
+            let auto_cancel_picker = auto_cancel_jq.data("DateTimePicker");
 			start_jq.datetimepicker(timepicker_properties);
 			start_jq.on("dp.change", function (e) {
                 let picker = $('#start').data("DateTimePicker");
                 {# Forcing refresh otherwise it won't update the invalid times #}
                 picker.viewDate(picker.date());
+                auto_cancel_picker.viewDate(auto_cancel_picker.date());
                 picker.disabledTimeIntervals(unavailable_times);
+                {% if auto_cancel_hours %}
+                    auto_cancel_picker.date(e.date.subtract({{ auto_cancel_hours }}, 'hours'));
+                {% endif %}
             });
 			{% for user in invited_users %}
 				add_invited_user('{{ user }}', '{{ user.id }}');

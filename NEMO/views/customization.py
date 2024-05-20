@@ -569,6 +569,7 @@ class TrainingCustomization(CustomizationBase):
         "training_request_default_availability_allowed": "",
         "training_request_default_message_required": "",
         "training_request_default_message_placeholder": "Add a message for the trainer",
+        "training_event_default_auto_cancel": "",
         "training_event_default_duration": "",
         "training_event_default_capacity": "",
         "training_excluded_tools": "",
@@ -591,7 +592,15 @@ class TrainingCustomization(CustomizationBase):
         return dictionary
 
     def validate(self, name, value):
-        if name in ["training_event_default_duration", "training_event_default_capacity"] and value:
+        if (
+            name
+            in [
+                "training_event_default_duration",
+                "training_event_default_capacity",
+                "training_event_default_auto_cancel",
+            ]
+            and value
+        ):
             validate_integer(value)
         if name == "training_excluded_tools" and value:
             validate_comma_separated_integer_list(value)
