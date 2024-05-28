@@ -12,10 +12,12 @@ from rest_framework.serializers import ListSerializer
 from NEMO.models import (
     Account,
     AccountType,
+    AdjustmentRequest,
     Alert,
     AlertCategory,
     Area,
     AreaAccessRecord,
+    BuddyRequest,
     Configuration,
     ConfigurationOption,
     ConfigurationPrecursor,
@@ -27,10 +29,7 @@ from NEMO.models import (
     Interlock,
     InterlockCard,
     InterlockCardCategory,
-    BuddyRequest,
     PhysicalAccessLevel,
-    TemporaryPhysicalAccessRequest,
-    AdjustmentRequest,
     Project,
     ProjectDiscipline,
     Qualification,
@@ -41,6 +40,7 @@ from NEMO.models import (
     ScheduledOutage,
     StaffCharge,
     Task,
+    TemporaryPhysicalAccessRequest,
     Tool,
     TrainingSession,
     UsageEvent,
@@ -103,7 +103,7 @@ datetime_filters = remove_duplicates(date_filters + time_filters + ["week"])
 string_filters = ["exact", "iexact", "in", "contains", "icontains", "isempty"]
 number_filters = ["exact", "in", "gte", "gt", "lte", "lt", "isnull"]
 key_filters = ["exact", "in", "isnull"]
-manykey_filters = ["exact", "in", "isnull"]
+manykey_filters = ["exact", "isnull"]
 boolean_filters = ["exact"]
 
 
