@@ -276,6 +276,15 @@ class QualificationLevelViewSet(ModelViewSet):
     filename = "qualification_levels"
     queryset = QualificationLevel.objects.all()
     serializer_class = QualificationLevelSerializer
+    filterset_fields = {
+        "id": key_filters,
+        "name": string_filters,
+        "qualify_user": boolean_filters,
+        "qualify_schedule": boolean_filters,
+        "qualify_weekends": boolean_filters,
+        "schedule_start_time": time_filters,
+        "schedule_end_time": time_filters,
+    }
 
 
 class QualificationViewSet(ModelViewSet):
