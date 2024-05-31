@@ -1,5 +1,6 @@
 {% extends 'training_new/training_base.html' %}
 {% load custom_tags_and_filters %}
+{% load tz %}
 {% block tab_content %}
     {% include 'training/training_recording.html' %}
     <script>
@@ -20,7 +21,9 @@
 					$("#project__{{ forloop.counter }} select").val("{{ project.id }}");
                     {% endif %}
                     {% if "training"|customization:"training_allow_date" == "enabled" %}
-						$("#date__" + {{ forloop.counter }}).val("{{ training_event.start|input_date_format }}");
+                        {% localtime off %}
+						$("#date__" + {{ forloop.counter }}).val("{{ training_event.start|localtime|input_date_format }}");
+                        {% endlocaltime %}
                     {% endif %}
                 {% endwith %}
             {% endfor %}
