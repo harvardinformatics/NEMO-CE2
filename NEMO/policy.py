@@ -117,7 +117,7 @@ class NEMOPolicy:
             abuse_email_address = EmailsCustomization.get("abuse_email_address")
             message = get_media_file_contents("unauthorized_tool_access_email.html")
             if abuse_email_address and message:
-                dictionary = {"operator": operator, "tool": tool, "type": "access"}
+                dictionary = {"operator": operator, "tool": tool, "type": "area-access"}
                 rendered_message = render_email_template(message, dictionary)
                 send_mail(
                     subject="Area access requirement",
@@ -141,7 +141,7 @@ class NEMOPolicy:
                     dictionary = {
                         "operator": operator,
                         "tool": tool,
-                        "type": "reservation",
+                        "type": "area-reservation",
                     }
                     rendered_message = render_email_template(message, dictionary)
                     send_mail(
@@ -180,6 +180,22 @@ class NEMOPolicy:
                 tool=tool,
             )
             if not (reservation_for_user.exists() or training_for_trainer.exists()):
+                abuse_email_address = EmailsCustomization.get("abuse_email_address")
+                message = get_media_file_contents("unauthorized_tool_access_email.html")
+                if abuse_email_address and message:
+                    dictionary = {
+                        "operator": operator,
+                        "tool": tool,
+                        "type": "tool-reservation",
+                    }
+                    rendered_message = render_email_template(message, dictionary)
+                    send_mail(
+                        subject="Tool reservation requirement",
+                        content=rendered_message,
+                        from_email=abuse_email_address,
+                        to=[abuse_email_address],
+                        email_category=EmailCategory.ABUSE,
+                    )
                 return HttpResponseBadRequest("You must have a current reservation to operate this tool.")
 
         # Staff may only charge staff time for one user at a time.
