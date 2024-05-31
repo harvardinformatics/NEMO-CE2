@@ -18,14 +18,20 @@ variables:
 Test python 3.8:
   <<: *test
   image: python:3.8
+  only:
+    - schedules
 
 Test python 3.9:
   <<: *test
   image: python:3.9
+  only:
+    - schedules
 
 Test python 3.10:
   <<: *test
   image: python:3.10
+  only:
+    - schedules
 
 Test python 3.11:
   <<: *test
@@ -34,6 +40,8 @@ Test python 3.11:
 Test python 3.12:
   <<: *test
   image: python:3.12
+  only:
+    - schedules
 
 NEMO-CE dev build:
   stage: build
