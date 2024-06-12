@@ -51,7 +51,7 @@ tasks_logger = getLogger("NEMO.Tasks")
 @require_POST
 def create(request):
     """
-    This function handles feedback from users. This could be a problem report or shutdown notification.
+    This could be a problem report or shutdown notification.
     """
     user: User = request.user
     images_form = TaskImagesForm(request.POST, request.FILES)
@@ -65,28 +65,27 @@ def create(request):
             "content": errors.as_ul(),
         }
         return render(request, "acknowledgement.html", dictionary)
-    task = form.save()
-    task_images = save_task_images(request, task)
 
-    save_error = save_task(request, task, user, task_images)
+    if not settings.ALLOW_CONDITIONAL_URLS and form.cleaned_data["force_shutdown"]:
+        site_title = ApplicationCustomization.get("site_title")
 
-    if save_error:
         dictionary = {
             "title": "Task creation failed",
             "heading": "Something went wrong while reporting the problem",
-            "content": save_error,
+            "content": f"Tool control is only available on campus. When creating a task, you can't force a tool shutdown while using {site_title} off campus.",
         }
         return render(request, "acknowledgement.html", dictionary)
+
+    task = form.save()
+    task_images = save_task_images(request, task)
+
+    save_task(request, task, user, task_images)
 
     return redirect("tool_control")
 
 
 def save_task(request, task: Task, user: User, task_images: List[TaskImages] = None):
     task.save()
-    if not settings.ALLOW_CONDITIONAL_URLS and task.force_shutdown:
-        site_title = ApplicationCustomization.get("site_title")
-
-        return f"Tool control is only available on campus. When creating a task, you can't force a tool shutdown while using {site_title} off campus."
 
     if task.force_shutdown:
         # Shut down the tool.
@@ -113,8 +112,6 @@ def save_task(request, task: Task, user: User, task_images: List[TaskImages] = N
 
     send_new_task_emails(request, task, user, task_images)
     set_task_status(request, task, request.POST.get("status"), user)
-
-    return None
 
 
 def send_new_task_emails(request, task: Task, user, task_images: List[TaskImages]):
