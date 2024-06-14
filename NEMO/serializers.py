@@ -51,6 +51,7 @@ from NEMO.models import (
     TaskHistory,
     TemporaryPhysicalAccessRequest,
     Tool,
+    ToolCredentials,
     TrainingSession,
     UsageEvent,
     User,
@@ -498,6 +499,16 @@ class AdjustmentRequestSerializer(FlexFieldsSerializerMixin, ModelSerializer):
             "reviewer": "NEMO.serializers.UserSerializer",
             "item_type": "NEMO.serializers.ContentTypeSerializer",
             "applied_by": "NEMO.serializers.UserSerializer",
+        }
+
+
+class ToolCredentialsSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+    class Meta:
+        model = ToolCredentials
+        fields = "__all__"
+        expandable_fields = {
+            "tool": "NEMO.serializers.ToolSerializer",
+            "authorized_staff": ("NEMO.serializers.UserSerializer", {"many": True}),
         }
 
 

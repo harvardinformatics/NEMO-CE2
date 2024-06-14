@@ -8,6 +8,7 @@ import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Max
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -96,6 +97,9 @@ def create_or_modify_user(request, user_id):
         "allow_document_upload": UserCustomization.get_bool("user_allow_document_upload"),
         "readonly": readonly,
     }
+
+    last_access = AreaAccessRecord.objects.filter(customer=user).values("area_id").annotate(max_date=Max("start"))
+    dictionary["last_access"] = {item["area_id"]: item["max_date"] for item in last_access}
 
     timeout = identity_service.get("timeout", 3)
     site_title = ApplicationCustomization.get("site_title")
@@ -500,6 +504,25 @@ def user_preferences(request):
         ),
     }
     return render(request, "users/preferences.html", dictionary)
+
+
+@login_required
+@require_GET
+def view_user(request, user_id):
+    if UserCustomization.get_bool("user_allow_profile_view"):
+        user = get_object_or_404(User, pk=user_id)
+
+        if request.user.id != user_id:
+            return HttpResponseBadRequest("You are not allowed to view this user's profile")
+
+        dictionary = {
+            "user": user,
+            "projects": Project.objects.filter(active=True, account__active=True),
+        }
+
+        return render(request, "users/view_user.html", dictionary)
+    else:
+        return HttpResponseBadRequest("You are not allowed to view this page")
 
 
 def readonly_users(request):

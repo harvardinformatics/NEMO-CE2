@@ -137,6 +137,9 @@ any_staff_or_trainer = permission_decorator(lambda u: u.is_active and (u.is_any_
 # For example, to replace NEMO.views.policy.check_policy_to_save_reservation(arg1, arg2)
 # @replace_function("NEMO.views.policy.check_policy_to_save_reservation")
 # def new_function(old_function, arg1, arg2)
+#
+# Note: this won't be executed when running management commands. To fix that,
+# in the apps.py "ready" function, import the file where the annotated function is
 def replace_function(old_function_name, raise_exception=True):
     try:
         pkg, fun_name = old_function_name.rsplit(".", 1)

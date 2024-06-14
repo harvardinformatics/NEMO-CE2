@@ -301,3 +301,11 @@ def precursor_slot_available_positions(slot: ConfigurationPrecursorSlot, start_t
 @register.filter
 def precursor_slot_available_settings(slot: ConfigurationPrecursorSlot, start_time: datetime = None):
     return slot.available_settings_for_reservation(start_time)
+
+
+@register.filter(name="can_be_adjusted")
+def can_be_adjusted(value, arg) -> bool:
+    if not issubclass(type(value), BillableItemMixin):
+        return False
+    else:
+        return value.can_be_adjusted(arg)

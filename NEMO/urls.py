@@ -56,6 +56,7 @@ from NEMO.views import (
     tasks,
     timed_services,
     tool_control,
+    tool_credentials,
     training,
     training_new,
     tutorials,
@@ -110,6 +111,7 @@ router.register(r"scheduled_outages", api.ScheduledOutageViewSet)
 router.register(r"staff_charges", api.StaffChargeViewSet)
 router.register(r"tasks", api.TaskViewSet)
 router.register(r"tools", api.ToolViewSet)
+router.register(r"tool_credentials", api.ToolCredentialsViewSet)
 router.register(r"tool_status", api.ToolStatusViewSet, basename="tool_status")
 router.register(r"training_sessions", api.TrainingSessionViewSet)
 router.register(r"usage_events", api.UsageEventViewSet)
@@ -160,6 +162,8 @@ urlpatterns += [
         name="get_projects_for_tool_control",
     ),
     path("get_projects_for_self/", get_projects.get_projects_for_self, name="get_projects_for_self"),
+    # User Profile:
+    path("user/view_user/<int:user_id>/", users.view_user, name="view_user"),
     # Tool control:
     # This tool_control URL is needed to be able to reverse when choosing items on mobile using next_page.
     # (see choose_item.html for details)
@@ -812,6 +816,9 @@ if settings.ALLOW_CONDITIONAL_URLS:
         path(
             "delete_staff_absence/<int:absence_id>/", status_dashboard.delete_staff_absence, name="delete_staff_absence"
         ),
+        # Tool credentials
+        path("tool_credentials/", tool_credentials.tool_credentials_list, name="tool_credentials"),
+        path("tool_credentials/export/", tool_credentials.export_tool_credentials, name="export_tool_credentials"),
         # Billing:
         path("billing/", usage.billing, name="billing"),
     ]

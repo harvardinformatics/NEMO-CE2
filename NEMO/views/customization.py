@@ -17,7 +17,7 @@ from django.template import Context, Template
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from NEMO import init_admin_site
+from NEMO.apps import init_admin_site
 from NEMO.decorators import administrator_required, customization
 from NEMO.exceptions import InvalidCustomizationException
 from NEMO.models import (
@@ -121,6 +121,12 @@ class CustomizationBase(ABC):
                 return default_value
 
     @classmethod
+    def get_all(cls) -> Dict:
+        customization_values = cls.all_variables()
+        customization_values.update({cust.name: cust.value for cust in Customization.objects.all() if cust.value})
+        return customization_values
+
+    @classmethod
     def get_int(cls, name: str, default=None, raise_exception=True) -> int:
         return quiet_int(cls.get(name, raise_exception), default)
 
@@ -206,6 +212,7 @@ class ProjectsAccountsCustomization(CustomizationBase):
         "project_application_identifier_name": "Application identifier",
         "project_allow_document_upload": "",
         "account_list_active_only": "",
+        "account_project_list_active_only": "",
         "project_list_active_only": "",
         "account_list_collapse": "",
         "project_allow_pi_manage_users": "",
@@ -224,6 +231,7 @@ class ProjectsAccountsCustomization(CustomizationBase):
 class UserCustomization(CustomizationBase):
     variables = {
         "default_user_training_not_required": "",
+        "user_type_required": "",
         "user_list_active_only": "",
         "user_access_expiration_reminder_days": "",
         "user_access_expiration_reminder_cc": "",
@@ -231,6 +239,7 @@ class UserCustomization(CustomizationBase):
         "user_access_expiration_no_type": "",
         "user_access_expiration_types": "-1",
         "user_allow_document_upload": "",
+        "user_allow_profile_view": "",
     }
 
     def context(self) -> Dict:
@@ -376,6 +385,10 @@ class UserRequestsCustomization(CustomizationBase):
         "adjustment_requests_missed_reservation_enabled": "enabled",
         "adjustment_requests_missed_reservation_times": "",
         "adjustment_requests_staff_staff_charges_enabled": "enabled",
+        "adjustment_requests_consumable_withdrawal_enabled": "enabled",
+        "adjustment_requests_consumable_withdrawal_self_checkout": "enabled",
+        "adjustment_requests_consumable_withdrawal_staff_checkout": "enabled",
+        "adjustment_requests_consumable_withdrawal_usage_event": "enabled",
         "adjustment_requests_title": "Adjustment requests",
         "adjustment_requests_description": "",
         "adjustment_requests_charges_display_number": "10",
@@ -492,6 +505,7 @@ class ToolCustomization(CustomizationBase):
         "tool_control_show_task_details": "",
         "tool_control_show_qualified_users_to_all": "",
         "tool_control_show_documents_only_qualified_users": "",
+        "tool_control_show_tool_credentials": "enabled",
         "tool_qualification_reminder_days": "",
         "tool_qualification_expiration_days": "",
         "tool_qualification_expiration_never_used_days": "",
@@ -585,10 +599,10 @@ class TrainingCustomization(CustomizationBase):
         dictionary = super().context()
         dictionary["tools"] = Tool.objects.all()
         dictionary["excluded_tools"] = Tool.objects.filter(id__in=self.get_list_int("training_excluded_tools"))
+        dictionary["training_types"] = TrainingSession.Type.Choices
         dictionary["included_hidden_tools"] = Tool.objects.filter(
             id__in=self.get_list_int("training_included_hidden_tools")
         )
-        dictionary["training_types"] = TrainingSession.Type.Choices
         return dictionary
 
     def validate(self, name, value):
