@@ -5579,6 +5579,11 @@ class TrainingInvitation(BaseModel):
             TrainingRequestStatus.ACCEPTED,
             TrainingRequestStatus.INVITED,
         ]:
+            if self.status == TrainingRequestStatus.ACCEPTED:
+                # if this invitation was previously accepted, send cancelled ics
+                from NEMO.views.training_new import send_ics
+
+                send_ics(self.training_event, self.user, cancelled=True)
             self.save_status(TrainingRequestStatus.DECLINED, user, reason)
             self.training_event.users.remove(self.user)
             # Turn accepted/reviewed/invited training request for this tool/user back to pending and resend notification
