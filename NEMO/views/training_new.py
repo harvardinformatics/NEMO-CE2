@@ -673,7 +673,7 @@ def send_email_training_invitation_declined(training_invitation: TrainingInvitat
             message, {"training_invitation": training_invitation, "reason": reason}, request
         )
         subject = f"Your invitation for the {training_invitation.tool} training session was declined"
-        training_invitation.user.email_user(
+        training_invitation.trainer.email_user(
             subject=subject,
             message=content,
             from_email=training_invitation.user.email,
