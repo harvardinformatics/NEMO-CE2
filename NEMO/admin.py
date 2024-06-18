@@ -368,6 +368,8 @@ class ToolAdmin(admin.ModelAdmin):
                     "_category",
                     "_operation_mode",
                     "_qualifications_never_expire",
+                    "_reservation_required",
+                    "_logout_grace_period",
                     "_pre_usage_questions",
                     "_pre_usage_preview",
                     "_post_usage_questions",
@@ -405,7 +407,6 @@ class ToolAdmin(admin.ModelAdmin):
                     "_maximum_reservations_per_day",
                     "_minimum_time_between_reservations",
                     "_maximum_future_reservation_time",
-                    "_logout_grace_period",
                 )
             },
         ),
@@ -419,7 +420,6 @@ class ToolAdmin(admin.ModelAdmin):
                     "_grant_access_for_qualification_levels",
                     "_interlock",
                     "_max_delayed_logoff",
-                    "_reservation_required",
                     "_ask_to_leave_area_when_done_using",
                 )
             },
