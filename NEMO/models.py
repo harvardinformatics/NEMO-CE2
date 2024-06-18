@@ -1327,6 +1327,11 @@ class Tool(SerializationByNameModel):
         db_column="max_delayed_logoff",
         help_text='[Optional] Maximum delay in minutes that users may enter upon logging off before another user may use the tool. Some tools require "spin-down" or cleaning time after use. Leave blank to disable.',
     )
+    _logout_grace_period = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of minutes users have to logout of this tool after their reservation expired before being flagged and abuse email is sent (only applies if reservations are required for this tool).",
+    )
     _reservation_required = models.BooleanField(
         db_column="reservation_required",
         default=False,
@@ -1665,6 +1670,15 @@ class Tool(SerializationByNameModel):
         self._missed_reservation_threshold = value
 
     @property
+    def logout_grace_period(self):
+        return self.parent_tool.logout_grace_period if self.is_child_tool() else self._logout_grace_period
+
+    @logout_grace_period.setter
+    def logout_grace_period(self, value):
+        self.raise_setter_error_if_child_tool("logout_grace_period")
+        self._logout_grace_period = value
+
+    @property
     def max_delayed_logoff(self):
         return self.parent_tool.max_delayed_logoff if self.is_child_tool() else self._max_delayed_logoff
 
@@ -1948,6 +1962,35 @@ class Tool(SerializationByNameModel):
     def in_use(self):
         result = UsageEvent.objects.filter(tool_id__in=self.get_family_tool_ids(), end=None).exists()
         return result
+
+    def in_use_without_reservation(self) -> bool:
+        event = self.get_current_usage_event()
+        if self.reservation_required and event:
+            end_time = (
+                timezone.now()
+                if not self.logout_grace_period
+                else timezone.now() - timedelta(minutes=self.logout_grace_period)
+            )
+            return not Reservation.objects.filter(
+                cancelled=False,
+                missed=False,
+                shortened=False,
+                tool=self,
+                user=event.operator,
+                start__lte=timezone.now(),
+                end__gte=end_time,
+            ).exists()
+        return False
+
+    def in_use_outside_schedule(self) -> bool:
+        event = self.get_current_usage_event()
+        if event:
+            user = event.operator
+            tool_qualification = Qualification.objects.filter(tool=self, user=user).first()
+            if tool_qualification and tool_qualification.qualification_level:
+                return not tool_qualification.qualification_level.is_allowed()
+
+        return False
 
     def delayed_logoff_in_progress(self):
         result = UsageEvent.objects.filter(tool_id__in=self.get_family_tool_ids(), end__gt=timezone.now()).exists()

@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Set
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import Q, F
 from django.http import HttpResponse, HttpResponseNotFound
 from django.urls import reverse
 from django.utils import timezone
@@ -395,7 +395,8 @@ def email_out_of_time_reservation_notification(request):
 
 def send_email_out_of_time_reservation_notification(request=None):
     """
-    Out of time reservation notification for areas is when a user is still logged in an area but his reservation expired.
+    Out of time reservation notification for areas is when a user is still logged in an area but either their reservation expired or they are outside of their permitted access hours.
+    The out of time reservation notification for tools is when a user is still logged in a tool, but either their reservation expired or they are outside of their permitted usage hours.
     """
     # Exit early if the out of time reservation email template has not been customized for the organization yet.
     # This feature only sends emails, so if the template is not defined there nothing to do.
@@ -404,7 +405,8 @@ def send_email_out_of_time_reservation_notification(request=None):
             "The out of time reservation email template has not been customized for your organization yet. Please visit the customization page to upload a template, then out of time email notifications can be sent."
         )
 
-    out_of_time_user_area = []
+    out_of_time_user_reservations = []
+    trigger_time = timezone.now().replace(second=0, microsecond=0)  # Round down to the nearest minute.
 
     # Find all logged users
     access_records: List[AreaAccessRecord] = (
@@ -418,32 +420,80 @@ def send_email_out_of_time_reservation_notification(request=None):
         area = access_record.area
         if customer.is_staff or customer.is_service_personnel:
             continue
+        # Calculate the timestamp of how late a user can be logged in after a reservation ended.
+        threshold = (
+            trigger_time if not area.logout_grace_period else trigger_time - timedelta(minutes=area.logout_grace_period)
+        )
+        physical_access = PhysicalAccessLevel.objects.filter(user=customer, area=area).first()
+        # Check first if allowed schedule has just expired
+        if (
+            physical_access
+            and physical_access.accessible_at(threshold - timedelta(minutes=1))
+            and not physical_access.accessible_at(threshold)
+        ):
+            out_of_time_user_reservations.append(Reservation(user=customer, area=area, end=threshold))
+        else:
+            if area.requires_reservation:
+                ending_reservations = Reservation.objects.filter(
+                    cancelled=False,
+                    missed=False,
+                    shortened=False,
+                    area=area,
+                    user=customer,
+                    start__lte=timezone.now(),
+                    end=threshold,
+                )
+                # find out if a reservation is starting right at the same time (in case of back to back reservations, in which case customer is good)
+                starting_reservations = Reservation.objects.filter(
+                    cancelled=False, missed=False, shortened=False, area=area, user=customer, start=threshold
+                )
+                if ending_reservations.exists() and not starting_reservations.exists():
+                    out_of_time_user_reservations.append(ending_reservations[0])
 
-        if area.requires_reservation:
-            # Calculate the timestamp of how late a user can be logged in after a reservation ended.
-            threshold = (
-                timezone.now()
-                if not area.logout_grace_period
-                else timezone.now() - timedelta(minutes=area.logout_grace_period)
-            )
-            threshold = datetime.replace(threshold, second=0, microsecond=0)  # Round down to the nearest minute.
-            ending_reservations = Reservation.objects.filter(
-                cancelled=False,
-                missed=False,
-                shortened=False,
-                area=area,
-                user=customer,
-                start__lte=timezone.now(),
-                end=threshold,
-            )
-            # find out if a reservation is starting right at the same time (in case of back to back reservations, in which case customer is good)
-            starting_reservations = Reservation.objects.filter(
-                cancelled=False, missed=False, shortened=False, area=area, user=customer, start=threshold
-            )
-            if ending_reservations.exists() and not starting_reservations.exists():
-                out_of_time_user_area.append(ending_reservations[0])
+    # Find all users logged in tools
+    usage_records: List[UsageEvent] = (
+        UsageEvent.objects.filter(end=None, user=F("operator"))
+        .prefetch_related("operator", "tool")
+        .only("operator", "tool")
+    )
+    for usage_record in usage_records:
+        # staff and service personnel are exempt from out of time notification
+        operator = usage_record.operator
+        tool = usage_record.tool
+        if operator.is_staff or operator.is_service_personnel:
+            continue
+        # Calculate the timestamp of how late a user can be logged in after a reservation ended.
+        threshold = (
+            trigger_time if not tool.logout_grace_period else trigger_time - timedelta(minutes=tool.logout_grace_period)
+        )
+        user_qualification = Qualification.objects.filter(user=operator, tool=tool).first()
+        # Check first if allowed schedule has just expired
+        if (
+            user_qualification
+            and user_qualification.qualification_level
+            and user_qualification.qualification_level.is_allowed(threshold - timedelta(minutes=1))
+            and not user_qualification.qualification_level.is_allowed(threshold)
+        ):
+            out_of_time_user_reservations.append(Reservation(user=operator, tool=tool, end=threshold))
+        else:
+            if tool.reservation_required:
+                ending_reservations = Reservation.objects.filter(
+                    cancelled=False,
+                    missed=False,
+                    shortened=False,
+                    tool=tool,
+                    user=operator,
+                    start__lte=timezone.now(),
+                    end=threshold,
+                )
+                # find out if a reservation is starting right at the same time (in case of back to back reservations, in which case operator is good)
+                starting_reservations = Reservation.objects.filter(
+                    cancelled=False, missed=False, shortened=False, tool=tool, user=operator, start=threshold
+                )
+                if ending_reservations.exists() and not starting_reservations.exists():
+                    out_of_time_user_reservations.append(ending_reservations[0])
 
-    for reservation in out_of_time_user_area:
+    for reservation in out_of_time_user_reservations:
         send_out_of_time_reservation_notification(reservation, request)
 
     return HttpResponse()
@@ -453,12 +503,16 @@ def send_out_of_time_reservation_notification(reservation: Reservation, request=
     message = get_media_file_contents("out_of_time_reservation_email.html")
     user_office_email = EmailsCustomization.get("user_office_email_address")
     if message and user_office_email:
-        subject = "Out of time in the " + str(reservation.area.name)
+        name = str(reservation.tool.name) if reservation.tool else str(reservation.area.name)
+        subject = "Out of time for the " + name if reservation.start else "Out of allowed schedule for the " + name
         message = render_email_template(message, {"reservation": reservation}, request)
         recipients = reservation.user.get_emails(
             reservation.user.get_preferences().email_send_reservation_ending_reminders
         )
-        recipients.extend(reservation.area.abuse_email_list())
+        if reservation.area:
+            recipients.extend(reservation.area.abuse_email_list())
+        else:
+            recipients.append(EmailsCustomization.get("abuse_email_address"))
         send_mail(
             subject=subject,
             content=message,
