@@ -50,7 +50,7 @@
                         </thead>
                         <tbody style="background:transparent">
                             {% for u in usage_events %}
-                                <tr {% if u.operator.is_any_part_of_staff %}class="success" {% elif u.operator.is_service_personnel %}class="warning" {% else %}style="background:transparent"{% endif %}>
+                                <tr {% if u.operator.is_any_part_of_staff %}class="success"{% elif u.operator.is_service_personnel %}class="warning"{% elif u.tool.in_use_without_reservation or u.tool.in_use_outside_schedule %}class="danger"{% else %} style="background:transparent"{% endif %}>
                                     <td>{{ u.tool }}</td>
                                     <td>
                                         <span>{{ u.operator.first_name }} {{ u.operator.last_name }}

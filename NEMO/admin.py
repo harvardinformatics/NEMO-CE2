@@ -405,6 +405,7 @@ class ToolAdmin(admin.ModelAdmin):
                     "_maximum_reservations_per_day",
                     "_minimum_time_between_reservations",
                     "_maximum_future_reservation_time",
+                    "_logout_grace_period",
                 )
             },
         ),

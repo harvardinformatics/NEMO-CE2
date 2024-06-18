@@ -69,7 +69,11 @@ def status_dashboard(request, tab=None):
 
 
 def get_tools_dictionary():
-    return {"tool_summary": create_tool_summary(tooltip_info=True)}
+    tool_reservations_can_expire = Tool.objects.filter(_reservation_required=True).exists()
+    return {
+        "tool_summary": create_tool_summary(tooltip_info=True),
+        "tool_reservations_can_expire": tool_reservations_can_expire,
+    }
 
 
 def get_occupancy_dictionary(request):
@@ -486,6 +490,8 @@ def merge(tools, tasks, unavailable_resources, usage_events, scheduled_outages, 
             "scheduled_outage": False,
             "scheduled_partial_outage": False,
             "reservation_required": tool.reservation_required,
+            "in_use_without_reservation": False,
+            "is_outside_authorized_schedule": False,
             "area_name": tool.requires_area_access.name if tool.requires_area_access else None,
             "area_requires_reservation": (
                 tool.requires_area_access.requires_reservation if tool.requires_area_access else False
@@ -504,6 +510,10 @@ def merge(tools, tasks, unavailable_resources, usage_events, scheduled_outages, 
         result[event.tool.tool_or_parent_id()]["in_use_since"] = event.start
         result[event.tool.tool_or_parent_id()]["operator_is_any_part_of_staff"] = event.operator.is_any_part_of_staff
         result[event.tool.tool_or_parent_id()]["operator_is_service_personnel"] = event.operator.is_service_personnel
+        result[event.tool.tool_or_parent_id()]["in_use_without_reservation"] = event.tool.in_use_without_reservation()
+        result[event.tool.tool_or_parent_id()][
+            "in_use_outside_authorized_schedule"
+        ] = event.tool.in_use_outside_schedule()
     for resource in unavailable_resources:
         for tool in resource.fully_dependent_tools.filter(visible=True):
             result[tool.id]["required_resource_is_unavailable"] = True
