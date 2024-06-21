@@ -53,6 +53,7 @@
                                 <th>{% include 'pagination/pagination_column.html' with order_by='type_order' name='Type' %}</th>
                                 <th>{% include 'pagination/pagination_column.html' with order_by='tool_order' name='Tool' %}</th>
                                 <th>Date(s)</th>
+                                {% if action_mode %}<th>User</th>{% endif %}
                                 <th>{% include 'pagination/pagination_column.html' with order_by='status' name='Status' %}</th>
                                 {% if not action_mode %}
                                     <th>{% include 'pagination/pagination_column.html' with order_by='user' name='By' %}</th>
@@ -73,6 +74,17 @@
                                             {% endfor %}
                                         </div>
                                     </td>
+                                    {% if action_mode %}
+                                        <td>
+                                            {% if training_history.target_users|length_is:1 %}
+                                                {% if training_history.target_users.0 == user %}
+                                                    Me
+                                                {% else %}
+                                                    {{ training_history.target_users|join:", " }}
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
                                     <td>
                                         {{ training_history.status }}
                                         {% if training_history.qualification_level %}({{ training_history.qualification_level }}){% endif %}
