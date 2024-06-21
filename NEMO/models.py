@@ -3837,6 +3837,7 @@ class Interlock(BaseModel):
 
         category = self.card.category if self.card else None
         channel_name = interlocks.get(category, raise_exception=False).channel_name
+        unit_id_name = interlocks.get(category, raise_exception=False).unit_id_name
         display_name = ""
         if self.name:
             display_name += f"{self.name}"
@@ -3844,6 +3845,10 @@ class Interlock(BaseModel):
             if self.name:
                 display_name += ", "
             display_name += f"{channel_name} " + str(self.channel)
+        if self.unit_id:
+            if self.name or self.channel:
+                display_name += ", "
+            display_name += f"{unit_id_name} " + str(self.unit_id)
         return str(self.card) + (f", {display_name}" if display_name else "")
 
 

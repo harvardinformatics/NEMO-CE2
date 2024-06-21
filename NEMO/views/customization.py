@@ -697,6 +697,7 @@ class TemplatesCustomization(CustomizationBase):
         ("recurring_charges_reminder_email", ".html"),
         ("shadowing_verification_notification_email", ".html"),
         ("wait_list_notification_email", ".html"),
+        ("tool_required_unanswered_questions_email", ".html"),
     ]
 
 
