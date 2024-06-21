@@ -607,6 +607,7 @@ urlpatterns += [
                     name="review_training_invitation",
                 ),
                 path("history/", training_new.history, name="training_history"),
+                path("session_history/", training_new.training_session_history, name="training_session_history"),
                 path("events/upcoming/", training_new.upcoming_events, name="upcoming_training_events"),
                 path("events/schedule/", training_new.schedule_events, name="schedule_training_events"),
                 path("events/schedule/ajax/", training_new.schedule_events_ajax, name="schedule_training_events_ajax"),

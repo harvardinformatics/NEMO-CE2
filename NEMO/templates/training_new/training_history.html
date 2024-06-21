@@ -1,10 +1,11 @@
 {% extends 'training_new/training_base.html' %}
 {% load custom_tags_and_filters %}
+{% load training_tags %}
 {% block tab_content %}
     {# we cannot extend pagination page directly since we are already extending training_base #}
     {% block before_pagination %}
         <div class="row form-horizontal">
-            {% if managed_users %}
+            {% if not training_session_history and managed_users %}
                 <div class="control-label col-sm-2">
                     <label for="selected_user">Managed user</label>
                 </div>
@@ -31,13 +32,21 @@
         <div class="pagination pull-left">
             <div class="btn-group" role="group" style="display: inline-flex">
                 <button type="button"
-                        class="btn btn-default {% if not action_mode %}active{% endif %}"
-                        onclick="location.href = '?action_mode=False'"
-                        {% if not action_mode %}aria-pressed="true"{% endif %}>My history</button>
+                        class="btn btn-default {% if not action_mode and not training_session_history %}active{% endif %}"
+                        onclick="location.href = '{% url 'training_history' %}?action_mode=False'"
+                        {% if not action_mode and not training_session_history %}aria-pressed="true"{% endif %}>
+                    My history
+                </button>
                 <button type="button"
                         class="btn btn-default {% if action_mode %}active{% endif %}"
-                        onclick="location.href = '?action_mode=True'"
+                        onclick="location.href = '{% url 'training_history' %}?action_mode=True'"
                         {% if action_mode %}aria-pressed="true"{% endif %}>My actions</button>
+                {% if user|is_trainer %}
+                    <button type="button"
+                            class="btn btn-default {% if training_session_history %}active{% endif %}"
+                            onclick="location.href = '{% url 'training_session_history' %}'"
+                            {% if training_session_history %}aria-pressed="true"{% endif %}>Recorded charges</button>
+                {% endif %}
             </div>
         </div>
         <div class="pagination pull-right">{% include "pagination/pagination_selector.html" %}</div>
@@ -46,65 +55,94 @@
         {% with paginator=page.paginator %}
             <div class="table-responsive" style="border: none; width: 100%">
                 {% block pagination_content %}
-                    <table class="table table-borderless table-align-middle" style="margin-bottom: 0">
-                        <thead>
-                            <tr>
-                                <th>{% include 'pagination/pagination_column.html' with order_by='time' name='Time' %}</th>
-                                <th>{% include 'pagination/pagination_column.html' with order_by='type_order' name='Type' %}</th>
-                                <th>{% include 'pagination/pagination_column.html' with order_by='tool_order' name='Tool' %}</th>
-                                <th>Date(s)</th>
-                                {% if action_mode %}<th>User</th>{% endif %}
-                                <th>{% include 'pagination/pagination_column.html' with order_by='status' name='Status' %}</th>
-                                {% if not action_mode %}
-                                    <th>{% include 'pagination/pagination_column.html' with order_by='user' name='By' %}</th>
-                                {% endif %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for training_history in page %}
+                    {% if training_session_history %}
+                        <table class="table table-borderless table-align-middle" style="margin-bottom: 0">
+                            <thead>
                                 <tr>
-                                    <td>{{ training_history.time|date:"SHORT_DATETIME_FORMAT" }}</td>
-                                    <td>{{ training_history.training_item_type }}</td>
-                                    <td>{{ training_history.tool }}</td>
-                                    <td>
-                                        <div class="training-dates">
-                                            {% for date_time in training_history.dates %}
-                                                {{ date_time }}
-                                                {% if not forloop.last %}<br>{% endif %}
-                                            {% endfor %}
-                                        </div>
-                                    </td>
-                                    {% if action_mode %}
-                                        <td>
-                                            {% if training_history.target_users|length_is:1 %}
-                                                {% if training_history.target_users.0 == user %}
-                                                    Me
-                                                {% else %}
-                                                    {{ training_history.target_users|join:", " }}
-                                                {% endif %}
-                                            {% endif %}
-                                        </td>
-                                    {% endif %}
-                                    <td>
-                                        {{ training_history.status }}
-                                        {% if training_history.qualification_level %}({{ training_history.qualification_level }}){% endif %}
-                                        {% if training_history.details %}
-                                            <span title="{{ training_history.details }}" data-toggle="tooltip"><i class="primary-highlight glyphicon glyphicon-info-sign"></i></span>
-                                        {% endif %}
-                                    </td>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='date' name='Date' %}</th>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='duration' name='Duration' %}</th>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='type' name='Type' %}</th>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='tool' name='Tool' %}</th>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='trainee' name='User' %}</th>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='project' name='Project' %}</th>
+                                    {% if qualification_levels %}<th>Level</th>{% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for training_session in page %}
+                                    <tr>
+                                        <td>{{ training_session.date|date:"SHORT_DATETIME_FORMAT" }}</td>
+                                        <td>{{ training_session.duration }} minutes</td>
+                                        <td>{{ training_session.get_type_display }}</td>
+                                        <td>{{ training_session.tool }}</td>
+                                        <td>{{ training_session.trainee }}</td>
+                                        <td>{{ training_session.project }}</td>
+                                        {% if qualification_levels %}<td>{{ training_session.qualification.qualification_level }}</td>{% endif %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <table class="table table-borderless table-align-middle" style="margin-bottom: 0">
+                            <thead>
+                                <tr>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='time' name='Time' %}</th>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='type_order' name='Type' %}</th>
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='tool_order' name='Tool' %}</th>
+                                    <th>Date(s)</th>
+                                    {% if action_mode %}<th>User</th>{% endif %}
+                                    <th>{% include 'pagination/pagination_column.html' with order_by='status' name='Status' %}</th>
                                     {% if not action_mode %}
-                                        <td>
-                                            {% if training_history.user == user %}
-                                                Me
-                                            {% else %}
-                                                {{ training_history.user|default_if_none:SYSTEM_USER_DISPLAY }}
-                                            {% endif %}
-                                        </td>
+                                        <th>{% include 'pagination/pagination_column.html' with order_by='user' name='By' %}</th>
                                     {% endif %}
                                 </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for training_history in page %}
+                                    <tr>
+                                        <td>{{ training_history.time|date:"SHORT_DATETIME_FORMAT" }}</td>
+                                        <td>{{ training_history.training_item_type }}</td>
+                                        <td>{{ training_history.tool }}</td>
+                                        <td>
+                                            <div class="training-dates">
+                                                {% for date_time in training_history.dates %}
+                                                    {{ date_time }}
+                                                    {% if not forloop.last %}<br>{% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                        {% if action_mode %}
+                                            <td>
+                                                {% if training_history.target_users|length_is:1 %}
+                                                    {% if training_history.target_users.0 == user %}
+                                                        Me
+                                                    {% else %}
+                                                        {{ training_history.target_users|join:", " }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                        {% endif %}
+                                        <td>
+                                            {{ training_history.status }}
+                                            {% if training_history.qualification_level %}({{ training_history.qualification_level }}){% endif %}
+                                            {% if training_history.details %}
+                                                <span title="{{ training_history.details }}" data-toggle="tooltip"><i class="primary-highlight glyphicon glyphicon-info-sign"></i></span>
+                                            {% endif %}
+                                        </td>
+                                        {% if not action_mode %}
+                                            <td>
+                                                {% if training_history.user == user %}
+                                                    Me
+                                                {% else %}
+                                                    {{ training_history.user|default_if_none:SYSTEM_USER_DISPLAY }}
+                                                {% endif %}
+                                            </td>
+                                        {% endif %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
                 {% endblock %}
             </div>
             {% block pagination_footer %}
