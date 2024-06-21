@@ -733,7 +733,6 @@ def get_class_from_settings(setting_name: str, default_value: str):
 
 def is_trainer(user, tool=None) -> bool:
     from NEMO.models import Tool
-    from NEMO.views.customization import TrainingCustomization
 
     tool_qs = Tool.objects.all()
     if tool:

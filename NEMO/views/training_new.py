@@ -20,6 +20,7 @@ from NEMO.decorators import any_staff_or_trainer
 from NEMO.forms import TrainingEventForm, TrainingRequestForm, TrainingRequestTimeForm
 from NEMO.models import (
     Notification,
+    QualificationLevel,
     Reservation,
     ScheduledOutage,
     Tool,
@@ -30,6 +31,7 @@ from NEMO.models import (
     TrainingRequest,
     TrainingRequestStatus,
     TrainingRequestTime,
+    TrainingSession,
     User,
 )
 from NEMO.policy import policy_class as policy
@@ -166,6 +168,31 @@ def decline_request(request, training_request_id):
     return redirect("schedule_training_events")
 
 
+@any_staff_or_trainer
+@require_GET
+def training_session_history(request):
+    mark_training_objects_expired()
+    user: User = request.user
+
+    training_sessions = TrainingSession.objects.filter(trainer=user)
+
+    page = SortedPaginator(training_sessions, request, order_by="-date").get_current_page()
+
+    if bool(request.GET.get("csv", False)):
+        return export_training_session_history(user, training_sessions)
+
+    return render(
+        request,
+        "training_new/training_history.html",
+        {
+            "page": page,
+            "training_session_history": True,
+            "qualification_levels": QualificationLevel.objects.exists(),
+            "selected_user": user,
+        },
+    )
+
+
 @login_required
 @require_GET
 def history(request):
@@ -241,6 +268,39 @@ def history(request):
             "action_mode": action_mode,
         },
     )
+
+
+def export_training_session_history(user, training_sessions) -> HttpResponse:
+    export_history = BasicDisplayTable()
+    export_history.headers = [
+        ("date", "Date"),
+        ("duration", "Duration"),
+        ("type", "Type"),
+        ("tool", "Tool"),
+        ("user", "User"),
+        ("project", "Project"),
+    ]
+    qualification_levels = QualificationLevel.objects.exists()
+    if qualification_levels:
+        export_history.add_header(("level", "Level"))
+    for training_session in training_sessions:
+        training_session: TrainingSession = training_session
+        row = {
+            "date": format_datetime(training_session.date, df="SHORT_DATETIME_FORMAT"),
+            "duration": training_session.duration,
+            "type": training_session.get_type_display(),
+            "tool": training_session.tool,
+            "user": training_session.trainee,
+            "project": training_session.project,
+        }
+        if qualification_levels:
+            row["level"] = training_session.qualification.qualification_level if training_session.qualification else ""
+        export_history.add_row(row)
+    name = slugify(user.get_name()).replace("-", "_")
+    response = export_history.to_csv()
+    filename = f"{name}_recorded_training_sessions_{export_format_datetime()}.csv"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 def export_training_history(user, training_histories) -> HttpResponse:
