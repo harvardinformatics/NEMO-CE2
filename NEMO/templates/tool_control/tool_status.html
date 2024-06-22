@@ -85,12 +85,14 @@
                 {% if tool.get_current_usage_event.operator.id != user.id %}
                     {% if user.is_staff or user.is_user_office %}
                         <p>
-                            You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a>.
+                            You may <a href="javascript:void(0)"
+    onclick="disable_tool('{% url 'disable_tool' tool.id %}', undefined, true)">force {{ tool.get_current_usage_event.operator }} off this tool</a>.
                         </p>
                     {% elif not tool.post_usage_questions %}
                         {% if time_left and "tool"|customization:"tool_control_ongoing_reservation_force_off" == "enabled" %}
                             <p>
-                                You may <a href="javascript:void(0)" onclick="disable_tool('{% url 'disable_tool' tool.id %}')">force {{ tool.get_current_usage_event.operator }} off this tool</a> since you have an ongoing reservation and the tool has no post usage questions.
+                                You may <a href="javascript:void(0)"
+    onclick="disable_tool('{% url 'disable_tool' tool.id %}', undefined, true)">force {{ tool.get_current_usage_event.operator }} off this tool</a> since you have an ongoing reservation and the tool has no post usage questions.
                             </p>
                         {% endif %}
                     {% endif %}

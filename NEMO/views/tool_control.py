@@ -550,6 +550,7 @@ def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, re
             empty_post_request = Namespace(**{"POST": {}})
             current_usage_event.run_data = dynamic_form.extract(empty_post_request)
         except RequiredUnansweredQuestionsException as e:
+            current_usage_event.run_data = e.run_data
             email_managers_required_questions_disable_tool(current_usage_event.operator, tool, e.questions)
         current_usage_event.save()
     else:

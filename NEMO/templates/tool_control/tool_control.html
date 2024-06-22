@@ -217,10 +217,14 @@
 			try_post_catch_interlock_error(url, data, success_callbacks, enable_start_button);
 		}
 
-		function disable_tool(url, shorten)
+		function disable_tool(url, shorten, force)
 		{
 			$("#stop_wrapper button").prop("disabled", true);
-			let data = $("#tool_control").serialize();
+            let data = ""
+            if (force === undefined || !force)
+            {
+            	data += $("#tool_control").serialize();
+            }
             if (shorten !== undefined && shorten) data += '&shorten=True';
 			let enable_stop_button = function() { $("#stop_wrapper button").prop("disabled", false); };
 			try_post_catch_interlock_error(url, data, [refresh_tool_status, ajax_success_callback], enable_stop_button);
