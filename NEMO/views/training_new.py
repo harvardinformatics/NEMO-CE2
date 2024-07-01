@@ -838,10 +838,36 @@ def send_ics(training: TrainingEvent, user, cancelled=False):
     event_name = f"{training.tool.name} Training"
     trainer = training.trainer
     ics = create_ics(
-        training.id, event_name, training.start, training.end, user, organizer=trainer, cancelled=cancelled
+        training.id,
+        event_name,
+        training.start,
+        training.end,
+        user,
+        organizer=trainer,
+        cancelled=cancelled,
+        description=training.message,
     )
     # Check if this is sent to the trainer by himself, in which case we need to remove him as organizer in ICS
     if user == trainer:
+        training_extra_email_addresses = TrainingCustomization.get_list("training_extra_email_addresses")
+        for training_extra_email_address in training_extra_email_addresses:
+            ics = create_ics(
+                training.id,
+                event_name,
+                training.start,
+                training.end,
+                training_extra_email_address,
+                cancelled=cancelled,
+                description=training.message,
+            )
+            send_mail(
+                subject=event_name,
+                from_email=None,
+                to=[training_extra_email_address],
+                content="",
+                attachments=[ics],
+                email_category=EmailCategory.TRAINING,
+            )
         ics = create_ics(
             training.id,
             event_name,

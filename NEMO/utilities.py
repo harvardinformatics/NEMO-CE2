@@ -765,6 +765,12 @@ def create_ics(
     else:
         organizer_email = getattr(settings, "RESERVATION_ORGANIZER_EMAIL", "no_reply")
         organizer = getattr(settings, "RESERVATION_ORGANIZER", site_title)
+    if isinstance(user, str):
+        user_name = user
+        user_email = user
+    else:
+        user_name = user.get_name()
+        user_email = user.email
     method_name = "CANCEL" if cancelled else "REQUEST"
     sequence = "SEQUENCE:2\n" if cancelled else "SEQUENCE:0\n"
     priority = "PRIORITY:5\n" if cancelled else "PRIORITY:0\n"
@@ -782,7 +788,7 @@ def create_ics(
         f"DTSTAMP:{now}\n",
         f"DTSTART:{start}\n",
         f"DTEND:{end}\n",
-        f'ATTENDEE;CN="{user.get_name()}";RSVP=TRUE:mailto:{user.email}\n',
+        f'ATTENDEE;CN="{user_name}";RSVP=TRUE:mailto:{user_email}\n',
         f'ORGANIZER;CN="{organizer}":mailto:{organizer_email}\n',
         f"SUMMARY:[{site_title}] {event_name}\n",
         f"DESCRIPTION:{description or ''}\n",
