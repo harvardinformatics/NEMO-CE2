@@ -592,6 +592,7 @@ class TrainingCustomization(CustomizationBase):
         "training_included_hidden_tools": "",
         "training_show_in_user_requests": "",
         "training_upcoming_schedule_days": "7",
+        "training_extra_email_addresses": "",
     }
 
     def context(self) -> Dict:
@@ -620,6 +621,10 @@ class TrainingCustomization(CustomizationBase):
             validate_comma_separated_integer_list(value)
         if name == "training_included_hidden_tools" and value:
             validate_comma_separated_integer_list(value)
+        if name == "training_extra_email_addresses":
+            recipients = tuple([e for e in value.split(",") if e])
+            for email in recipients:
+                validate_email(email)
 
     def save(self, request, element=None) -> Dict[str, Dict[str, str]]:
         errors = super().save(request, element)

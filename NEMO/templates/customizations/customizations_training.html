@@ -122,6 +122,24 @@
         <div class="form-group">
             <div id="include-hidden-list" class="col-md-offset-3 col-md-4">No hidden tools are included.</div>
         </div>
+        <div class="form-group {% if errors.training_extra_email_addresses %}has-error{% endif %}">
+            <label class="control-label col-md-3" for="training_extra_email_addresses">Training extra email(s)</label>
+            <div class="col-md-7">
+                <input type="text"
+                       id="training_extra_email_addresses"
+                       name="training_extra_email_addresses"
+                       class="form-control"
+                       value="{% if errors.training_extra_email_addresses %}{{ errors.training_extra_email_addresses.value }}{% else %}{{ training_extra_email_addresses }}{% endif %}"
+                       placeholder="trainings@example.org">
+            </div>
+            <div class="col-md-offset-3 col-md-9 help-block light-grey">
+                {% if errors.training_extra_email_addresses %}
+                    {{ errors.training_extra_email_addresses.error }}
+                {% else %}
+                    Anonymized training invitations are sent to the following email address(es) when creating, modifying or deleting a training event. A comma-separated list can be used.
+                {% endif %}
+            </div>
+        </div>
         <div class="customization-separation" style="margin-bottom: 15px"></div>
         <h3 class="customization-section-title">Defaults</h3>
         <div class="form-group{% if errors.training_event_default_duration %}has-error{% endif %}">
