@@ -1977,7 +1977,7 @@ class Tool(SerializationByNameModel):
                 shortened=False,
                 tool=self,
                 user=event.operator,
-                start__lte=timezone.now(),
+                start__lte=timezone.now() + timedelta(minutes=15),
                 end__gte=end_time,
             ).exists()
         return False
