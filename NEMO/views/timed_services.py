@@ -512,7 +512,13 @@ def send_out_of_time_reservation_notification(reservation: Reservation, request=
         if reservation.area:
             recipients.extend(reservation.area.abuse_email_list())
         else:
-            recipients.append(EmailsCustomization.get("abuse_email_address"))
+            if (
+                reservation.tool
+                and ApplicationCustomization.get_bool("out_of_time_tool_send_to_abuse_email")
+                or reservation.area
+                and ApplicationCustomization.get_bool("out_of_time_area_send_to_abuse_email")
+            ):
+                recipients.append(EmailsCustomization.get("abuse_email_address"))
         send_mail(
             subject=subject,
             content=message,

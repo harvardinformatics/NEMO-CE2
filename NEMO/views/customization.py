@@ -192,6 +192,8 @@ class ApplicationCustomization(CustomizationBase):
         "status_dashboard_page_title": "Status dashboard",
         "requests_page_title": "Requests",
         "safety_page_title": "Safety",
+        "out_of_time_tool_send_to_abuse_email": "enabled",
+        "out_of_time_area_send_to_abuse_email": "enabled",
     }
 
     def context(self) -> Dict:
