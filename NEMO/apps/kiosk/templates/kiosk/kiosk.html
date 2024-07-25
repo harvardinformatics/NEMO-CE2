@@ -350,6 +350,11 @@
             {
             	data += $("#tool_control").serialize();
             }
+            else
+            {
+                data += "&tool_id=" + $("#tool_control input[name='tool_id']").val();
+                data += "&customer_id=" + $("#tool_control input[name='customer_id']").val();
+			}
             if (shorten !== undefined && shorten) data += '&shorten=True';
 			status_element.html("<h1>Disabling tool...</h1>").show();
 			try_post_catch_interlock_error('{% url 'disable_tool_from_kiosk' %}', data);
