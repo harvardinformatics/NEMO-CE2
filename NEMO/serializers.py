@@ -52,7 +52,9 @@ from NEMO.models import (
     TemporaryPhysicalAccessRequest,
     Tool,
     ToolCredentials,
+    TrainingEvent,
     TrainingSession,
+    TrainingTechnique,
     UsageEvent,
     User,
 )
@@ -357,6 +359,19 @@ class ScheduledOutageSerializer(FlexFieldsSerializerMixin, ModelSerializer):
         }
 
 
+class TrainingEventSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+    class Meta:
+        model = TrainingEvent
+        fields = "__all__"
+        expandable_fields = {
+            "cancelled_by": "NEMO.serializers.UserSerializer",
+            "creator": "NEMO.serializers.UserSerializer",
+            "technique": "NEMO.serializers.TrainingTechniqueSerializer",
+            "tool": "NEMO.serializers.ToolSerializer",
+            "trainer": "NEMO.serializers.UserSerializer",
+        }
+
+
 class TrainingSessionSerializer(FlexFieldsSerializerMixin, ModelSerializer):
     class Meta:
         model = TrainingSession
@@ -367,6 +382,12 @@ class TrainingSessionSerializer(FlexFieldsSerializerMixin, ModelSerializer):
             "tool": "NEMO.serializers.ToolSerializer",
             "project": "NEMO.serializers.ProjectSerializer",
         }
+
+
+class TrainingTechniqueSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+    class Meta:
+        model = TrainingTechnique
+        fields = "__all__"
 
 
 class StaffChargeSerializer(FlexFieldsSerializerMixin, ModelSerializer):
