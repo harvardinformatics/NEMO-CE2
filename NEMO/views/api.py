@@ -43,7 +43,9 @@ from NEMO.models import (
     TemporaryPhysicalAccessRequest,
     Tool,
     ToolCredentials,
+    TrainingEvent,
     TrainingSession,
+    TrainingTechnique,
     UsageEvent,
     User,
 )
@@ -87,7 +89,9 @@ from NEMO.serializers import (
     ToolCredentialsSerializer,
     ToolSerializer,
     ToolStatusSerializer,
+    TrainingEventSerializer,
     TrainingSessionSerializer,
+    TrainingTechniqueSerializer,
     UsageEventSerializer,
     UserSerializer,
 )
@@ -621,6 +625,36 @@ class StaffChargeViewSet(ModelViewSet):
     }
 
 
+class TrainingEventViewSet(ModelViewSet):
+    filename = "training_event"
+    queryset = TrainingEvent.objects.all()
+    serializer_class = TrainingEventSerializer
+    filterset_fields = {
+        "id": key_filters,
+        "creation_time": datetime_filters,
+        "start": datetime_filters,
+        "end": datetime_filters,
+        "message": string_filters,
+        "capacity": number_filters,
+        "cancelled": boolean_filters,
+        "cancellation_time": datetime_filters,
+        "cancellation_reason": string_filters,
+        "cancelled_by_id": key_filters,
+        "cancelled_by": key_filters,
+        "creator_id": key_filters,
+        "creator": key_filters,
+        "technique_id": key_filters,
+        "technique": key_filters,
+        "tool_id": key_filters,
+        "tool": key_filters,
+        "trainer_id": key_filters,
+        "trainer": key_filters,
+        "recorded": boolean_filters,
+        "invitation_only": boolean_filters,
+        "auto_cancel": datetime_filters,
+    }
+
+
 class TrainingSessionViewSet(ModelViewSet):
     filename = "training_sessions"
     queryset = TrainingSession.objects.all()
@@ -641,6 +675,16 @@ class TrainingSessionViewSet(ModelViewSet):
         "qualified": boolean_filters,
         "validated": boolean_filters,
         "validated_by": key_filters,
+    }
+
+
+class TrainingTechniqueViewSet(ModelViewSet):
+    filename = "training_techniquess"
+    queryset = TrainingTechnique.objects.all()
+    serializer_class = TrainingTechniqueSerializer
+    filterset_fields = {
+        "id": key_filters,
+        "name": string_filters,
     }
 
 
