@@ -953,8 +953,12 @@ def get_schedule_help_for_tool(tool: Tool, user: User) -> Optional[BasicDisplayT
             if not user_schedule:
                 info += f" by {event.trainer.get_name()}"
         else:
-            # Outage is always on the tool
-            info = f"{event.tool.name} outage"
+            # Outage is on the tool
+            try:
+                info = f"{event.tool.name} outage"
+            # Or a required resource
+            except AttributeError:
+                info = f"{event.resource.name} outage"
         table.add_row({"start": event.start, "end": event.end, "info": info, "user_schedule": user_schedule})
 
     return table
