@@ -62,6 +62,7 @@ from NEMO.views.customization import (
     ApplicationCustomization,
     CalendarCustomization,
     EmailsCustomization,
+    ToolCustomization,
     TrainingCustomization,
     get_media_file_contents,
 )
@@ -1165,7 +1166,7 @@ def cancel_the_reservation(
                 if reservation.area:
                     recipients.extend(reservation.area.reservation_email_list())
                 if reservation.user.get_preferences().attach_cancelled_reservation:
-                    event_name = f"{reservation.reservation_item.name} Reservation"
+                    event_name = reservation.title or f"{reservation.reservation_item.name} Reservation"
                     attachment = create_ics(
                         reservation.id, event_name, reservation.start, reservation.end, reservation.user, cancelled=True
                     )
@@ -1207,7 +1208,7 @@ def send_user_created_reservation_notification(reservation: Reservation):
         user_office_email = EmailsCustomization.get("user_office_email_address")
         # We don't need to check for existence of reservation_created_user_email because we are attaching the ics reservation and sending the email regardless (message will be blank)
         if user_office_email:
-            event_name = f"{reservation.reservation_item.name} Reservation"
+            event_name = reservation.title or f"{reservation.reservation_item.name} Reservation"
             attachment = create_ics(reservation.id, event_name, reservation.start, reservation.end, reservation.user)
             send_mail(
                 subject=subject, content=message, from_email=user_office_email, to=recipients, attachments=[attachment]
@@ -1234,7 +1235,7 @@ def send_user_cancelled_reservation_notification(reservation: Reservation):
         user_office_email = EmailsCustomization.get("user_office_email_address")
         # We don't need to check for existence of reservation_cancelled_user_email because we are attaching the ics reservation and sending the email regardless (message will be blank)
         if user_office_email:
-            event_name = f"{reservation.reservation_item.name} Reservation"
+            event_name = reservation.title or f"{reservation.reservation_item.name} Reservation"
             attachment = create_ics(
                 reservation.id, event_name, reservation.start, reservation.end, reservation.user, cancelled=True
             )
@@ -1412,11 +1413,13 @@ def send_tool_free_time_notification(
             formatted_time = f"{freed_time:0.0f}"
             link = get_full_url(reverse("calendar"), request)
             user_ids = distinct_qs_value_list(tool_notifications, "user")
+            include_username = ToolCustomization.get_bool("tool_freed_time_notification_include_username")
             for user in User.objects.in_bulk(user_ids).values():
                 if user != cancelled_reservation.user:
+                    include_username_message = f" by {user.username}" if include_username else ""
                     subject = f"[{tool.name}] {formatted_time} minutes freed starting {formatted_start}"
                     message = f"Dear {user.first_name},<br>\n"
-                    message += f"The following time slot has been freed for the {tool.name}:<br><br>\n\n"
+                    message += f"The following time slot has been freed for the {tool.name}{include_username_message}:<br><br>\n\n"
                     message += f"Start: {formatted_start}<br>\n"
                     message += f"End: {format_datetime(start_time + timedelta(minutes=freed_time))}<br>\n"
                     message += f"Duration: {formatted_time} minutes<br><br>\n\n"
