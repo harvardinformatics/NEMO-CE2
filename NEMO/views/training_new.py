@@ -346,11 +346,48 @@ def export_training_history(user, training_histories) -> HttpResponse:
 @login_required
 @require_GET
 def upcoming_events(request):
+    return render(
+        request, "training_new/training_events/upcoming_training_events.html", get_upcoming_events_context(request)
+    )
+
+
+def get_upcoming_events_context(request) -> Dict:
+    user: User = request.user
     mark_training_objects_expired()
     date_now = timezone.now()
     training_events = TrainingEvent.objects.filter(end__gte=date_now).exclude(start__lte=date_now).order_by("start")
-    dictionary = {"training_events": training_events}
-    return render(request, "training_new/training_events/upcoming_training_events.html", dictionary)
+    tools = Tool.objects.in_bulk(distinct_qs_value_list(training_events, "tool")).values()
+    trainers = User.objects.in_bulk(distinct_qs_value_list(training_events, "trainer")).values()
+    training_dates = training_events.values_list("start", flat=True)
+    dates = set(training_date.astimezone().date() for training_date in training_dates)
+    dates = sorted(dates)
+    tool_filter = request.GET.get("tool", "all-tools")
+    if tool_filter != "all-tools":
+        training_events = training_events.filter(tool_id=tool_filter)
+    trainer_filter = request.GET.get("trainer", "all-trainers")
+    if trainer_filter != "all-trainers":
+        training_events = training_events.filter(trainer_id=trainer_filter)
+    date_filter = request.GET.get("date", "all-dates")
+    if date_filter and date_filter != "all-dates":
+        parsed_date = datetime.datetime.strptime(date_filter, date_input_format)
+        requests_to_exclude = []
+        for training_event in training_events:
+            if (
+                training_event.start.astimezone().date() != parsed_date.date()
+                and training_event.end.astimezone().date() != parsed_date.date()
+            ):
+                requests_to_exclude.append(training_event.id)
+        training_events = training_events.exclude(id__in=requests_to_exclude)
+
+    return {
+        "training_events": training_events,
+        "selected_tool": tool_filter,
+        "tools": tools,
+        "selected_trainer": trainer_filter,
+        "trainers": trainers,
+        "selected_date": date_filter,
+        "dates": dates,
+    }
 
 
 @any_staff_or_trainer

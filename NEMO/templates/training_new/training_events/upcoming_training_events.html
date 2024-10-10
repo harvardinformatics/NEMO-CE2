@@ -2,6 +2,42 @@
 {% load custom_tags_and_filters %}
 {% load training_tags %}
 {% block tab_content %}
+    <div class="row form-inline" style="margin-top: 15px; padding: 0 8px">
+        <div class="col-sm-9">
+            <label style="margin-right: 15px" class="control-label" for="tool_filter">Tool:</label>
+            <select style="margin-right: 15px" id="tool_filter" class="form-control" onchange="filter_requests()">
+                <option value="all-tools" {% if selected_tool == "all-tools" %}selected{% endif %}>All tools</option>
+                {% for tool in tools %}
+                    <option value="{{ tool.id }}" {% if tool.id == selected_tool|to_int %}selected{% endif %}>{{ tool.name }}</option>
+                {% endfor %}
+            </select>
+            <label style="margin-right: 15px" for="trainer_filter">Trainer:</label>
+            <select style="margin-right: 15px" id="trainer_filter" class="form-control" onchange="filter_requests()">
+                <option value="all-trainers" {% if selected_trainer == "all-trainers" %}selected{% endif %}>All trainers</option>
+                {% for trainer in trainers %}
+                    <option value="{{ trainer.id }}" {% if trainer.id == selected_trainer|to_int %}selected{% endif %}>
+                        {{ trainer.get_name }}
+                    </option>
+                {% endfor %}
+            </select>
+            <label style="margin-right: 15px" for="date_filter">Date:</label>
+            <select id="date_filter" class="form-control" onchange="filter_requests()">
+                <option value="all-dates" {% if selected_date == "all-dates" %}selected{% endif %}>All dates</option>
+                {% for date in dates %}
+                    <option value="{{ date|input_date_format }}"
+                            {% if date|input_date_format == selected_date %}selected{% endif %}>
+                        {{ date|date:"SHORT_DATE_FORMAT" }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-3">
+            <div class="text-right" {% if training_requests %}style="margin-bottom: 15px;"{% endif %}>
+                {% url "create_training_event" as create_training_event_url %}
+                {% button type="add" value="New training session" onclick="new_get_request('"|concat:create_training_event_url|concat:"')" %}
+            </div>
+        </div>
+    </div>
     {% if training_events or past_training_events %}
         <div class="table-responsive" style="border: none; width: 100%">
             <table class="table table-borderless table-align-middle" style="margin-bottom: 0">
@@ -83,6 +119,10 @@
 			let failure_dialog = ajax_failure_callback("Unable to register for this training");
 			ajax_post(url, undefined, training_callback_success, failure_dialog);
 		}
-	
+		
+        function filter_requests()
+		{
+			window.location.href = "?tool=" + $("#tool_filter").val() + "&trainer=" + $("#trainer_filter").val() + "&date=" + $("#date_filter").val();
+		}
     </script>
 {% endblock %}
