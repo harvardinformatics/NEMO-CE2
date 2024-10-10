@@ -5259,7 +5259,14 @@ class TrainingRequestStatus(models.IntegerChoices):
 
 
 class TrainingTechnique(SerializationByNameModel):
-    name = models.CharField(max_length=200, unique=True, help_text="The unique name for this item")
+    name = models.CharField(max_length=200, unique=True, help_text=_("The unique name for this item"))
+    description = models.TextField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "The description for this training technique, which will be set as default message when creating a training event"
+        ),
+    )
 
     class Meta:
         ordering = ["name"]
