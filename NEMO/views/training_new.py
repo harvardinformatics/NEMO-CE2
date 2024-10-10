@@ -348,7 +348,7 @@ def export_training_history(user, training_histories) -> HttpResponse:
 def upcoming_events(request):
     mark_training_objects_expired()
     date_now = timezone.now()
-    training_events = TrainingEvent.objects.filter(end__gte=date_now).exclude(start__lte=date_now)
+    training_events = TrainingEvent.objects.filter(end__gte=date_now).exclude(start__lte=date_now).order_by("start")
     dictionary = {"training_events": training_events}
     return render(request, "training_new/training_events/upcoming_training_events.html", dictionary)
 
