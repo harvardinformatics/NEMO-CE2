@@ -499,6 +499,7 @@ class ToolCustomization(CustomizationBase):
         "tool_task_updates_superusers": "",
         "tool_task_updates_allow_regular_user_preferences": "",
         "tool_control_hide_data_history_users": "",
+        "tool_control_documents_in_separate_tab": "",
         "tool_control_configuration_setting_template": "{{ current_setting }}",
         "tool_control_ongoing_reservation_force_off": "",
         "tool_control_allow_take_over": "",
