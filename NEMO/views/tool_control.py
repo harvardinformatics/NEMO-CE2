@@ -257,12 +257,14 @@ def usage_data_history(request, tool_id):
 
     table_pre_run_data = BasicDisplayTable()
     table_pre_run_data.add_header(("user", "User"))
+    table_pre_run_data.add_header(("operator", "Operator"))
     if show_project_info:
         table_pre_run_data.add_header(("project", "Project"))
     table_pre_run_data.add_header(("date", "Start date"))
 
     table_run_data = BasicDisplayTable()
     table_run_data.add_header(("user", "User"))
+    table_run_data.add_header(("operator", "Operator"))
     if show_project_info:
         table_run_data.add_header(("project", "Project"))
     table_run_data.add_header(("date", "End date"))
@@ -557,12 +559,8 @@ def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, re
         try:
             current_usage_event.run_data = dynamic_form.extract(request)
         except RequiredUnansweredQuestionsException as e:
-            if (
-                (user.is_staff or user.is_user_office)
-                and user != current_usage_event.operator
-                and current_usage_event.user != user
-            ):
-                # if a staff is forcing somebody off the tool and there are required questions, send an email and proceed
+            if user != current_usage_event.operator and current_usage_event.user != user:
+                # if someone else is forcing somebody off the tool and there are required questions, send an email and proceed
                 current_usage_event.run_data = e.run_data
                 email_managers_required_questions_disable_tool(
                     current_usage_event.operator, tool, e.questions, disabling_user=user
@@ -845,6 +843,7 @@ def format_usage_data(
 
     try:
         user_data = f"{usage_event.user.first_name} {usage_event.user.last_name}"
+        operator_data = f"{usage_event.operator.first_name} {usage_event.operator.last_name}"
         run_data: Dict = loads(usage_run_data)
         for question_key, question in run_data.items():
             if "user_input" in question:
@@ -863,6 +862,7 @@ def format_usage_data(
                                 group_usage_data[name] = user_input
                             if group_usage_data:
                                 group_usage_data["user"] = user_data
+                                group_usage_data["operator"] = operator_data
                                 group_usage_data["date"] = date_data
                                 if show_project_info:
                                     group_usage_data["project"] = usage_event.project.name
@@ -872,6 +872,7 @@ def format_usage_data(
                     usage_data[question_key] = question["user_input"]
         if usage_data:
             usage_data["user"] = user_data
+            usage_data["operator"] = operator_data
             usage_data["date"] = date_data
             if show_project_info:
                 usage_data["project"] = usage_event.project.name

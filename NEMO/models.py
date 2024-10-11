@@ -3470,6 +3470,12 @@ class UsageEvent(BaseModel, CalendarDisplayMixin, BillableItemMixin):
     def duration(self):
         return calculate_duration(self.start, self.end, "In progress")
 
+    def pre_run_data_json(self):
+        return loads(self.pre_run_data) if self.pre_run_data else None
+
+    def post_run_data_json(self):
+        return loads(self.run_data) if self.run_data else None
+
     class Meta:
         ordering = ["-start"]
 
@@ -5259,7 +5265,14 @@ class TrainingRequestStatus(models.IntegerChoices):
 
 
 class TrainingTechnique(SerializationByNameModel):
-    name = models.CharField(max_length=200, unique=True, help_text="The unique name for this item")
+    name = models.CharField(max_length=200, unique=True, help_text=_("The unique name for this item"))
+    description = models.TextField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "The description for this training technique, which will be set as default message when creating a training event"
+        ),
+    )
 
     class Meta:
         ordering = ["name"]
@@ -5530,8 +5543,11 @@ class TrainingEvent(BaseModel):
                 user=user, tool=self.tool, status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED]
             )
             training_request_ids = list(training_requests.values_list("id", flat=True))
+            # CC other trainers only if there was a previous request by the user (to keep them up to date)
+            cc_trainers_on_invite = False
             for training_request in training_requests:
                 training_request.save_status(TrainingRequestStatus.INVITED, creator)
+                cc_trainers_on_invite = True
             # Then create and save new invitation
             invitation = TrainingInvitation.objects.filter(training_event_id=self.id, user=user).first()
             if not invitation:
@@ -5553,7 +5569,7 @@ class TrainingEvent(BaseModel):
             # Send the invitation email
             from NEMO.views.training_new import send_email_training_invitation_received
 
-            send_email_training_invitation_received(invitation, request)
+            send_email_training_invitation_received(invitation, request, cc_trainers=cc_trainers_on_invite)
 
     def uninvite_users(self, user, users: Iterable[User]):
         from NEMO.views.notifications import delete_notification

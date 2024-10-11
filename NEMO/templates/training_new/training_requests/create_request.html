@@ -9,6 +9,7 @@
 {% load custom_tags_and_filters %}
 {% block title %}New training request{% endblock %}
 {% block content %}
+    <input type="hidden" id="dialog_cancelled" value="true">
     {% if not selected_tool %}
         <div class="form-horizontal">
             <div class="form-group">
@@ -171,7 +172,7 @@
             </div>
             <div class="form-group">
                 <div class="col-md-offset-3 col-sm-9">
-                    {% button type="save" submit=False value=form.instance.id|yesno:"Save changes,Create request" onclick="submit_form(this)" %}
+                    {% button type="save" submit=False value=form.instance.id|yesno:"Save changes,Create request" onclick="$('#dialog_cancelled').val(false);submit_form(this)" dismiss="modal" %}
                 </div>
             </div>
         </form>
@@ -234,7 +235,8 @@
 				if (button.form.reportValidity())
                 {
                     let post_data = $("#" + button.form.id).serialize();
-                    ajax_post(button.form.action, post_data, success_callback, general_failure_callback);
+                	{# the ajax failure callback is needed to work with calendar #}
+                    ajax_post(button.form.action, post_data, success_callback, ajax_failure_callback("There was an error sending your request"));
                     button.disabled = true;
                 }
             {% endif %}
