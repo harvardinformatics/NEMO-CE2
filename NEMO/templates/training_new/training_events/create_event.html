@@ -145,13 +145,11 @@
         <div class="form-group">
             <label class="col-sm-3 col-md-2 control-label" for="auto_cancel">Auto cancel</label>
             <div class="col-sm-5 col-md-4">
-                <div class="input-group">
-                    <input class="form-control"
-                           name="auto_cancel"
-                           id="auto_cancel"
-                           value="{{ form.auto_cancel.value|input_date_format }}"
-                           type="text">
-                </div>
+                <input class="form-control"
+                       name="auto_cancel"
+                       id="auto_cancel"
+                       value="{{ form.auto_cancel.value|input_date_format }}"
+                       type="text">
                 if no users registered before.
             </div>
             {% if form.auto_cancel.errors %}
