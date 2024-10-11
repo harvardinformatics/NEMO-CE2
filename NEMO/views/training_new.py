@@ -748,16 +748,32 @@ def send_email_training_request_received(training_request: TrainingRequest, requ
         )
 
 
-def send_email_training_invitation_received(training_invitation: TrainingInvitation, request=None):
+def send_email_training_invitation_received(training_invitation: TrainingInvitation, request=None, cc_trainers=False):
     message = get_media_file_contents("training_invitation_received_email.html")
     if message:
         content = render_email_template(message, {"training_invitation": training_invitation}, request)
         subject = f"Training invitation for the {training_invitation.tool.name}{(' ('+ training_invitation.technique.name +')') if training_invitation.technique else ''}"
-        training_invitation.user.email_user(
+        recipients = [
+            email
+            for email in training_invitation.user.get_emails(
+                training_invitation.user.get_preferences().email_send_training_emails
+            )
+        ]
+        ccs = []
+        if cc_trainers:
+            ccs.extend(
+                [
+                    email
+                    for trainer in training_invitation.training_event.tool.trainers()
+                    for email in trainer.get_emails(trainer.get_preferences().email_send_training_emails)
+                ]
+            )
+        send_mail(
             subject=subject,
-            message=content,
+            content=content,
+            to=recipients,
+            cc=ccs,
             from_email=training_invitation.trainer.email,
-            email_notification=training_invitation.user.get_preferences().email_send_training_emails,
             email_category=EmailCategory.TRAINING,
         )
 

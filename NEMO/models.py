@@ -5543,8 +5543,11 @@ class TrainingEvent(BaseModel):
                 user=user, tool=self.tool, status__in=[TrainingRequestStatus.SENT, TrainingRequestStatus.REVIEWED]
             )
             training_request_ids = list(training_requests.values_list("id", flat=True))
+            # CC other trainers only if there was a previous request by the user (to keep them up to date)
+            cc_trainers_on_invite = False
             for training_request in training_requests:
                 training_request.save_status(TrainingRequestStatus.INVITED, creator)
+                cc_trainers_on_invite = True
             # Then create and save new invitation
             invitation = TrainingInvitation.objects.filter(training_event_id=self.id, user=user).first()
             if not invitation:
@@ -5566,7 +5569,7 @@ class TrainingEvent(BaseModel):
             # Send the invitation email
             from NEMO.views.training_new import send_email_training_invitation_received
 
-            send_email_training_invitation_received(invitation, request)
+            send_email_training_invitation_received(invitation, request, cc_trainers=cc_trainers_on_invite)
 
     def uninvite_users(self, user, users: Iterable[User]):
         from NEMO.views.notifications import delete_notification
