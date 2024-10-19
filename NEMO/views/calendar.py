@@ -18,8 +18,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from NEMO.decorators import disable_session_expiry_refresh, postpone, staff_member_required, synchronized
 from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException, ToolConfigurationException
-from NEMO.forms import CalendarTrainingEventForm
-from NEMO.forms import ScheduledOutageForm, save_scheduled_outage
+from NEMO.forms import CalendarTrainingEventForm, ScheduledOutageForm, save_scheduled_outage
 from NEMO.models import (
     Area,
     AreaAccessRecord,
@@ -1416,7 +1415,7 @@ def send_tool_free_time_notification(
             include_username = ToolCustomization.get_bool("tool_freed_time_notification_include_username")
             for user in User.objects.in_bulk(user_ids).values():
                 if user != cancelled_reservation.user:
-                    include_username_message = f" by {user.username}" if include_username else ""
+                    include_username_message = f" by {cancelled_reservation.user.username}" if include_username else ""
                     subject = f"[{tool.name}] {formatted_time} minutes freed starting {formatted_start}"
                     message = f"Dear {user.first_name},<br>\n"
                     message += f"The following time slot has been freed for the {tool.name}{include_username_message}:<br><br>\n\n"

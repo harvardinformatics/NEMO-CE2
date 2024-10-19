@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Set
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db.models import Q, F
+from django.db.models import F, Q
 from django.http import HttpResponse, HttpResponseNotFound
 from django.urls import reverse
 from django.utils import timezone
@@ -48,8 +48,8 @@ from NEMO.utilities import (
     format_datetime,
     get_email_from_settings,
     get_full_url,
-    localize,
     is_date_in_datetime_range,
+    localize,
     quiet_int,
     render_email_template,
     send_mail,
@@ -166,6 +166,7 @@ def do_cancel_unused_reservations(request=None):
             new_reservation = Reservation()
             new_reservation.start = r.start
             new_reservation.end = timezone.now()
+            new_reservation.user = r.user
             send_tool_free_time_notification(request, r, new_reservation, missed_or_shortened=True)
     return HttpResponse()
 
