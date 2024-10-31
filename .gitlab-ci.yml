@@ -43,6 +43,12 @@ Test python 3.12:
   only:
     - schedules
 
+Test python 3.13:
+  <<: *test
+  image: python:3.13
+  only:
+    - schedules
+
 NEMO-CE dev build:
   stage: build
   image: docker:latest
