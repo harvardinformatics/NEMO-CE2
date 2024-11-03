@@ -402,7 +402,7 @@ class OutageTestCase(TestCase):
             # Make sure they all start at the same hour, end at the same hour and the duration is the same
             self.assertEqual(outage.start.astimezone().hour, start.astimezone().hour)
             self.assertEqual(outage.end.astimezone().hour, end.astimezone().hour)
-            self.assertEqual(duration, outage.end - outage.start)
+            self.assertEqual(duration, outage.end - outage.start)  # This will be one more hour during DST change
 
     def test_every_week_for_a_year(self):
         self.every_week_for_a_year(item_id=tool.id, item_type=ReservationItemType.TOOL)
