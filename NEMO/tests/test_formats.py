@@ -73,8 +73,15 @@ class FormatTestCase(TestCase):
 
     def test_duration_with_off_schedule_weekends(self):
         # 6-10 am local starting on a Tuesday (Sep 17 2024 is a Tuesday)
-        start = (
-            timezone.now().astimezone().replace(year=2024, month=9, day=17, hour=6, minute=0, second=0, microsecond=0)
+        start = timezone.now().replace(
+            year=2024,
+            month=9,
+            day=17,
+            hour=6,
+            minute=0,
+            second=0,
+            microsecond=0,
+            tzinfo=timezone.get_current_timezone(),
         )
         end = start + timedelta(hours=4) + timedelta(days=7)
         duration = end - start
@@ -105,8 +112,15 @@ class FormatTestCase(TestCase):
 
     def test_duration_with_off_schedule_weekdays_normal(self):
         # 6-10 am local on a Tuesday (Sep 17 2024 is a Tuesday)
-        start = (
-            timezone.now().astimezone().replace(year=2024, month=9, day=17, hour=6, minute=0, second=0, microsecond=0)
+        start = timezone.now().replace(
+            year=2024,
+            month=9,
+            day=17,
+            hour=6,
+            minute=0,
+            second=0,
+            microsecond=0,
+            tzinfo=timezone.get_current_timezone(),
         )
         end = start + timedelta(hours=4)
         duration = end - start
@@ -178,8 +192,15 @@ class FormatTestCase(TestCase):
 
     def test_duration_with_off_schedule_weekdays_reverse(self):
         # 6pm-10 am local on a Tuesday (Sep 17 2024 is a Tuesday)
-        start = (
-            timezone.now().astimezone().replace(year=2024, month=9, day=17, hour=18, minute=0, second=0, microsecond=0)
+        start = timezone.now().replace(
+            year=2024,
+            month=9,
+            day=17,
+            hour=18,
+            minute=0,
+            second=0,
+            microsecond=0,
+            tzinfo=timezone.get_current_timezone(),
         )
         end = start + timedelta(hours=16)
         duration = end - start
