@@ -4,34 +4,25 @@ stages:
   - deploy
 
 variables:
-  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_STRATEGY: clone
 
 .test: &test
-  variables:
-    GIT_STRATEGY: clone
   stage: test
   script:
-    - export PYTHONPATH="$PYTHONPATH:$(pwd)/NEMO/tests"
     - python -m pip install ./
-    - python manage.py test NEMO.tests --settings=test_settings
+    - python ./run_tests.py
 
 Test python 3.8:
   <<: *test
   image: python:3.8
-  only:
-    - schedules
 
 Test python 3.9:
   <<: *test
   image: python:3.9
-  only:
-    - schedules
 
 Test python 3.10:
   <<: *test
   image: python:3.10
-  only:
-    - schedules
 
 Test python 3.11:
   <<: *test
@@ -40,14 +31,10 @@ Test python 3.11:
 Test python 3.12:
   <<: *test
   image: python:3.12
-  only:
-    - schedules
 
 Test python 3.13:
   <<: *test
   image: python:3.13
-  only:
-    - schedules
 
 NEMO-CE dev build:
   stage: build
@@ -78,14 +65,12 @@ NEMO-CE Release:
     - tags
 
 NEMO-CE PyPI Release:
-  variables:
-    GIT_STRATEGY: clone
   image: python:3
   stage: build
   script:
-    - sed -i "s/^VERSION =.*/VERSION = '$(git describe --tags)'/" setup.py
-    - pip install --upgrade pip setuptools wheel twine keyring
-    - python setup.py sdist bdist_wheel
+    - sed -i "s/^version =.*/version = '$(git describe --tags)'/" pyproject.toml
+    - pip install --upgrade pip build twine
+    - python -m build
     - twine upload --user $PYPI_USER --password $PYPI_PASSWORD ./dist/NEMO_CE*
   only:
     - tags

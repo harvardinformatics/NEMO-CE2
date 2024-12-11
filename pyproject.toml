@@ -1,3 +1,70 @@
+[project]
+name = "NEMO-CE"
+version = "6.0.27"
+description = "NEMO Community Edition is a laboratory logistics web application based of NEMO. Use it to schedule reservations, control tool access, track maintenance issues, and more."
+keywords = ["NEMO", "NEMO-CE"]
+readme = "README.md"
+authors = [{name = "Atlantis Labs LLC", email = "atlantis@atlantislabs.io"}]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "License :: Public Domain",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Framework :: Django :: 4.2",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.9, <4"
+dependencies = [
+    "cryptography==43.0.1",
+    "Django==4.2.16",
+    "django-auditlog==3.0.0",
+    "django-filter==24.3",
+    "django-mptt==0.14.0",
+    "djangorestframework==3.15.2",
+    "drf-excel==2.4.0",
+    "drf-flex-fields==1.0.2",
+    "ldap3==2.9.1",
+    "Pillow==10.4.0",
+    "pymodbus==3.3.2",
+    "python-dateutil==2.9.0",
+    "pytz==2024.1",
+    "requests==2.32.3"
+]
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://gitlab.com/nemo-community/nemo-ce"
+Changelog = "https://gitlab.com/nemo-community/nemo-ce/-/releases"
+Issues = "https://gitlab.com/nemo-community/nemo-ce/-/issues"
+CI = "https://gitlab.com/nemo-community/nemo-ce/-/pipelines"
+
+[project.optional-dependencies]
+NEMO-CE = ["NEMO-CE>=2.4.0",]
+NEMO = ["NEMO>=5.5.0",]
+dev-tools = ["pre-commit", "djlint", "black"]
+
+[project.scripts]
+nemo = "NEMO.provisioning:entry_point"
+
+[tool.setuptools.packages.find]
+include = ["NEMO*"]
+exclude = ["resources", "resources.*"]
+
+[tool.setuptools.package-data]
+#"NEMO" = ["templates/**/*", "static/**/*", "NEMO/apps/**/templates/**/*", "NEMO/apps/**/static/**/*", ]
+"NEMO" = ["**/templates/**/*", "**/static/**/*"]
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.black]
 line-length = 120
 target-version = ['py311']
