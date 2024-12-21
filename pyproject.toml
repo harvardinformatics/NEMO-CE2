@@ -1,6 +1,6 @@
 [project]
 name = "NEMO-CE"
-version = "6.0.27"
+version = "6.0.28"
 description = "NEMO Community Edition is a laboratory logistics web application based of NEMO. Use it to schedule reservations, control tool access, track maintenance issues, and more."
 keywords = ["NEMO", "NEMO-CE"]
 readme = "README.md"
@@ -46,8 +46,6 @@ Issues = "https://gitlab.com/nemo-community/nemo-ce/-/issues"
 CI = "https://gitlab.com/nemo-community/nemo-ce/-/pipelines"
 
 [project.optional-dependencies]
-NEMO-CE = ["NEMO-CE>=2.4.0",]
-NEMO = ["NEMO>=5.5.0",]
 dev-tools = ["pre-commit", "djlint", "black"]
 
 [project.scripts]

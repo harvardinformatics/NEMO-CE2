@@ -9,7 +9,8 @@ from email.mime.base import MIMEBase
 from enum import Enum
 from io import BytesIO, StringIO
 from logging import getLogger
-from typing import Dict, List, Optional, Sequence, Set, Tuple, Union
+from smtplib import SMTPAuthenticationError, SMTPConnectError, SMTPServerDisconnected
+from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple, Union
 from urllib.parse import urljoin
 
 import pytz
@@ -480,7 +481,18 @@ def send_mail(
     if mail.recipients():
         email_record = create_email_log(mail, email_category)
         try:
-            msg_sent = mail.send()
+            # retry once if we get one of the connection errors
+            for i in range(2):
+                try:
+                    msg_sent = mail.send()
+                    break
+                except (SMTPServerDisconnected, SMTPConnectError, SMTPAuthenticationError) as e:
+                    if i == 0:
+                        utilities_logger.exception(str(e))
+                        utilities_logger.warning(f"Email sending got an error, retrying once")
+                    else:
+                        utilities_logger.warning(f"Retrying didn't work")
+                        raise
         except Exception as e:
             email_record.ok = False
             if not fail_silently:
@@ -912,3 +924,12 @@ def get_local_date_times_for_item_policy_times(
     else:
         current_end_time_off = datetime.combine(current_date.date(), weekday_end_time_off, tzinfo=current_date.tzinfo)
     return current_start_time_off, current_end_time_off
+
+
+def split_into_chunks(iterable: Set, chunk_size: int) -> Iterator[List]:
+    """
+    Splits a set into chunks of the specified size.
+    """
+    iterable = list(iterable)  # Convert set to list to support slicing
+    for i in range(0, len(iterable), chunk_size):
+        yield iterable[i : i + chunk_size]
