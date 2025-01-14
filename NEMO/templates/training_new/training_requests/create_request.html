@@ -48,7 +48,7 @@
             {% if user.active_project_count == 1 %}
                 <input type="hidden" name="project" value="{{ user.active_projects.0.id }}">
             {% else %}
-                <div class="form-group">
+                <div class="form-group {% if form.project.errors %}has-error{% endif %}">
                     <label class="col-sm-3 control-label" for="project">Project</label>
                     <div class="col-sm-9">
                         {% if user.active_project_count > 1 %}
@@ -90,7 +90,7 @@
                 </div>
             {% endif %}
             {% if training_details.techniques.all %}
-                <div class="form-group">
+                <div class="form-group {% if form.technique.errors %}has-error{% endif %}">
                     <label class="col-sm-3 control-label" for="technique">Technique</label>
                     <div class="col-sm-9">
                         <div class="row">
@@ -163,8 +163,7 @@
                               oninput="auto_size_textarea(this)"
                               name="message"
                               class="form-control"
-                              placeholder="{{ message_placeholder }}"
-                              {% if user_message_required %}required{% endif %}>{{ form.message.value|default_if_none:"" }}</textarea>
+                              placeholder="{{ message_placeholder }}">{{ form.message.value|default_if_none:"" }}</textarea>
                 </div>
                 {% if form.message.errors %}
                     <div class="col-md-offset-3 col-sm-9 form-control-static danger-highlight">{{ form.message.errors|striptags }}</div>

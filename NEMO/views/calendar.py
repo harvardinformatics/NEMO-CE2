@@ -1287,7 +1287,7 @@ def create_training_event(request):
         initial_auto_cancel_hours = TrainingCustomization.get_int("training_event_default_auto_cancel")
     auto_cancel = ""
     if initial_auto_cancel_hours:
-        auto_cancel = start - timezone.timedelta(hours=initial_auto_cancel_hours)
+        auto_cancel = start - timedelta(hours=initial_auto_cancel_hours)
     initial = {
         "auto_cancel": auto_cancel,
         "duration": training.duration,
