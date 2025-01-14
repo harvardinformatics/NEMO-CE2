@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load training_tags %}
 {% block title %}{{ requests_page_title }}{% endblock %}
 {% block extrahead %}
     {# For training requests #}
@@ -40,11 +41,19 @@
             {% endif %}
             {% if training_show_in_user_requests %}
                 <li class="{% if tab == 'training' %}active{% endif %}">
-                    <a href="#training-requests" onclick="location.href = '{% url "user_requests" "training" %}'">Training
-                        {% if training_request_notification_count %}
-                            <span class="badge badge-tab-top">{{ training_request_notification_count }}</span>
-                        {% endif %}
-                    </a>
+                    {% if user|is_trainer %}
+                        <a href="#training-requests" onclick="location.href = '{% url "user_requests" "training" %}'">Training
+                            {% if training_request_notification_count %}
+                                <span class="badge badge-tab-top">{{ training_request_notification_count }}</span>
+                            {% endif %}
+                        </a>
+                    {% else %}
+                        <a href="#training-requests" onclick="location.href = '{% url "training_requests" %}'">Training
+                            {% if training_invitation_notification_count %}
+                                <span class="badge badge-tab-top">{{ training_invitation_notification_count }}</span>
+                            {% endif %}
+                        </a>
+                    {% endif %}
                 </li>
             {% endif %}
         </ul>

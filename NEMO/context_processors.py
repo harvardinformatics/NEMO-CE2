@@ -1,5 +1,5 @@
 from NEMO.models import Area, Customization, Notification, PhysicalAccessLevel, Tool, User
-from NEMO.utilities import date_input_js_format, datetime_input_js_format, time_input_js_format, is_trainer
+from NEMO.utilities import date_input_js_format, datetime_input_js_format, time_input_js_format
 from NEMO.views.customization import CustomizationBase
 from NEMO.views.notifications import get_notification_counts
 
@@ -70,8 +70,7 @@ def base_context(request):
         training_invitation_notification_count = 0
     try:
         training_show_in_user_requests = (
-            is_trainer(user)
-            and customization_values.get("training_module_enabled", "") == "enabled"
+            customization_values.get("training_module_enabled", "") == "enabled"
             and customization_values.get("training_show_in_user_requests", "") == "enabled"
         )
     except:

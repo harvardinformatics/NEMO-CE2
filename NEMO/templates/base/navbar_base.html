@@ -1,5 +1,6 @@
 {% load static %}
 {% load custom_tags_and_filters %}
+{% load training_tags %}
 <nav class="navbar navbar-default navbar-static-top" role="navigation">
     <div class="container">
         <div class="navbar-header">
@@ -42,8 +43,12 @@
                                 {{ requests_page_title }}
                                 {% with notification_except_training=buddy_notification_count|add:temporary_access_notification_count|add:adjustment_notification_count %}
                                     {% if training_show_in_user_requests %}
-                                        {% if buddy_notification_count or temporary_access_notification_count or adjustment_notification_count or training_request_notification_count %}
-                                            <span class="badge active">{{ notification_except_training|add:training_request_notification_count }}</span>
+                                        {% if buddy_notification_count or temporary_access_notification_count or adjustment_notification_count or training_request_notification_count or training_invitation_notification_count %}
+                                            {% if user|is_trainer and training_request_notification_count %}
+                                                <span class="badge active">{{ notification_except_training|add:training_request_notification_count }}</span>
+                                            {% elif not user|is_trainer and training_invitation_notification_count %}
+                                                <span class="badge active">{{ notification_except_training|add:training_invitation_notification_count }}</span>
+                                            {% endif %}
                                         {% endif %}
                                     {% else %}
                                         {% if buddy_notification_count or temporary_access_notification_count or adjustment_notification_count %}
