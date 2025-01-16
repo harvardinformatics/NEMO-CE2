@@ -5,7 +5,7 @@ from django.utils.safestring import mark_safe
 
 from NEMO.models import Area, Configuration, Interlock, InterlockCard, Qualification, Tool, User
 from NEMO.typing import QuerySetType
-from NEMO.utilities import export_format_datetime, new_model_copy
+from NEMO.utilities import BasicDisplayTable, export_format_datetime, format_datetime, new_model_copy
 from NEMO.views.access_requests import access_csv_export
 from NEMO.views.adjustment_requests import adjustments_csv_export
 from NEMO.views.shadowing_verification import shadowing_verification_requests_csv_export
@@ -198,3 +198,26 @@ def duplicate_configuration(model_admin, request, queryset: QuerySetType[Configu
             messages.error(
                 request, f"{original_name} could not be duplicated because of the following error: {str(error)}"
             )
+
+
+@admin.action(description="Export selected qualifications in CSV")
+def export_qualifications_csv(model_admin, request, queryset: QuerySetType[Qualification]):
+    qualifications = BasicDisplayTable()
+    qualifications.headers = [
+        ("qualified_on", "Date"),
+        ("user", "User"),
+        ("tool", "Tool"),
+        ("qualification_level", "Qualification Level"),
+    ]
+    for qualification in queryset:
+        qualifications.add_row(
+            {
+                "qualified_on": format_datetime(qualification.qualified_on, df="SHORT_DATE_FORMAT"),
+                "user": str(qualification.user),
+                "tool": qualification.tool.name,
+                "qualification_level": (
+                    qualification.qualification_level.name if qualification.qualification_level else ""
+                ),
+            }
+        )
+    return qualifications.to_csv_http_response("qualifications_" + export_format_datetime() + ".csv")

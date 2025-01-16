@@ -30,6 +30,7 @@ from NEMO.actions import (
     duplicate_configuration,
     duplicate_tool_configuration,
     enable_selected_cards,
+    export_qualifications_csv,
     lock_selected_interlocks,
     rebuild_area_tree,
     shadowing_verification_requests_export_csv,
@@ -1351,7 +1352,7 @@ class UserAdmin(admin.ModelAdmin):
     )
 
     def save_model(self, request, obj, form, change):
-        """Audit project membership and qualifications when a user is saved."""
+        """Audit project membership when a user is saved."""
         super(UserAdmin, self).save_model(request, obj, form, change)
         record_local_many_to_many_changes(request, obj, form, "projects")
         record_local_many_to_many_changes(request, obj, form, "physical_access_levels")
@@ -2309,6 +2310,7 @@ class QualificationAdmin(admin.ModelAdmin):
         ("user", admin.RelatedOnlyFieldListFilter),
         ("tool", admin.RelatedOnlyFieldListFilter),
     ]
+    actions = [export_qualifications_csv]
 
     def get_readonly_fields(self, request, obj=None):
         """Override to make fields readonly when editing"""
