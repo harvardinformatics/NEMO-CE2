@@ -332,7 +332,7 @@ class StanfordInterlock(Interlock):
         except OSError:
             return INTERLOCK_STATUS_NO_CONNECTION
         except Exception as error:
-            return INTERLOCK_STATUS_ERROR + f" :{str(error)}"
+            return INTERLOCK_STATUS_ERROR + f": {str(error)}"
         return INTERLOCK_STATUS_OK
 
 
@@ -425,7 +425,7 @@ class ProXrInterlock(Interlock):
                 try:
                     self._get_state(relay_socket, interlock.channel, bank)
                 except Exception as error:
-                    return INTERLOCK_STATUS_ERROR + f" :{str(error)}"
+                    return INTERLOCK_STATUS_ERROR + f": {str(error)}"
         except:
             return INTERLOCK_STATUS_NO_CONNECTION
         return INTERLOCK_STATUS_OK
@@ -506,7 +506,7 @@ class WebRelayHttpInterlock(Interlock):
         try:
             self.get_response(interlock, "")
         except Exception as error:
-            return INTERLOCK_STATUS_ERROR + f" :{str(error)}"
+            return INTERLOCK_STATUS_ERROR + f": {str(error)}"
         return INTERLOCK_STATUS_OK
 
     @staticmethod
@@ -588,11 +588,11 @@ class ModbusTcpInterlock(Interlock):
                     kwargs = {"slave": interlock.unit_id} if interlock.unit_id is not None else {}
                     read_reply = client.read_coils(interlock.channel, 1, **kwargs)
                     if read_reply.isError():
-                        return INTERLOCK_STATUS_ERROR + f" :{str(read_reply)}"
+                        return INTERLOCK_STATUS_ERROR + f": {str(read_reply)}"
         except ConnectionException:
             return INTERLOCK_STATUS_NO_CONNECTION
         except Exception as error:
-            return INTERLOCK_STATUS_ERROR + f" :{str(error)}"
+            return INTERLOCK_STATUS_ERROR + f": {str(error)}"
         return INTERLOCK_STATUS_OK
 
 
