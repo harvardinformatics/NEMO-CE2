@@ -256,74 +256,9 @@ class ToolDocumentsInline(DocumentModelAdmin):
     model = ToolDocuments
 
 
-class UserQualificationInlineFormset(BaseInlineFormSet):
-    def add_fields(self, form, index):
-        """This will disable user and tool fields on update only"""
-        super().add_fields(form, index)
-        if form.initial:
-            form.fields["user"].disabled = True
-            form.fields["tool"].disabled = True
-
-    # Override save, update and delete to use qualify method
-    def save_existing(self, form, instance, commit=True):
-        if not commit:
-            return super().save_existing(form, instance, commit)
-        else:
-            return self.qualify(form)
-
-    def save_new(self, form, commit=True):
-        if not commit:
-            return super().save_new(form, False)
-        else:
-            return self.qualify(form)
-
-    def qualify(self, form):
-        from NEMO.views.qualifications import qualify
-
-        # This user was set in the inline
-        request_user = self.user
-        tool = form.instance.tool
-        user = form.instance.user
-        qualification_level_id = form.instance.qualification_level_id
-        qualify(request_user, tool, user, qualification_level_id)
-        return Qualification.objects.filter(
-            user=user, tool=tool, qualification_level_id=qualification_level_id
-        ).latest()
-
-    def delete_existing(self, obj, commit=True):
-        if commit:
-            from NEMO.views.qualifications import disqualify
-
-            disqualify(self.user, obj.tool, obj.user)
-
-
-class UserQualificationInline(admin.TabularInline):
-    model = Qualification
-    autocomplete_fields = ["user", "tool"]
-    readonly_fields = ["qualified_on"]
-    formset = UserQualificationInlineFormset
-    extra = 0
-
-    def __init__(self, *args, **kwargs):
-        # Inline init method is checked by django admin at start
-        # So we cannot have lookups done at this time
-        try:
-            if not QualificationLevel.objects.exists():
-                self.exclude = ["qualification_level"]
-        except:
-            pass
-        super().__init__(*args, **kwargs)
-
-    def get_formset(self, request, obj=None, **kwargs):
-        """Override to set the request user"""
-        formset = super().get_formset(request, obj, **kwargs)
-        formset.user = request.user
-        return formset
-
-
 @register(Tool)
 class ToolAdmin(admin.ModelAdmin):
-    inlines = [UserQualificationInline, ToolDocumentsInline]
+    inlines = [ToolDocumentsInline]
     list_display = (
         "name_display",
         "_category",
@@ -1261,7 +1196,7 @@ class UserDocumentsInline(DocumentModelAdmin):
 @register(User)
 class UserAdmin(admin.ModelAdmin):
     form = UserAdminForm
-    inlines = [UserQualificationInline, UserDocumentsInline]
+    inlines = [UserDocumentsInline]
     filter_horizontal = (
         "groups",
         "user_permissions",
