@@ -190,7 +190,7 @@
 	}
 	function remove_invited_user(user_id)
 	{
-		remove_from_list("#invited-user-list", "#user_ids_to_invite_" + user_id, "No users have been invited to this training yet.");
+		remove_from_list("#invited-user-list", "#user_ids_to_invite_" + user_id, '<input type="hidden" value="" name="user_ids_to_invite">No users have been invited to this training yet.');
 	}
 	let timepicker_properties =
     {
@@ -201,4 +201,7 @@
     };
     let auto_cancel_jq = $("#auto_cancel");
     auto_cancel_jq.datetimepicker(timepicker_properties);
+    {% for user in invited_users %}
+		add_invited_user('{{ user }}', '{{ user.id }}');
+	{% endfor %}
 </script>

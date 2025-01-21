@@ -1307,6 +1307,10 @@ def create_training_event(request):
         training_event_form = CalendarTrainingEventForm(
             request.POST if training_configured else None, instance=training, initial=initial
         )
+        submitted_user_ids_to_invite = set(
+            int(param) for param in request.POST.getlist("user_ids_to_invite", []) if param
+        )
+        invited_users = User.objects.filter(id__in=submitted_user_ids_to_invite).distinct()
         if not training_configured or not training_event_form.is_valid():
             dictionary = {
                 "tool": tool,
@@ -1315,14 +1319,14 @@ def create_training_event(request):
                 "form": training_event_form,
                 "training_details": training_details,
                 "suggested_users": suggested_users_to_invite(tool),
+                "invited_users": list(invited_users),
             }
             return render(request, "calendar/new_training_event.html", dictionary)
         training_event_form.instance.end = training.start + timedelta(
             minutes=training_event_form.cleaned_data["duration"]
         )
         training_event = training_event_form.save()
-        user_ids_to_invite = set(int(param) for param in request.POST.getlist("user_ids_to_invite", []) if param)
-        training_event.invite_users(request.user, User.objects.filter(id__in=user_ids_to_invite), request)
+        training_event.invite_users(request.user, invited_users, request)
 
     return HttpResponse()
 
