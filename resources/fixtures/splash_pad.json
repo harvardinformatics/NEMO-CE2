@@ -983,6 +983,13 @@
   },
   {
     "model": "NEMO.customization",
+    "pk": "charges_validation_enabled",
+    "fields": {
+      "value": "enabled"
+    }
+  },
+  {
+    "model": "NEMO.customization",
     "pk": "adjustment_requests_time_limit_interval",
     "fields": {
       "value": "0"
