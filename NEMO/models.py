@@ -1101,7 +1101,9 @@ class User(BaseModel, PermissionsMixin):
     def managed_users(self) -> List[User]:
         bulk_managed_users = User.objects.in_bulk(self.managed_projects.values_list("user", flat=True).distinct())
         bulk_managed_users.pop(self.id, None)
-        return list(bulk_managed_users.values())
+        managed_user_list = list(bulk_managed_users.values())
+        # Sort manually since in_bulk is not a queryset and doesn't let us
+        return sorted(managed_user_list, key=lambda x: x.first_name.lower() if x.first_name else "")
 
     def has_perm(self, perm, obj=None):
         # By default we don't use the actual object, similar to django admin
