@@ -168,8 +168,8 @@ class BillableItemMixin:
                 type_condition = type_condition and not self.usage_event
             return withdrawal_enabled and time_limit_condition and type_condition and user_project_condition
         elif self.get_real_type() == BillableItemMixin.MISSED_RESERVATION:
-            missed_resa_enabled = UserRequestsCustomization.get_bool("adjustment_requests_missed_reservation_enabled")
-            return missed_resa_enabled and time_limit_condition and user_project_condition
+            missed_res_enabled = UserRequestsCustomization.get_bool("adjustment_requests_missed_reservation_enabled")
+            return missed_res_enabled and time_limit_condition and user_project_condition
 
     def get_operator_action(self) -> str:
         if self.get_real_type() == BillableItemMixin.AREA_ACCESS:
