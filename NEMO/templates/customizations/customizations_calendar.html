@@ -86,6 +86,22 @@
             </div>
         </div>
         <div class="form-group">
+            <label class="control-label col-md-3" for="calendar_training_recurrence_limit">Training recurrence limit</label>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <input type="number"
+                           id="calendar_training_recurrence_limit"
+                           name="calendar_training_recurrence_limit"
+                           class="form-control"
+                           value="{{ calendar_training_recurrence_limit }}">
+                    <span class="input-group-addon">days</span>
+                </div>
+            </div>
+            <div class="col-md-6 help-block light-grey">
+                The maximum number of days a recurring training can be set in advance.
+            </div>
+        </div>
+        <div class="form-group">
             <label class="control-label col-md-3">Current time indicator</label>
             <div class="col-md-9">
                 <div class="checkbox">

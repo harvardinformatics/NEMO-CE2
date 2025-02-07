@@ -1,6 +1,7 @@
 import datetime
+import logging
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta, time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from dateutil.rrule import DAILY, rrule
@@ -33,28 +34,36 @@ from NEMO.models import (
     TrainingRequestTime,
     TrainingSession,
     User,
+    user_qualifies_for_training,
 )
 from NEMO.policy import policy_class as policy
 from NEMO.typing import QuerySetType
 from NEMO.utilities import (
     BasicDisplayTable,
     EmailCategory,
+    RecurrenceFrequency,
     create_ics,
     date_input_format,
     distinct_qs_value_list,
     export_format_datetime,
     format_datetime,
+    get_recurring_rule,
     is_trainer,
+    localize,
+    new_model_copy,
     parse_parameter_string,
     queryset_search_filter,
+    quiet_int,
     render_email_template,
     send_mail,
 )
 from NEMO.views.constants import SYSTEM_USER_DISPLAY
-from NEMO.views.customization import TrainingCustomization, get_media_file_contents
+from NEMO.views.customization import CalendarCustomization, TrainingCustomization, get_media_file_contents
 from NEMO.views.notifications import delete_notification
 from NEMO.views.pagination import SortedPaginator
 from NEMO.views.training import get_training_dictionary
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -486,6 +495,7 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
     except ToolTrainingDetail.DoesNotExist:
         tool_training_details = None
     submitted_user_ids_to_invite = set(int(param) for param in request.POST.getlist("user_ids_to_invite", []) if param)
+    qualification_levels_ids = set(int(param) for param in request.POST.getlist("qualification_levels", []) if param)
     invited_user_ids = (
         distinct_qs_value_list(training_event.pending_invitations(), "user_id") if training_event else set()
     )
@@ -520,6 +530,11 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
     training_event_form = TrainingEventForm(request.POST or None, instance=training_event, initial=initial)
     invited_users = set(User.objects.in_bulk(submitted_user_ids_to_invite or invited_user_ids).values())
     invalid_times = invalid_times_for_training(selected_tool, timezone.now(), timezone.now() + timedelta(weeks=3))
+    qualification_levels = (
+        QualificationLevel.objects.filter(id__in=qualification_levels_ids)
+        if qualification_levels_ids
+        else training_event.qualification_levels.all if training_event else []
+    )
     dictionary = {
         "auto_cancel_hours": initial_auto_cancel_hours,
         "selected_tool": selected_tool,
@@ -527,6 +542,9 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
         "form": training_event_form,
         "training_details": tool_training_details,
         "invited_users": invited_users,
+        "recurrence_intervals": RecurrenceFrequency.choices(),
+        "calendar_training_recurrence_limit": CalendarCustomization.get("calendar_training_recurrence_limit"),
+        "selected_qualification_levels": qualification_levels,
         "suggested_users": suggested_users_to_invite(selected_tool).difference(invited_users),
         "suggested_times": suggested_times_for_training(selected_tool, timedelta(minutes=(initial["duration"] or 0))),
         "invalid_times": invalid_times,
@@ -542,17 +560,56 @@ def create_event(request, tool_id=None, training_event_id=None, request_time_id=
             if policy_problems:
                 training_event_form.add_error(NON_FIELD_ERRORS, [policy_problem for policy_problem in policy_problems])
             else:
-                training_event: TrainingEvent = training_event_form.save()
-                user_ids_to_add = submitted_user_ids_to_invite.difference(invited_user_ids)
-                user_ids_to_remove = invited_user_ids.difference(submitted_user_ids_to_invite)
-                # Invite new people
+                training_event: TrainingEvent = training_event_form.save(commit=False)
+                qualification_levels = training_event_form.cleaned_data.get("qualification_levels", [])
+                target_event_for_invitations = training_event
+
+                # Check invitees have required qualification levels
+                missing_qualifications = [
+                    user
+                    for user in invited_users
+                    if not user_qualifies_for_training(user, training_event, qualification_levels)
+                ]
+                if missing_qualifications:
+                    missing_users = ", ".join(user.get_full_name() for user in missing_qualifications)
+                    training_event_form.add_error(
+                        None,
+                        f"The following users do not have the required qualifications for this training: {missing_users}",
+                    )
+                    return render(request, "training_new/training_events/create_event.html", dictionary)
+
+                # Handle recurring training event
+                if not training_event_form.instance.id and training_event_form.cleaned_data.get("recurring_training"):
+                    try:
+                        with transaction.atomic():
+                            recurrence_frequency = training_event_form.cleaned_data.get("recurrence_frequency")
+                            recurrence_until = training_event_form.cleaned_data["recurrence_until"]
+                            recurrence_interval = training_event_form.cleaned_data.get("recurrence_interval", 1)
+                            trainings = create_recurring_training(
+                                training_event,
+                                recurrence_frequency,
+                                recurrence_interval,
+                                recurrence_until,
+                                training_event_form.instance.end - training_event_form.instance.start,
+                                qualification_levels,
+                            )
+                    except RecurringTrainingException as e:
+                        add_recurring_form_errors_from_exception(training_event_form, e)
+                        return render(request, "training_new/training_events/create_event.html", dictionary)
+                    if len(trainings) > 0:
+                        target_event_for_invitations = trainings[0]
+                else:
+                    training_event.save()
+                    training_event.qualification_levels.set(qualification_levels)
+
                 try:
-                    training_event.invite_users(request.user, User.objects.filter(id__in=user_ids_to_add), request)
-                    # Delete invitations to people who have been removed
-                    training_event.uninvite_users(request.user, User.objects.filter(id__in=user_ids_to_remove))
+                    invite_users_for_training(
+                        request, submitted_user_ids_to_invite, invited_user_ids, target_event_for_invitations
+                    )
                     return redirect("manage_training_events") if request.device == "mobile" else HttpResponse()
                 except ValidationError as e:
                     training_event_form.add_error(NON_FIELD_ERRORS, e.messages)
+
     return render(request, "training_new/training_events/create_event.html", dictionary)
 
 
@@ -1014,3 +1071,69 @@ def get_schedule_help_for_tool(tool: Tool, user: User) -> Optional[BasicDisplayT
         table.add_row({"start": event.start, "end": event.end, "info": info, "user_schedule": user_schedule})
 
     return table
+
+
+class RecurringTrainingException(Exception):
+    def __init__(self, message, errors):
+        super().__init__(message)
+        self.errors = errors
+
+
+def create_recurring_training(
+    training_event, recurrence_frequency, recurrence_interval, recurrence_until, duration, qualification_levels
+):
+    trainings = []
+    occurrences_issues = []
+    # we have to remove tz before creating rules otherwise 8am would become 7am after DST change for example.
+    start_no_tz = training_event.start.replace(tzinfo=None)
+    date_until_no_tz = datetime.combine(recurrence_until, time())
+    date_until_no_tz += timedelta(days=1, seconds=-1)  # set at the end of the day
+    frequency = RecurrenceFrequency(quiet_int(recurrence_frequency, RecurrenceFrequency.DAILY.index))
+    rules = get_recurring_rule(
+        start_no_tz,
+        frequency,
+        date_until_no_tz,
+        int(recurrence_interval if recurrence_interval else 1),
+    )
+    for rule in list(rules):
+        new_training_event = new_model_copy(training_event)
+        new_training_event.start = localize(start_no_tz.replace(year=rule.year, month=rule.month, day=rule.day))
+        new_training_event.end = new_training_event.start + duration
+        occurrence = f"{new_training_event.start.date()} {format_datetime(new_training_event.start.time())} - {format_datetime(new_training_event.end.time())}"
+        try:
+            policy_problem = policy.check_to_create_training(new_training_event)
+            if policy_problem:
+                problems = ",".join(policy_problem)
+                occurrences_issues.append(f"Training Occurrence {occurrence}: {problems}")
+            new_training_event.save()
+            new_training_event.qualification_levels.set(qualification_levels)
+            trainings.append(new_training_event)
+        except Exception as e:
+            logger.exception(f"Error creating recurring training: {e}")
+            occurrences_issues.append(
+                f"Training Occurrence {occurrence}: could not be created due to unexpected error."
+            )
+    if len(occurrences_issues) > 0:
+        raise RecurringTrainingException("Some recurring trainings have errors", occurrences_issues)
+    return trainings
+
+
+def add_recurring_form_errors_from_exception(
+    form, exception: RecurringTrainingException, max_occurrences_issues_display=5
+):
+    occurrences_issues = exception.errors
+    issues = occurrences_issues[:max_occurrences_issues_display]
+    remaining = len(occurrences_issues) - max_occurrences_issues_display
+    for issue in issues:
+        form.add_error(None, issue)
+    if remaining > 0:
+        form.add_error(None, f"{remaining} more occurrences of this training with issues")
+
+
+def invite_users_for_training(request, submitted_user_ids_to_invite, invited_user_ids, training_event):
+    user_ids_to_add = submitted_user_ids_to_invite.difference(invited_user_ids)
+    user_ids_to_remove = invited_user_ids.difference(submitted_user_ids_to_invite)
+    # Invite new people
+    training_event.invite_users(request.user, User.objects.filter(id__in=user_ids_to_add), request)
+    # Delete invitations to people who have been removed
+    training_event.uninvite_users(request.user, User.objects.filter(id__in=user_ids_to_remove))

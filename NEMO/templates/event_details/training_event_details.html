@@ -80,6 +80,17 @@
                 </tr>
             {% endif %}
         {% endif %}
+        {% if training.qualification_levels.all %}
+            <tr>
+                <th>Prerequisite qualifications</th>
+                <td>
+                    {% for qualification in training.qualification_levels.all %}
+                        {{ qualification }}
+                        {% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                </td>
+            </tr>
+        {% endif %}
         <tr>
             <th>Identifier</th>
             <td>{{ training.id }}</td>
@@ -101,12 +112,16 @@
                     {% button type="save" value="Accept training invitation" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_for_training('"|concat:accept_training_invitation_url|concat:"');" %}
                 {% endfor %}
             {% elif user not in training.users.all and user != training.trainer and training.current_capacity < training.capacity %}
-                {% if not training.invitation_only %}
-                    {% url 'register_for_training' training.id as register_for_training_url %}
-                    {% button type="save" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_for_training('"|concat:register_for_training_url|concat:"');" %}
-                {% else %}
-                    {% button type="save" value="This event is by invitation only" icon="glyphicon-ok-sign" disabled="disabled" %}
-                {% endif %}
+                {% with training|is_qualified:user as is_qualified %}
+                    {% if not training.invitation_only and is_qualified %}
+                        {% url 'register_for_training' training.id as register_for_training_url %}
+                        {% button type="save" value="Register for this training" icon="glyphicon-ok-sign" dismiss="modal" onclick="register_for_training('"|concat:register_for_training_url|concat:"');" %}
+                    {% elif training.invitation_only %}
+                        {% button type="save" value="This event is by invitation only" icon="glyphicon-ok-sign" disabled="disabled" %}
+                    {% else %}
+                        {% button type="save" value="You do not have the prerequisite qualifications to attend this training" icon="glyphicon-ok-sign" disabled="disabled" %}
+                    {% endif %}
+                {% endwith %}
             {% endif %}
             {% if user.is_staff or user|is_trainer:training.tool %}
                 {% url 'cancel_training_event' training.id as cancel_training_url %}

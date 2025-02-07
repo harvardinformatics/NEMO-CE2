@@ -540,11 +540,35 @@ class TrainingRequestTimeForm(ModelForm):
 
 class CalendarTrainingEventForm(ModelForm):
     duration = IntegerField(min_value=15)
+    recurring_training = BooleanField(required=False, initial=False)
+    recurrence_interval = IntegerField(required=False)
+    recurrence_frequency = ChoiceField(choices=RecurrenceFrequency.choices(), required=False)
+    recurrence_until = DateField(required=False)
 
     class Meta:
         model = TrainingEvent
         # Start and end will be provided by the calendar function
         exclude = ["creator", "tool", "trainer", "start", "end", "users"]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        errors = {}
+        recurring_training = cleaned_data.get("recurring_training", False)
+        recurrence_until = cleaned_data.get("recurrence_until")
+        recurrence_frequency = cleaned_data.get("recurrence_frequency")
+        recurrence_interval = cleaned_data.get("recurrence_interval")
+        if recurring_training:
+            if self.instance.pk:
+                errors["recurrence_interval"] = _("You can't change an existing event to be recurring.")
+            if not recurrence_interval:
+                errors["recurrence_interval"] = _("This field is required.")
+            if not recurrence_frequency:
+                errors["recurrence_frequency"] = _("This field is required.")
+            if not recurrence_until:
+                errors["recurrence_until"] = _("This field is required.")
+        if errors:
+            raise ValidationError(errors)
+        return cleaned_data
 
 
 class TrainingEventForm(CalendarTrainingEventForm):

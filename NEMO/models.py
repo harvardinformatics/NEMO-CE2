@@ -5461,6 +5461,9 @@ class TrainingEvent(BaseModel):
         User, related_name="training_events_cancelled", null=True, blank=True, on_delete=models.SET_NULL
     )
     cancellation_reason = models.CharField(null=True, blank=True, max_length=200)
+    qualification_levels = models.ManyToManyField(
+        QualificationLevel, blank=True, help_text="The required qualification levels"
+    )
 
     @property
     def duration(self):
@@ -5473,6 +5476,9 @@ class TrainingEvent(BaseModel):
         if user:
             pending_invites = pending_invites.filter(user=user)
         return pending_invites
+
+    def user_is_qualified(self, user: User) -> bool:
+        return user_qualifies_for_training(user, self, self.qualification_levels.all())
 
     def pending_invitees(self):
         return [invit.user for invit in self.pending_invitations()]
@@ -5598,6 +5604,16 @@ class TrainingEvent(BaseModel):
 
     class Meta:
         ordering = ["-end"]
+
+
+def user_qualifies_for_training(user, training, training_qualification_levels):
+    return (
+        user.is_any_part_of_staff
+        or not training_qualification_levels
+        or Qualification.objects.filter(
+            user=user, tool=training.tool, qualification_level__in=training_qualification_levels
+        ).exists()
+    )
 
 
 class TrainingInvitation(BaseModel):
