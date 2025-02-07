@@ -302,26 +302,25 @@
         </div>
         {% if not form.instance.pk %}
             <div class="form-group">
-                <div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10">
+                <label class="control-label col-sm-3 col-md-2">Recurrence</label>
+                <div class="col-sm-9 col-md-10 checkbox">
                     <a id="recurring_training_link"
                        onclick="toggle_details(this)"
                        data-toggle="collapse"
                        data-target="#recurrence"
                        class="pointer"
-                       style="text-decoration: none;
-                              margin-right: 15px">
+                       style="text-decoration: none">
                         <input type="hidden" name="recurring_training" value="" />
                         <input type="checkbox"
                                id="recurring_training"
                                name="recurring_training"
+                               style="margin-left: 0"
                                {% if form.recurring_training.value %}checked{% endif %} />
                     </a>
                     <label for="recurring_training">Create more than one occurrence of this training</label>
                 </div>
-                <div id="recurrence"
-                     class="collapse {{ form.recurring_training.value|yesno:"in," }}"
-                     style="margin: 0 auto">
-                    <div class="col-sm-offset-3 col-md-offset-2 col-sm-9 col-md-10">
+                <div id="recurrence" class="collapse {{ form.recurring_training.value|yesno:"in," }}">
+                    <div class="col-md-offset-2 col-sm-12 col-md-10" style="padding-top: 15px">
                         <div class="row">
                             <div class="col-sm-2">
                                 <label for="recurrence_interval">Every</label>

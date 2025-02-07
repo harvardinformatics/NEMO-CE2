@@ -201,63 +201,66 @@
             {% endif %}
         </div>
         <div class="form-group">
-            <div class="col-sm-12">
-                <a id="recurring_training_link"
-                   onclick="toggle_details(this)"
-                   data-toggle="collapse"
-                   data-target="#recurrence"
-                   class="pointer"
-                   style="text-decoration: none;
-                          margin-right: 15px">
-                    <input type="hidden" name="recurring_training" value="" />
-                    <input type="checkbox"
-                           id="recurring_training"
-                           name="recurring_training"
-                           {% if form.recurring_training.value %}checked{% endif %} />
-                </a>
-                <label for="recurring_training">Create more than one occurrence of this training</label>
+            <label class="control-label col-sm-3 col-md-2">Recurrence</label>
+            <div class="col-sm-9 col-md-10">
+                <div class="checkbox">
+                    <a id="recurring_training_link"
+                       onclick="toggle_details(this)"
+                       data-toggle="collapse"
+                       data-target="#recurrence"
+                       class="pointer"
+                       style="text-decoration: none">
+                        <input type="hidden" name="recurring_training" value="" />
+                        <input type="checkbox"
+                               id="recurring_training"
+                               name="recurring_training"
+                               style="margin-left: 0"
+                               {% if form.recurring_training.value %}checked{% endif %} />
+                    </a>
+                    <label for="recurring_training">Create more than one occurrence of this training</label>
+                </div>
             </div>
-            <div id="recurrence"
-                 class="collapse {{ form.recurring_training.value|yesno:"in," }}"
-                 style="margin: 0 auto">
-                <div class="col-sm-12 row">
-                    <div class="col-sm-2">
-                        <label for="recurrence_interval">Every</label>
-                        <input id="recurrence_interval"
-                               name="recurrence_interval"
-                               type="number"
-                               class="form-control"
-                               min="1"
-                               value="{{ form.recurrence_interval.value|default_if_none:'1' }}" />
-                        {% if form.recurrence_interval.errors %}
-                            <span class="danger-highlight">{{ form.recurrence_interval.errors|striptags }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="col-sm-6">
-                        <label for="recurrence_frequency">Frequency</label>
-                        <select class="form-control" name="recurrence_frequency" id="recurrence_frequency" required>
-                            {% for choice in recurrence_intervals %}
-                                <option value="{{ choice.0 }}"
-                                        {% if form.recurrence_frequency.value == choice.0|stringformat:'i' %}selected{% endif %}>
-                                    {{ choice.1 }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                        {% if form.recurrence_frequency.errors %}
-                            <span class="danger-highlight">{{ form.recurrence_frequency.errors|striptags }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="col-sm-4">
-                        <label for="recurrence_until">Until</label>
-                        <input type="text"
-                               id="recurrence_until"
-                               name="recurrence_until"
-                               class="form-control select-date"
-                               value="{{ form.recurrence_until.value|input_date_format }}"
-                               placeholder="Choose a date">
-                        {% if form.recurrence_until.errors %}
-                            <span class="danger-highlight">{{ form.recurrence_until.errors|striptags }}</span>
-                        {% endif %}
+            <div id="recurrence" class="collapse {{ form.recurring_training.value|yesno:"in," }}">
+                <div class="col-md-offset-2 col-sm-12 col-md-10" style="padding-top: 15px">
+                    <div class="row">
+                        <div class="col-sm-2">
+                            <label for="recurrence_interval">Every</label>
+                            <input id="recurrence_interval"
+                                   name="recurrence_interval"
+                                   type="number"
+                                   class="form-control"
+                                   min="1"
+                                   value="{{ form.recurrence_interval.value|default_if_none:'1' }}" />
+                            {% if form.recurrence_interval.errors %}
+                                <span class="danger-highlight">{{ form.recurrence_interval.errors|striptags }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="recurrence_frequency">Frequency</label>
+                            <select class="form-control" name="recurrence_frequency" id="recurrence_frequency" required>
+                                {% for choice in recurrence_intervals %}
+                                    <option value="{{ choice.0 }}"
+                                            {% if form.recurrence_frequency.value == choice.0|stringformat:'i' %}selected{% endif %}>
+                                        {{ choice.1 }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if form.recurrence_frequency.errors %}
+                                <span class="danger-highlight">{{ form.recurrence_frequency.errors|striptags }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-sm-4">
+                            <label for="recurrence_until">Until</label>
+                            <input type="text"
+                                   id="recurrence_until"
+                                   name="recurrence_until"
+                                   class="form-control select-date"
+                                   value="{{ form.recurrence_until.value|input_date_format }}"
+                                   placeholder="Choose a date">
+                            {% if form.recurrence_until.errors %}
+                                <span class="danger-highlight">{{ form.recurrence_until.errors|striptags }}</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -321,4 +324,5 @@
 		maxDate: moment('{{ recurrence_date_start|input_date_format }}', '{{ date_input_js_format }}').add({{ calendar_training_recurrence_limit }}, 'days').toDate(),
 		minDate: moment('{{ recurrence_date_start|input_date_format }}', '{{ date_input_js_format }}')
     });
+	$('#dialog .modal-dialog').addClass('modal-lg');
 </script>
