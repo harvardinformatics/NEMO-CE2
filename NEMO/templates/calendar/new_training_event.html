@@ -153,6 +153,23 @@
                 </div>
             {% endif %}
         </div>
+        {% if form.fields.qualification_levels.queryset %}
+            <div class="form-group">
+                <label class="control-label col-sm-3 col-md-2" for="qualification_levels_search">Required qualification</label>
+                <div class="col-sm-9 col-md-10">
+                    <div class="form-group col-sm-7 col-md-5">
+                        <input id="qualification_levels_search"
+                               type="text"
+                               autocomplete="off"
+                               class="form-control"
+                               placeholder="Qualification levels">
+                    </div>
+                    <div id="qualification-levels-list" style="margin-left: -15px;" class="col-sm-12">
+                        No prior qualifications needed for this training.
+                    </div>
+                </div>
+            </div>
+        {% endif %}
         <div class="form-group {% if form.message.errors %}has-error{% endif %}">
             <label class="control-label col-sm-3 col-md-2" for="message">Message</label>
             <div class="col-sm-8 col-md-6">
@@ -168,6 +185,68 @@
                 </div>
             {% endif %}
         </div>
+        <div class="form-group">
+            <div class="col-sm-12">
+                <a id="recurring_training_link"
+                   onclick="toggle_details(this)"
+                   data-toggle="collapse"
+                   data-target="#recurrence"
+                   class="pointer"
+                   style="text-decoration: none;
+                          margin-right: 15px">
+                    <input type="hidden" name="recurring_training" value="" />
+                    <input type="checkbox"
+                           id="recurring_training"
+                           name="recurring_training"
+                           {% if form.recurring_training.value %}checked{% endif %} />
+                </a>
+                <label for="recurring_training">Create more than one occurrence of this training</label>
+            </div>
+            <div id="recurrence"
+                 class="collapse {{ form.recurring_training.value|yesno:"in," }}"
+                 style="margin: 0 auto">
+                <div class="col-sm-12 row">
+                    <div class="col-sm-2">
+                        <label for="recurrence_interval">Every</label>
+                        <input id="recurrence_interval"
+                               name="recurrence_interval"
+                               type="number"
+                               class="form-control"
+                               min="1"
+                               value="{{ form.recurrence_interval.value|default_if_none:'1' }}" />
+                        {% if form.recurrence_interval.errors %}
+                            <span class="danger-highlight">{{ form.recurrence_interval.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-sm-6">
+                        <label for="recurrence_frequency">Frequency</label>
+                        <select class="form-control" name="recurrence_frequency" id="recurrence_frequency" required>
+                            {% for choice in recurrence_intervals %}
+                                <option value="{{ choice.0 }}"
+                                        {% if form.recurrence_frequency.value == choice.0|stringformat:'i' %}selected{% endif %}>
+                                    {{ choice.1 }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.recurrence_frequency.errors %}
+                            <span class="danger-highlight">{{ form.recurrence_frequency.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-sm-4">
+                        <label for="recurrence_until">Until</label>
+                        <input type="text"
+                               id="recurrence_until"
+                               name="recurrence_until"
+                               class="form-control select-date"
+                               value="{{ form.recurrence_until.value|input_date_format }}"
+                               placeholder="Choose a date">
+                        {% if form.recurrence_until.errors %}
+                            <span class="danger-highlight">{{ form.recurrence_until.errors|striptags }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </form>
 </div>
 <div class="modal-footer">
@@ -178,6 +257,20 @@
     </div>
 </div>
 <script>
+	$("#qualification_levels_search").autocomplete('qualification_levels', select_qualification_level, {{ form.fields.qualification_levels.queryset|json_search_base }}, true, true);
+	function select_qualification_level(jquery_event, search_selection, dataset_name)
+	{
+		$(this).typeahead('val', '').focus();
+		add_qualification_level(search_selection.name, search_selection.id);
+	}
+	function add_qualification_level(qualification_level_name, qualification_level_name_id)
+	{
+		add_to_list("#qualification-levels-list", "remove_qualification_level", qualification_level_name_id, qualification_level_name, "Remove this qualification level from the list", "qualification_levels");
+	}
+	function remove_qualification_level(qualification_level_id)
+	{
+		remove_from_list("#qualification-levels-list", "#qualification_levels_" + qualification_level_id, '<input type="hidden" value="" name="qualification_levels">No prior qualifications needed for this training.');
+	}
 	$("#invited_search").autocomplete('users', select_invited_user, '{% url 'user_for_training_search' %}', true);
 	function select_invited_user(jquery_event, search_selection, dataset_name)
 	{
@@ -192,6 +285,12 @@
 	{
 		remove_from_list("#invited-user-list", "#user_ids_to_invite_" + user_id, '<input type="hidden" value="" name="user_ids_to_invite">No users have been invited to this training yet.');
 	}
+	{% for qualification_level in selected_qualification_levels %}
+		add_qualification_level('{{ qualification_level.name }}', '{{ qualification_level.id }}');
+	{% endfor %}
+	{% for invitee in selected_invitees %}
+		add_invited_user('{{ invitee }}', '{{ invitee.id }}');
+	{% endfor %}
 	let timepicker_properties =
     {
         format: '{{ datetime_input_js_format }}',
@@ -201,7 +300,10 @@
     };
     let auto_cancel_jq = $("#auto_cancel");
     auto_cancel_jq.datetimepicker(timepicker_properties);
-    {% for user in invited_users %}
-		add_invited_user('{{ user }}', '{{ user.id }}');
-	{% endfor %}
+	$('#recurrence_until').datetimepicker({
+		format: '{{ date_input_js_format }}',
+		useCurrent: false,
+		maxDate: moment('{{ recurrence_date_start|input_date_format }}', '{{ date_input_js_format }}').add({{ calendar_training_recurrence_limit }}, 'days').toDate(),
+		minDate: moment('{{ recurrence_date_start|input_date_format }}', '{{ date_input_js_format }}')
+    });
 </script>

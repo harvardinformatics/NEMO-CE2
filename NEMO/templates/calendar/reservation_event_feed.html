@@ -59,7 +59,7 @@
 				"title": "Training by {{ training.trainer.get_name }}\n({{ training.technique|default_if_none:default_technique }})",
 			{% endif %}
 		{% endwith %}
-		{% if training.invitation_only and user not in training.users.all and not training|training_event_invitations:user or training.current_capacity >= training.capacity %}
+		{% if training.invitation_only and user not in training.users.all and not training|training_event_invitations:user or training.current_capacity >= training.capacity or not training|is_qualified:user %}
 			"before": "<span class='pull-right glyphicon glyphicon-lock'></span>",
 		{% endif %}
 		"id": "Training {{ training.id }}",

@@ -7,6 +7,7 @@ from logging import getLogger
 from typing import List, Optional, Tuple, Union
 
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound
 from django.shortcuts import get_object_or_404, redirect, render
@@ -27,6 +28,7 @@ from NEMO.models import (
     ConfigurationPrecursor,
     ConfigurationPrecursorSlot,
     Project,
+    QualificationLevel,
     Reservation,
     ReservationItemType,
     ReservationQuestions,
@@ -39,6 +41,7 @@ from NEMO.models import (
     UsageEvent,
     User,
     UserPreferences,
+    user_qualifies_for_training,
 )
 from NEMO.policy import accessory_conflicts_for_reservation, policy_class as policy
 from NEMO.utilities import (
@@ -65,7 +68,12 @@ from NEMO.views.customization import (
     TrainingCustomization,
     get_media_file_contents,
 )
-from NEMO.views.training_new import suggested_users_to_invite
+from NEMO.views.training_new import (
+    RecurringTrainingException,
+    add_recurring_form_errors_from_exception,
+    create_recurring_training,
+    suggested_users_to_invite,
+)
 from NEMO.widgets.dynamic_form import DynamicForm, render_group_questions
 
 calendar_logger = getLogger(__name__)
@@ -1258,7 +1266,6 @@ def create_training_event(request):
     except Exception as e:
         return HttpResponseBadRequest(str(e))
     tool: Tool = get_object_or_404(item_type.get_object_class(), id=item_id)
-
     # Create the new training:
     training_details: ToolTrainingDetail = ToolTrainingDetail.objects.filter(tool=tool).first()
     training = TrainingEvent()
@@ -1307,27 +1314,73 @@ def create_training_event(request):
         training_event_form = CalendarTrainingEventForm(
             request.POST if training_configured else None, instance=training, initial=initial
         )
+        qualification_levels_ids = set(
+            int(param) for param in request.POST.getlist("qualification_levels", []) if param
+        )
         submitted_user_ids_to_invite = set(
             int(param) for param in request.POST.getlist("user_ids_to_invite", []) if param
         )
         invited_users = User.objects.filter(id__in=submitted_user_ids_to_invite).distinct()
+        qualification_levels = QualificationLevel.objects.filter(id__in=qualification_levels_ids)
+        training_event_dictionary = {
+            "tool": tool,
+            "start": start,
+            "auto_cancel": auto_cancel,
+            "form": training_event_form,
+            "training_details": training_details,
+            "suggested_users": suggested_users_to_invite(tool),
+            "recurrence_intervals": RecurrenceFrequency.choices(),
+            "calendar_training_recurrence_limit": CalendarCustomization.get("calendar_training_recurrence_limit"),
+            "recurrence_date_start": start.date(),
+            "selected_qualification_levels": qualification_levels,
+            "selected_invitees": invited_users,
+        }
         if not training_configured or not training_event_form.is_valid():
-            dictionary = {
-                "tool": tool,
-                "start": start,
-                "auto_cancel": auto_cancel,
-                "form": training_event_form,
-                "training_details": training_details,
-                "suggested_users": suggested_users_to_invite(tool),
-                "invited_users": list(invited_users),
-            }
-            return render(request, "calendar/new_training_event.html", dictionary)
+            return render(request, "calendar/new_training_event.html", training_event_dictionary)
+
         training_event_form.instance.end = training.start + timedelta(
             minutes=training_event_form.cleaned_data["duration"]
         )
-        training_event = training_event_form.save()
-        training_event.invite_users(request.user, invited_users, request)
+        training_event = training_event_form.save(commit=False)
+        duration = training_event.end - training_event.start
 
+        # Check invitees have required qualification levels
+        missing_qualifications = [
+            user
+            for user in invited_users
+            if not user_qualifies_for_training(user, training_event, qualification_levels)
+        ]
+        if missing_qualifications:
+            missing_users = ", ".join(user.get_full_name() for user in missing_qualifications)
+            training_event_form.add_error(
+                None, f"The following users do not have the required qualifications for this training: {missing_users}"
+            )
+            return render(request, "calendar/new_training_event.html", training_event_dictionary)
+
+        if training_event_form.cleaned_data.get("recurring_training"):
+            try:
+                with transaction.atomic():
+                    recurrence_frequency = training_event_form.cleaned_data.get("recurrence_frequency")
+                    recurrence_until = training_event_form.cleaned_data["recurrence_until"]
+                    recurrence_interval = training_event_form.cleaned_data.get("recurrence_interval", 1)
+                    trainings = create_recurring_training(
+                        training_event,
+                        recurrence_frequency,
+                        recurrence_interval,
+                        recurrence_until,
+                        duration,
+                        qualification_levels,
+                    )
+            except RecurringTrainingException as e:
+                add_recurring_form_errors_from_exception(training_event_form, e)
+                return render(request, "calendar/new_training_event.html", training_event_dictionary)
+            if len(trainings) > 0:
+                first_occurrence = trainings[0]
+                first_occurrence.invite_users(request.user, invited_users, request)
+        else:
+            training_event.save()
+            training_event.qualification_levels.set(qualification_levels)
+            training_event.invite_users(request.user, invited_users, request)
     return HttpResponse()
 
 

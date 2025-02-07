@@ -13,3 +13,8 @@ def is_trainer(value, arg=None):
 @register.filter
 def training_event_invitations(value, arg=None):
     return value.pending_invitations(arg)
+
+
+@register.filter
+def is_qualified(value, arg=None):
+    return value.user_is_qualified(arg)
