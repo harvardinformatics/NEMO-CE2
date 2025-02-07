@@ -5441,6 +5441,9 @@ class TrainingEvent(BaseModel):
     start = models.DateTimeField()
     end = models.DateTimeField()
     tool = models.ForeignKey(Tool, on_delete=models.CASCADE)
+    location = models.CharField(
+        null=True, blank=True, max_length=CHAR_FIELD_MAXIMUM_LENGTH, help_text="The location of the training"
+    )
     technique = models.ForeignKey(TrainingTechnique, null=True, blank=True, on_delete=models.SET_NULL)
     trainer = models.ForeignKey(User, related_name="training_events_trainer", on_delete=models.CASCADE)
     message = models.TextField(null=True, blank=True, help_text="The message to the trainee(s)")
@@ -5634,6 +5637,10 @@ class TrainingInvitation(BaseModel):
     @property
     def technique(self) -> TrainingTechnique:
         return self.training_event.technique
+
+    @property
+    def location(self) -> str:
+        return self.training_event.location
 
     @property
     def trainer(self) -> User:

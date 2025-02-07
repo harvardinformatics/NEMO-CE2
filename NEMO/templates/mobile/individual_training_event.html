@@ -21,6 +21,10 @@
             Technique: {{ training.technique.name }}
             <br>
         {% endif %}
+        {% if training.location %}
+            Location: {{ training.location }}
+            <br>
+        {% endif %}
         Duration: {{ training.duration }} minutes
         <br>
         Attendees: {{ training.current_capacity }}/{{ training.capacity }}

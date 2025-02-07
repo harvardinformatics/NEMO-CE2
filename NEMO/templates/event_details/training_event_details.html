@@ -15,6 +15,12 @@
                 <td>{{ training.technique.name }}</td>
             </tr>
         {% endif %}
+        {% if training.location %}
+            <tr>
+                <th>Location</th>
+                <td>{{ training.location }}</td>
+            </tr>
+        {% endif %}
         <tr>
             <th>Trainer</th>
             <td>{{ training.trainer.get_name }}</td>

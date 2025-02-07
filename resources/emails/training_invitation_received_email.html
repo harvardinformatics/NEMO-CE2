@@ -22,6 +22,10 @@
                         You have been invited to the following training session:
                         <br>
                         <u>Tool</u>: {{ training_invitation.tool.name }}
+                        {% if training_invitation.location %}
+                            <br>
+                            <u>Location</u>: {{ training_invitation.location }}
+                        {% endif %}
                         {% if training_invitation.technique %}
                             <br>
                             <u>Technique</u>: {{ training_invitation.technique.name }}
