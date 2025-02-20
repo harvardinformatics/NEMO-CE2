@@ -37,6 +37,8 @@ from django.utils.html import format_html
 from django.utils.text import slugify
 from django.utils.timezone import is_naive, localtime, make_aware
 
+from NEMO.apps.nemo_ce import NEMOCEConfig
+
 utilities_logger = getLogger(__name__)
 
 # List of python to js formats
@@ -189,7 +191,7 @@ class EmailCategory(object):
     SENSORS = 10
     ADJUSTMENT_REQUESTS = 11
     TRAINING = 12
-    SHADOWING_VERIFICATION_REQUESTS = 1001
+    SHADOWING_VERIFICATION_REQUESTS = NEMOCEConfig.plugin_id + 1
     Choices = (
         (GENERAL, "General"),
         (SYSTEM, "System"),
