@@ -457,7 +457,7 @@ def enable_tool(request, tool_id, user_id, project_id, staff_charge):
 
     # Validate usage event
     try:
-        new_usage_event.full_clean()
+        new_usage_event.full_clean(validate_unique=not taking_over)
     except ValidationError as e:
         return HttpResponseBadRequest(str(e))
 
