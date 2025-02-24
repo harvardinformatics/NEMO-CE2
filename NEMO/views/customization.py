@@ -219,6 +219,7 @@ class ProjectsAccountsCustomization(CustomizationBase):
         "account_list_collapse": "",
         "project_allow_pi_manage_users": "",
         "project_allow_transferring_charges": "",
+        "project_type_allow_multiple": "",
     }
 
     def validate(self, name, value):
@@ -373,14 +374,32 @@ class ShadowingVerificationCustomization(CustomizationBase):
 
 @customization(key="requests", title="User requests")
 class UserRequestsCustomization(CustomizationBase):
-    frequencies = [RecurrenceFrequency.DAILY, RecurrenceFrequency.WEEKLY, RecurrenceFrequency.MONTHLY]
     variables = {
         "buddy_requests_title": "Buddy requests board",
         "buddy_board_description": "",
+        "staff_assistance_requests_enabled": "",
+        "staff_assistance_requests_title": "Staff assistance requests",
+        "staff_assistance_requests_description": "",
         "access_requests_title": "Access requests",
         "access_requests_description": "",
         "access_requests_minimum_users": "2",
         "access_requests_display_max": "",
+        "weekend_access_notification_emails": "",
+        "weekend_access_notification_cutoff_hour": "",
+        "weekend_access_notification_cutoff_day": "",
+    }
+
+    def validate(self, name, value):
+        if name == "weekend_access_notification_emails":
+            recipients = tuple([e for e in value.split(",") if e])
+            for email in recipients:
+                validate_email(email)
+
+
+@customization(key="adjustment_requests", title="Adjustment requests")
+class AdjustmentRequestsCustomization(CustomizationBase):
+    frequencies = [RecurrenceFrequency.DAILY, RecurrenceFrequency.WEEKLY, RecurrenceFrequency.MONTHLY]
+    variables = {
         "adjustment_requests_enabled": "",
         "charges_validation_enabled": "",
         "adjustment_requests_tool_usage_enabled": "enabled",
@@ -392,6 +411,10 @@ class UserRequestsCustomization(CustomizationBase):
         "adjustment_requests_consumable_withdrawal_self_checkout": "enabled",
         "adjustment_requests_consumable_withdrawal_staff_checkout": "enabled",
         "adjustment_requests_consumable_withdrawal_usage_event": "enabled",
+        "adjustment_requests_waive_tool_usage_enabled": "",
+        "adjustment_requests_waive_area_access_enabled": "",
+        "adjustment_requests_waive_consumable_withdrawal_enabled": "",
+        "adjustment_requests_waive_missed_reservation_enabled": "",
         "adjustment_requests_title": "Adjustment requests",
         "adjustment_requests_description": "",
         "adjustment_requests_charges_display_number": "10",
@@ -400,9 +423,6 @@ class UserRequestsCustomization(CustomizationBase):
         "adjustment_requests_time_limit_frequency": RecurrenceFrequency.WEEKLY.index,
         "adjustment_requests_edit_charge_button": "",
         "adjustment_requests_apply_button": "",
-        "weekend_access_notification_emails": "",
-        "weekend_access_notification_cutoff_hour": "",
-        "weekend_access_notification_cutoff_day": "",
     }
 
     @classmethod
@@ -444,10 +464,6 @@ class UserRequestsCustomization(CustomizationBase):
         return context_dict
 
     def validate(self, name, value):
-        if name == "weekend_access_notification_emails":
-            recipients = tuple([e for e in value.split(",") if e])
-            for email in recipients:
-                validate_email(email)
         if value and name == "adjustment_requests_time_limit_frequency":
             try:
                 if RecurrenceFrequency(int(value)) not in self.frequencies:
@@ -518,6 +534,7 @@ class ToolCustomization(CustomizationBase):
         "tool_problem_max_image_size_pixels": "750",
         "tool_problem_send_to_all_qualified_users": "",
         "tool_problem_allow_regular_user_preferences": "",
+        "tool_problem_safety_hazard_automatic_shutdown": "",
         "tool_configuration_near_future_days": "1",
         "tool_reservation_policy_superusers_bypass": "",
         "tool_grant_access_emails": "",
@@ -603,6 +620,8 @@ class TrainingCustomization(CustomizationBase):
         "training_show_in_user_requests": "",
         "training_upcoming_schedule_days": "7",
         "training_extra_email_addresses": "",
+        "training_show_self_option_in_tool_control": "",
+        "training_show_behalf_option_in_tool_control": "",
     }
 
     def context(self) -> Dict:

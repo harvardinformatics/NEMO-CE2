@@ -8,6 +8,7 @@ from typing import Dict, List
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, JsonResponse
@@ -50,8 +51,10 @@ from NEMO.utilities import (
     extract_optional_beginning_and_end_times,
     format_datetime,
     get_email_from_settings,
+    is_trainer,
     quiet_int,
     render_email_template,
+    response_js_redirect,
     send_mail,
 )
 from NEMO.views.area_access import able_to_self_log_out_of_area
@@ -423,6 +426,7 @@ def enable_tool(request, tool_id, user_id, project_id, staff_charge):
     user = get_object_or_404(User, id=user_id)
     project = get_object_or_404(Project, id=project_id)
     staff_charge = staff_charge == "true"
+    is_training = request.POST.get("training", "false") == "true"
     bypass_interlock = request.POST.get("bypass", "False") == "True"
     taking_over = tool.get_current_usage_event() is not None
     # Figure out if the tool usage is part of remote work
@@ -449,6 +453,12 @@ def enable_tool(request, tool_id, user_id, project_id, staff_charge):
     try:
         new_usage_event.pre_run_data = dynamic_form.extract(request)
     except RequiredUnansweredQuestionsException as e:
+        return HttpResponseBadRequest(str(e))
+
+    # Validate usage event
+    try:
+        new_usage_event.full_clean(validate_unique=not taking_over)
+    except ValidationError as e:
         return HttpResponseBadRequest(str(e))
 
     if not taking_over:
@@ -494,10 +504,16 @@ def enable_tool(request, tool_id, user_id, project_id, staff_charge):
             area_access.staff_charge = new_staff_charge
             area_access.customer = new_staff_charge.customer
             area_access.project = new_staff_charge.project
+            try:
+                area_access.full_clean()
+            except ValidationError as e:
+                return HttpResponseBadRequest(str(e))
             area_access.save()
 
     # Now we can safely save the usage event
     new_usage_event.remote_work = remote_work
+    if is_trainer(user) and not remote_work and is_training:
+        new_usage_event.training = True
     new_usage_event.save()
 
     # Remove wait list entry if it exists
@@ -598,6 +614,9 @@ def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, re
     if area_record and tool.ask_to_leave_area_when_done_using and able_to_self_log_out_of_area(user):
         return render(request, "tool_control/logout_user.html", {"area": area_record.area, "tool": tool})
 
+    if current_usage_event.training:
+        return response_js_redirect("training", query_string=f"usage_event_id={current_usage_event.id}")
+
     return HttpResponse()
 
 
@@ -654,13 +673,13 @@ def do_exit_wait_list(entry, time):
 @login_required
 @require_GET
 def past_comments_and_tasks(request):
-    user: User = request.user
-    start, end = extract_optional_beginning_and_end_times(request.GET)
-    search = request.GET.get("search")
-    if not start and not end and not search:
-        return HttpResponseBadRequest("Please enter a search keyword, start date or end date.")
-    tool_id = request.GET.get("tool_id")
     try:
+        user: User = request.user
+        start, end = extract_optional_beginning_and_end_times(request.GET)
+        search = request.GET.get("search")
+        if not start and not end and not search:
+            return HttpResponseBadRequest("Please enter a search keyword, start date or end date.")
+        tool_id = request.GET.get("tool_id")
         tasks = Task.objects.filter(tool_id=tool_id)
         comments = Comment.objects.filter(tool_id=tool_id)
         if not user.is_staff:
@@ -747,12 +766,14 @@ def tool_usage_group_question(request, tool_id, group_name):
     )
 
 
-@staff_member_required
+@login_required
 @require_GET
 def reset_tool_counter(request, counter_id):
     counter = get_object_or_404(ToolUsageCounter, id=counter_id)
+    if request.user not in counter.reset_permitted_users():
+        return redirect("landing")
     counter.last_reset_value = counter.value
-    counter.value = 0
+    counter.value = counter.default_value
     counter.last_reset = datetime.now()
     counter.last_reset_by = request.user
     counter.save()
@@ -760,28 +781,29 @@ def reset_tool_counter(request, counter_id):
     # Save a comment about the counter being reset.
     comment = Comment()
     comment.tool = counter.tool
-    comment.content = f"The {counter.name} counter was reset to 0. Its last value was {counter.last_reset_value}."
+    comment.content = f"The {counter.name} counter was reset to {counter.default_value}. Its last value was {counter.last_reset_value}."
     comment.author = request.user
     comment.expiration_date = timezone.now()
     comment.save()
 
-    # Email Lab Managers about the counter being reset.
-    facility_managers = [
-        email
-        for manager in User.objects.filter(is_active=True, is_facility_manager=True)
-        for email in manager.get_emails(manager.get_preferences().email_send_task_updates)
-    ]
-    if facility_managers:
-        message = f"""The {counter.name} counter for the {counter.tool.name} was reset to 0 on {formats.localize(counter.last_reset)} by {counter.last_reset_by}.
-	
-Its last value was {counter.last_reset_value}."""
-        send_mail(
-            subject=f"{counter.tool.name} counter reset",
-            content=message,
-            from_email=get_email_from_settings(),
-            to=facility_managers,
-            email_category=EmailCategory.SYSTEM,
-        )
+    if counter.email_facility_managers_when_reset:
+        # Email Lab Managers about the counter being reset.
+        facility_managers = [
+            email
+            for manager in User.objects.filter(is_active=True, is_facility_manager=True)
+            for email in manager.get_emails(manager.get_preferences().email_send_task_updates)
+        ]
+        if facility_managers:
+            message = f"""The {counter.name} counter for the {counter.tool.name} was reset to {counter.default_value} on {formats.localize(counter.last_reset)} by {counter.last_reset_by}.
+        
+    Its last value was {counter.last_reset_value}."""
+            send_mail(
+                subject=f"{counter.tool.name} counter reset",
+                content=message,
+                from_email=get_email_from_settings(),
+                to=facility_managers,
+                email_category=EmailCategory.SYSTEM,
+            )
     return redirect("tool_control")
 
 

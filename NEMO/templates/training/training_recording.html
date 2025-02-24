@@ -5,7 +5,7 @@
 		vertical-align: middle !important;
 	}
 </style>
-<p>Use this form to charge users for training sessions.</p>
+<p>Use this form to record training sessions.</p>
 <p>
     You can add participants to a training session by clicking the 'Add another participant' link.
     Remove a participant or blank row by clicking the circled X on that row.
@@ -16,6 +16,7 @@
 <br>
 <form class="form-horizontal" onsubmit="return on_submit()" id="training_session_form">
     {% csrf_token %}
+    <input type="hidden" name="usage_event_id" value="{{ usage_event.id }}" />
     {# Rows are inserted here upon load & when "Add another participant" is clicked. #}
     {% include 'training/training_entry.html' with entry_number=0 %}
     <div class="row text-center">
@@ -150,13 +151,28 @@
 			'name': name,
 			'type': type,
 		}
-        let trainee_jq = $("#" + type + "_textbox__" + row);
-        on_autocomplete_selection.apply(trainee_jq.hide()[0], ['', element_data, type]);
+        let row_item_jq = $("#" + type + "_textbox__" + row);
+        on_autocomplete_selection.apply(row_item_jq.hide()[0], ['', element_data, type]);
 	}
+
+    {% if usage_event.project %}
+        async function set_project()
+        {
+            await wait_for_element("#project__0 select");
+            $("#project__0 select").val("{{ usage_event.project.id }}");
+        }
+    {% endif %}
 
 	function on_load()
 	{
 		enable_autocompletion(0);
+        {% if usage_event.tool %}
+            set_autocomplete_value(0, '{{ usage_event.tool.id }}', '{{ usage_event.tool.name }}', 'tool');
+        {% endif %}
+        {% if usage_event and not usage_event.self_usage %}
+            set_autocomplete_value(0, '{{ usage_event.user.id }}', '{{ usage_event.user }}', 'user');
+            set_project();
+        {% endif %}
 	}
 
 	$(on_load);

@@ -17,7 +17,7 @@ from NEMO.models import (
     User,
 )
 from NEMO.views.adjustment_requests import adjustment_eligible_items
-from NEMO.views.customization import RemoteWorkCustomization, UserRequestsCustomization
+from NEMO.views.customization import AdjustmentRequestsCustomization, RemoteWorkCustomization, UserRequestsCustomization
 
 
 @staff_member_required
@@ -104,9 +104,9 @@ def validate_charge(request, item_type_id=None, item_id=None):
 
 
 def charges_to_validate(user: User) -> List:
-    if UserRequestsCustomization.get_bool("charges_validation_enabled"):
+    if AdjustmentRequestsCustomization.get_bool("charges_validation_enabled"):
         staff_charges_allowed = RemoteWorkCustomization.get_bool("remote_work_validation")
-        date_limit = UserRequestsCustomization.get_date_limit()
+        date_limit = AdjustmentRequestsCustomization.get_date_limit()
         charge_filter: Dict = {"end__gte": date_limit} if date_limit else {}
         charge_filter["validated"] = False
         return adjustment_eligible_items(staff_charges_allowed, charge_filter, user)

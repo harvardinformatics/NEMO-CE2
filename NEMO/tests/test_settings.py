@@ -34,8 +34,6 @@ INSTALLED_APPS = [
     "NEMO.apps.nemo_ce",
     "NEMO.apps.kiosk",
     "NEMO.apps.area_access",
-    "NEMO.apps.sensors",
-    "NEMO.apps.contracts",
     "NEMO",
     "rest_framework",
     "django_filters",
@@ -95,7 +93,7 @@ EMAIL_PORT = 25
 
 EMAIL_FILE_PATH = "./email_logs"
 
-TIME_ZONE = "America/New_York"
+TIME_ZONE = "US/Eastern"
 
 DATABASES = {
     "default": {

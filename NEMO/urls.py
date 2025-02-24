@@ -15,6 +15,7 @@ from django.views.generic import RedirectView
 from django.views.static import serve
 from rest_framework import routers
 
+from NEMO.constants import MEDIA_PROTECTED
 from NEMO.decorators import any_staff_required
 from NEMO.models import ReservationItemType
 from NEMO.views import (
@@ -52,6 +53,7 @@ from NEMO.views import (
     safety,
     shadowing_verification,
     sidebar,
+    staff_assistance_requests,
     status_dashboard,
     tasks,
     timed_services,
@@ -64,7 +66,6 @@ from NEMO.views import (
     user_requests,
     users,
 )
-from NEMO.views.constants import MEDIA_PROTECTED
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ router.register(r"interlocks", api.InterlockViewSet)
 router.register(r"physical_access_levels", api.PhysicalAccessLevelViewSet)
 router.register(r"temporary_physical_access_requests", api.TemporaryPhysicalAccessRequestViewSet)
 router.register(r"project_disciplines", api.ProjectDisciplineViewSet)
+router.register(r"project_types", api.ProjectTypeViewSet)
 router.register(r"projects", api.ProjectViewSet)
 router.register(r"qualification_levels", api.QualificationLevelViewSet)
 router.register(r"qualifications", api.QualificationViewSet)
@@ -108,6 +110,7 @@ router.register(r"reservations", api.ReservationViewSet)
 router.register(r"reservation_configuration_options", api.ConfigurationOptionViewSet)
 router.register(r"resources", api.ResourceViewSet)
 router.register(r"scheduled_outages", api.ScheduledOutageViewSet)
+router.register(r"staff_assistance_requests", api.StaffAssistanceRequestsViewSet)
 router.register(r"staff_charges", api.StaffChargeViewSet)
 router.register(r"tasks", api.TaskViewSet)
 router.register(r"tools", api.ToolViewSet)
@@ -118,6 +121,7 @@ router.register(r"training_sessions", api.TrainingSessionViewSet)
 router.register(r"training_techniques", api.TrainingTechniqueViewSet)
 router.register(r"usage_events", api.UsageEventViewSet)
 router.register(r"users", api.UserViewSet)
+router.register(r"user_documents", api.UserDocumentsViewSet)
 router.registry.sort(key=sort_urls)
 
 reservation_item_types = f'(?P<item_type>{"|".join(ReservationItemType.values())})'
@@ -131,16 +135,22 @@ for app in apps.get_app_configs():
     app_name = app.name
     if app_name != "NEMO" and app_name.startswith("NEMO"):
         try:
-            mod = import_module("%s.urls" % app_name)
-        except ModuleNotFoundError:
-            logger.warning(f"no urls found for NEMO plugin: {app_name}")
-            pass
-        except Exception as e:
-            logger.exception(f"could not import urls for NEMO plugin: {app_name}")
-            pass
-        else:
-            urlpatterns += [path("", include("%s.urls" % app_name))]
-            logger.debug(f"automatically including urls for plugin: {app_name}")
+            plugin_urls = "%s.urls" % app_name
+            try:
+                mod = import_module(plugin_urls)
+            except ModuleNotFoundError as e:
+                if e.name == plugin_urls:
+                    logger.debug(f"no urls found for NEMO plugin: {app_name}")
+                else:
+                    raise
+            else:
+                urlpatterns += [path("", include(plugin_urls))]
+                logger.debug(f"automatically including urls for plugin: {app_name}")
+        except Exception:
+            if getattr(app, "critical", False):
+                raise
+            else:
+                logger.exception(f"Failure when loading URLs for app: {app_name}")
 
 # The order matters for some tests to run properly
 urlpatterns += [
@@ -203,7 +213,9 @@ urlpatterns += [
     # User requests
     path("user_requests/", user_requests.user_requests, name="user_requests"),
     re_path(
-        r"^user_requests/(?P<tab>training|buddy|access|adjustment)/$", user_requests.user_requests, name="user_requests"
+        r"^user_requests/(?P<tab>training|buddy|access|adjustment|staff_assistance)/$",
+        user_requests.user_requests,
+        name="user_requests",
     ),
     # Access requests
     path("access_requests/", access_requests.access_requests, name="access_requests"),
@@ -219,6 +231,42 @@ urlpatterns += [
     path("edit_buddy_request/<int:request_id>/", buddy_requests.create_buddy_request, name="edit_buddy_request"),
     path("delete_buddy_request/<int:request_id>/", buddy_requests.delete_buddy_request, name="delete_buddy_request"),
     path("buddy_request_reply/<int:request_id>/", buddy_requests.buddy_request_reply, name="buddy_request_reply"),
+    # Staff assistance requests
+    path(
+        "staff_assistance_requests/",
+        staff_assistance_requests.staff_assistance_requests,
+        name="staff_assistance_requests",
+    ),
+    path(
+        "create_staff_assistance_request/",
+        staff_assistance_requests.create_staff_assistance_request,
+        name="create_staff_assistance_request",
+    ),
+    path(
+        "edit_staff_assistance_request/<int:request_id>/",
+        staff_assistance_requests.create_staff_assistance_request,
+        name="edit_staff_assistance_request",
+    ),
+    path(
+        "delete_staff_assistance_request/<int:request_id>/",
+        staff_assistance_requests.delete_staff_assistance_request,
+        name="delete_staff_assistance_request",
+    ),
+    path(
+        "resolve_staff_assistance_request/<int:request_id>/",
+        staff_assistance_requests.resolve_staff_assistance_request,
+        name="resolve_staff_assistance_request",
+    ),
+    path(
+        "reopen_staff_assistance_request/<int:request_id>/",
+        staff_assistance_requests.reopen_staff_assistance_request,
+        name="reopen_staff_assistance_request",
+    ),
+    path(
+        "staff_assistance_request_reply/<int:request_id>/",
+        staff_assistance_requests.staff_assistance_request_reply,
+        name="staff_assistance_request_reply",
+    ),
     # Adjustment requests
     path("adjustment_requests/", adjustment_requests.adjustment_requests, name="adjustment_requests"),
     path("create_adjustment_request/", adjustment_requests.create_adjustment_request, name="create_adjustment_request"),
@@ -550,8 +598,11 @@ urlpatterns += [
     path("force_area_logout/<int:user_id>/", area_access.force_area_logout, name="force_area_logout"),
     path("self_log_in/", area_access.self_log_in, name="self_log_in"),
     path("self_log_out/<int:user_id>/", area_access.self_log_out, name="self_log_out"),
+    # For backwards compatibility
+    path("usage/", RedirectView.as_view(pattern_name="user_usage", permanent=True), name="usage"),
     # Facility usage:
-    path("usage/", usage.usage, name="usage"),
+    path("usage/user/", usage.user_usage, name="user_usage"),
+    path("usage/staff/", usage.staff_usage, name="staff_usage"),
     # Alerts:
     path("alerts/", alerts.alerts, name="alerts"),
     path("delete_alert/<int:alert_id>/", alerts.delete_alert, name="delete_alert"),

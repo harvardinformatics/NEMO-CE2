@@ -1,6 +1,10 @@
 from datetime import date, datetime, time, timedelta
 
-import pytz
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
+
 from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
@@ -51,8 +55,8 @@ class FormatTestCase(TestCase):
         end_date = date(2022, 2, 11)
         self.assertEqual(format_daterange(start_date, end_date, d_format=d_format), f"from 02/11/2022 to 02/11/2022")
 
-        tz = pytz.timezone("US/Pacific")
-        self.assertEqual(settings.TIME_ZONE, "America/New_York")
+        tz = zoneinfo.ZoneInfo("US/Pacific")
+        self.assertEqual(settings.TIME_ZONE, "US/Eastern")
         start_tz = make_aware(datetime(2022, 2, 11, 5, 0, 0), tz)  # 5AM Pacific => 8AM Eastern
         end_tz = start_tz + timedelta(days=2)
         self.assertNotEqual(

@@ -1,4 +1,5 @@
 {% load custom_tags_and_filters %}
+{% load training_tags %}
 <div>
     {% with hide_data_history="tool"|customization:"tool_control_hide_data_history_users" documents_separate_tab="tool"|customization:"tool_control_documents_in_separate_tab" %}
         {% if device == 'mobile' %}
@@ -168,11 +169,11 @@
                         <div class="tool-counter-name">
                             {{ counter.name }}: <span style="font-weight: bold; {% if counter.value_color %}color: {{ counter.value_color }}{% endif %}">{{ counter.value|floatformat:-2 }}</span>
                         </div>
-                        {% if user.is_staff %}
+                        {% if user in counter.reset_permitted_users %}
                             <div class="tool-counter-reset">
                                 <a class="btn btn-xs btn-warning"
                                    href="{% url 'reset_tool_counter' counter.id %}"
-                                   onclick="return confirm('You are about to reset the {{ counter.name }} counter to 0.\nAre you sure?')">Reset</a>
+                                   onclick="return confirm('You are about to reset the {{ counter.name }} counter to {{ counter.default_value }}.\nAre you sure?')">Reset</a>
                             </div>
                         {% endif %}
                         <div class="tool-counter-description">{{ counter.description|linebreaksbr }}</div>
@@ -453,12 +454,20 @@
                             What would you like to do?
                         </h4>
                         <input type="hidden" id="remote_work" name="remote_work" value="">
+                        <input type="hidden" id="training" name="training" value="">
                         <div class="radio" role="group" aria-labelledby="what_to_do_label">
                             <label>
                                 <input type="radio" onchange="use_tool_for_self()" name="staff_charge" value="false">
                                 Use this tool for my own project
                             </label>
                             {% if user.is_staff %}
+                                {% if "training"|customization:"training_show_self_option_in_tool_control" == "enabled" %}
+                                    <br>
+                                    <label>
+                                        <input type="radio" onchange="use_tool_for_self(true)" name="staff_charge" value="false">
+                                        Use this tool for my own project for training
+                                    </label>
+                                {% endif %}
                                 <br>
                                 <label>
                                     <input type="radio" onchange="use_tool_for_other()" name="staff_charge" value="false">
@@ -466,6 +475,13 @@
                                     {% if "remote_work"|customization:"remote_work_ask_explicitly" %}(no remote){% endif %}
                                 </label>
                                 {% if "remote_work"|customization:"remote_work_ask_explicitly" %}
+                                    {% if "training"|customization:"training_show_behalf_option_in_tool_control" == "enabled" %}
+                                        <br>
+                                        <label>
+                                            <input type="radio" onchange="use_tool_for_other('', true)" name="staff_charge" value="false">
+                                            Use this tool on behalf of another user for training
+                                        </label>
+                                    {% endif %}
                                     <br>
                                     <label>
                                         <input type="radio" onchange="use_tool_for_other(true)" name="staff_charge" value="false">
@@ -507,6 +523,24 @@
                                         {% endif %}
                                     </label>
                                 {% endif %}
+                            {% endif %}
+                        </div>
+                        <div id="project_choice"></div>
+                    {% elif user|is_trainer:tool and "training"|customization:"training_show_self_option_in_tool_control" == "enabled" %}
+                        {# When user is not staff/service personnel but is a tool superuser and training option is enabled #}
+                        <h4 id="what_to_do_label_superuser">What would you like to do?</h4>
+                        <input type="hidden" id="training" name="training" value="">
+                        <div class="radio" role="group" aria-labelledby="what_to_do_label_superuser">
+                            <label>
+                                <input type="radio" onchange="use_tool_for_self()" name="staff_charge" value="false">
+                                Use this tool for my own project
+                            </label>
+                            {% if "training"|customization:"training_show_self_option_in_tool_control" == "enabled" %}
+                                <br>
+                                <label>
+                                    <input type="radio" onchange="use_tool_for_self(true)" name="staff_charge" value="false">
+                                    Use this tool for my own project for training
+                                </label>
                             {% endif %}
                         </div>
                         <div id="project_choice"></div>

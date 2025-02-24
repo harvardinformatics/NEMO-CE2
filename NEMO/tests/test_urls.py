@@ -16,7 +16,12 @@ from django.urls.resolvers import RegexPattern
 from NEMO.models import User
 from NEMO.tests.test_utilities import login_as, login_as_staff, login_as_user, login_as_user_with_permissions
 from NEMO.utilities import get_full_url
-from NEMO.views.customization import ApplicationCustomization, EmailsCustomization, UserRequestsCustomization
+from NEMO.views.customization import (
+    AdjustmentRequestsCustomization,
+    ApplicationCustomization,
+    EmailsCustomization,
+    UserRequestsCustomization,
+)
 
 url_test_logger = getLogger(__name__)
 
@@ -38,7 +43,6 @@ url_kwargs_get_post = {
     "login_to_area": {"kwargs": {"door_id": 1}, "post": {"badge_number": 1}},
     "logout_of_area": {"kwargs": {"door_id": 1}, "post": {"badge_number": 1}},
     "open_door": {"kwargs": {"door_id": 1}, "post": {"badge_number": 1}},
-    "sensor_details": {"kwargs": {"sensor_id": 1}},
     "get_projects": {"get": {"user_id": 1}},
     "get_projects_for_consumables": {"get": {"user_id": 1}},
     "get_projects_for_tool_control": {"get": {"user_id": 1}},
@@ -113,6 +117,16 @@ url_kwargs_get_post = {
     "apply_adjustment": {"login_id": 1},
     "delete_adjustment_request": {"kwargs": {"request_id": 2}, "login_id": 3},
     "adjustment_request_reply": {"kwargs": {"request_id": 2}, "login_id": 3, "post": {"reply_content": "new message"}},
+    "create_staff_assistance_request": {"kwargs": {}, "post": {"description": "I need some help"}},
+    "edit_staff_assistance_request": {"kwargs": {"request_id": 2}},
+    "resolve_staff_assistance_request": {"login_id": 1},
+    "delete_staff_assistance_request": {"kwargs": {"request_id": 2}},
+    "reopen_staff_assistance_request": {"login_id": 1},
+    "staff_assistance_request_reply": {
+        "kwargs": {"request_id": 2},
+        "login_id": 3,
+        "post": {"reply_content": "new message"},
+    },
     "change_reservation_date": {
         "login_id": 1,
         "post": {
@@ -199,7 +213,8 @@ class URLsTestCase(TestCase):
         EmailsCustomization.set("user_office_email_address", "email@example.org")
         EmailsCustomization.set("safety_email_address", "email@example.org")
         EmailsCustomization.set("abuse_email_address", "email@example.org")
-        UserRequestsCustomization.set("adjustment_requests_enabled", "enabled")
+        AdjustmentRequestsCustomization.set("adjustment_requests_enabled", "enabled")
+        UserRequestsCustomization.set("staff_assistance_requests_enabled", "enabled")
 
     def test_get_full_url(self):
         request = RequestFactory().get("/")
@@ -246,7 +261,7 @@ class URLsTestCase(TestCase):
             "event_feed",
             {
                 "get": {
-                    "event_type": f"{facility_name.lower()} usage",
+                    "event_type": f"{facility_name.lower()} use",
                     "start": start.strftime("%Y-%m-%d"),
                     "end": end_one_day.strftime("%Y-%m-%d"),
                     "item_type": "tool",
@@ -259,7 +274,7 @@ class URLsTestCase(TestCase):
             "event_feed",
             {
                 "get": {
-                    "event_type": f"{facility_name.lower()} usage",
+                    "event_type": f"{facility_name.lower()} use",
                     "start": start.strftime("%Y-%m-%d"),
                     "end": end_one_day.strftime("%Y-%m-%d"),
                     "personal_schedule": "yes",
@@ -271,7 +286,7 @@ class URLsTestCase(TestCase):
             "event_feed",
             {
                 "get": {
-                    "event_type": f"{facility_name.lower()} usage",
+                    "event_type": f"{facility_name.lower()} use",
                     "start": start.strftime("%Y-%m-%d"),
                     "end": end_one_day.strftime("%Y-%m-%d"),
                     "all_tools": "yes",
@@ -283,7 +298,7 @@ class URLsTestCase(TestCase):
             "event_feed",
             {
                 "get": {
-                    "event_type": f"{facility_name.lower()} usage",
+                    "event_type": f"{facility_name.lower()} use",
                     "start": start.strftime("%Y-%m-%d"),
                     "end": end_one_day.strftime("%Y-%m-%d"),
                     "all_areas": "yes",
@@ -295,7 +310,7 @@ class URLsTestCase(TestCase):
             "event_feed",
             {
                 "get": {
-                    "event_type": f"{facility_name.lower()} usage",
+                    "event_type": f"{facility_name.lower()} use",
                     "start": start.strftime("%Y-%m-%d"),
                     "end": end_one_day.strftime("%Y-%m-%d"),
                     "all_areastools": "yes",

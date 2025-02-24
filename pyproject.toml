@@ -1,6 +1,6 @@
 [project]
 name = "NEMO-CE"
-version = "6.0.33"
+version = "7.0.0"
 description = "NEMO Community Edition is a laboratory logistics web application based of NEMO. Use it to schedule reservations, control tool access, track maintenance issues, and more."
 keywords = ["NEMO", "NEMO-CE"]
 readme = "README.md"
@@ -22,20 +22,20 @@ classifiers = [
 ]
 requires-python = ">=3.9, <4"
 dependencies = [
-    "cryptography==43.0.1",
-    "Django==4.2.16",
+    "cryptography==44.0.1",
+    "Django==4.2.19",
     "django-auditlog==3.0.0",
-    "django-filter==24.3",
-    "django-mptt==0.14.0",
+    "django-filter==25.1",
     "djangorestframework==3.15.2",
-    "drf-excel==2.4.0",
+    "drf-excel==2.5.2",
     "drf-flex-fields==1.0.2",
     "ldap3==2.9.1",
-    "Pillow==10.4.0",
-    "pymodbus==3.3.2",
+    "Pillow==11.1.0",
     "python-dateutil==2.9.0",
-    "pytz==2024.1",
-    "requests==2.32.3"
+    "requests==2.32.3",
+    "packaging==24.2",
+    "django-mptt==0.14.0",
+    "pymodbus==3.8.6",
 ]
 license = {file = "LICENSE"}
 
@@ -53,10 +53,9 @@ nemo = "NEMO.provisioning:entry_point"
 
 [tool.setuptools.packages.find]
 include = ["NEMO*"]
-exclude = ["resources", "resources.*"]
+exclude = ["resources", "resources.*", "build", "build.*"]
 
 [tool.setuptools.package-data]
-#"NEMO" = ["templates/**/*", "static/**/*", "NEMO/apps/**/templates/**/*", "NEMO/apps/**/static/**/*", ]
 "NEMO" = ["**/templates/**/*", "**/static/**/*"]
 
 [build-system]

@@ -207,7 +207,8 @@
 		{
 			let data = {
 				'location': '{{ location }}',
-				'badge_number': badge_number
+				'badge_number': badge_number,
+                'category': '{{ request.GET.category|default_if_none:"" }}',
 			};
 			default_content_element.hide();
 			error_interlock_element.hide();
@@ -466,7 +467,13 @@
                 $(item).data('keyboard').close(false);
             })
         }
-	
+        {# Auto hide tooltips on kiosk page after 30 seconds #}
+	    $(document).on('shown.bs.tooltip',  function () {
+          let tooltip = $('.tooltip');
+          setTimeout(function () {
+            tooltip.hide();
+          }, 30000);
+        });
         </script>
     </body>
 </html>

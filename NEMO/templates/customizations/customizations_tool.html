@@ -166,6 +166,13 @@
                 <div class="checkbox">
                     <label>
                         <input type="checkbox"
+                               name="tool_problem_safety_hazard_automatic_shutdown"
+                               {% if tool_problem_safety_hazard_automatic_shutdown %}checked{% endif %}
+                               value="enabled">
+                        Automatically shutdown tool when a safety hazard problem is reported
+                    </label>
+                    <label>
+                        <input type="checkbox"
                                name="tool_problem_send_to_all_qualified_users"
                                {% if tool_problem_send_to_all_qualified_users %}checked{% endif %}
                                value="enabled">
@@ -239,6 +246,21 @@
                                {% if tool_control_hide_data_history_users %}checked{% endif %}
                                value="enabled">
                         Check to only show usage data history tab for staff members
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="control-label col-sm-4 col-md-3">Next reservation</label>
+            <div class="col-sm-8 col-md-9">
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox"
+                               id="tool_control_show_next_reservation_user"
+                               name="tool_control_show_next_reservation_user"
+                               {% if tool_control_show_next_reservation_user %}checked{% endif %}
+                               value="enabled">
+                        Check to show information about the next reservation in tool control
                     </label>
                 </div>
             </div>

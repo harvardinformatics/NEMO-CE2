@@ -3,6 +3,7 @@ from django.db.models import Max
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
+from NEMO.mixins import BillableItemMixin
 from NEMO.models import Area, Configuration, Interlock, InterlockCard, Qualification, Tool, User
 from NEMO.typing import QuerySetType
 from NEMO.utilities import BasicDisplayTable, export_format_datetime, format_datetime, new_model_copy
@@ -221,3 +222,10 @@ def export_qualifications_csv(model_admin, request, queryset: QuerySetType[Quali
             }
         )
     return qualifications.to_csv_http_response("qualifications_" + export_format_datetime() + ".csv")
+
+
+@admin.action(description="Waive selected charges")
+def waive_selected_charges(model_admin, request, queryset: QuerySetType[BillableItemMixin]):
+    for charge in queryset:
+        charge.waive(request.user)
+        messages.success(request, f"{model_admin.model.__name__} #{charge.id} has been successfully waived")

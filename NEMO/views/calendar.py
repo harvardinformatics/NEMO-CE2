@@ -1,3 +1,4 @@
+import json
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -9,7 +10,7 @@ from typing import List, Optional, Tuple, Union
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -17,6 +18,7 @@ from django.utils.safestring import mark_safe
 from django.utils.timezone import make_aware
 from django.views.decorators.http import require_GET, require_POST
 
+from NEMO.constants import ADDITIONAL_INFORMATION_MAXIMUM_LENGTH
 from NEMO.decorators import disable_session_expiry_refresh, postpone, staff_member_required, synchronized
 from NEMO.exceptions import ProjectChargeException, RequiredUnansweredQuestionsException, ToolConfigurationException
 from NEMO.forms import CalendarTrainingEventForm, ScheduledOutageForm, save_scheduled_outage
@@ -59,7 +61,6 @@ from NEMO.utilities import (
     render_email_template,
     send_mail,
 )
-from NEMO.views.constants import ADDITIONAL_INFORMATION_MAXIMUM_LENGTH
 from NEMO.views.customization import (
     ApplicationCustomization,
     CalendarCustomization,
@@ -204,7 +205,11 @@ def event_feed(request):
     facility_name = ApplicationCustomization.get("facility_name")
     if event_type == "reservations":
         return reservation_event_feed(request, start, end)
-    elif event_type == f"{facility_name.lower()} usage":
+    if event_type == "reservations and use":
+        reservation_feed = json.loads(reservation_event_feed(request, start, end).content)
+        usage_feed = json.loads(usage_event_feed(request, start, end).content)
+        return JsonResponse(reservation_feed + usage_feed, safe=False)
+    elif event_type == f"{facility_name.lower()} use":
         return usage_event_feed(request, start, end)
     # Only staff may request a specific user's history...
     elif event_type == "specific user" and request.user.is_staff:
@@ -1075,7 +1080,7 @@ def reservation_group_question(request, reservation_question_id, group_name):
 def get_and_combine_reservation_questions(
     item_type: ReservationItemType, item_id: int, project: Project = None
 ) -> List[ReservationQuestions]:
-    reservation_questions = ReservationQuestions.objects.all()
+    reservation_questions = ReservationQuestions.objects.filter(enabled=True)
     if item_type == ReservationItemType.TOOL:
         reservation_questions = reservation_questions.filter(tool_reservations=True)
         reservation_questions = reservation_questions.filter(Q(only_for_tools=None) | Q(only_for_tools__in=[item_id]))

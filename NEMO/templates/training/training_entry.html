@@ -57,14 +57,14 @@
                                class="form-control input-sm"
                                name="date__{{ entry_number }}"
                                id="date__{{ entry_number }}"
-                               value="{{ date|default_if_none:"" }}">
+                               value="{{ date|input_date_format|default_if_none:"" }}">
                     </div>
                 {% endif %}
                 <label class="control-label {{ label_class }}" for="duration__{{ entry_number }}">Duration</label>
                 <div class="{{ input_class }}">
                     <div class="input-group">
                         <input type="number"
-                               class="form-control input-sm"
+                               class="text-right form-control input-sm"
                                name="duration__{{ entry_number }}"
                                id="duration__{{ entry_number }}"
                                min="1"
