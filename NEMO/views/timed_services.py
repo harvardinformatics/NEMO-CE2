@@ -60,6 +60,7 @@ from NEMO.views.adjustment_requests import adjustment_eligible_items
 from NEMO.views.area_access import log_out_user
 from NEMO.views.calendar import send_tool_free_time_notification
 from NEMO.views.customization import (
+    AdjustmentRequestsCustomization,
     ApplicationCustomization,
     CustomizationBase,
     EmailsCustomization,
@@ -1159,8 +1160,8 @@ def auto_validate_charges(request):
 
 
 def do_auto_validate_charges():
-    if UserRequestsCustomization.get_bool("charges_validation_enabled"):
-        date_limit = UserRequestsCustomization.get_date_limit()
+    if AdjustmentRequestsCustomization.get_bool("charges_validation_enabled"):
+        date_limit = AdjustmentRequestsCustomization.get_date_limit()
         staff_charges_allowed = RemoteWorkCustomization.get_bool("remote_work_validation")
         # We cannot auto-validate anything if there is no date limit
         if date_limit:

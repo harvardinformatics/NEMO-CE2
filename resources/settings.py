@@ -74,9 +74,18 @@ EXPORT_TIME_FORMAT = "h_i_s"
 
 # -------------------- Input date and time formats --------------------
 # See allowed formats at https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
-DATETIME_INPUT_FORMATS = ["%m/%d/%Y %I:%M %p", *global_settings.DATE_INPUT_FORMATS]
+DATETIME_INPUT_FORMATS = ["%m/%d/%Y %I:%M:%S %p", *global_settings.DATE_INPUT_FORMATS]
 DATE_INPUT_FORMATS = ["%m/%d/%Y", *global_settings.DATE_INPUT_FORMATS]
 TIME_INPUT_FORMATS = ["%I:%M:%S %p", *global_settings.TIME_INPUT_FORMATS]
+
+# -------------------- Pick date and time formats --------------------
+# Those formats are optional in most cases and only used on kiosk or mobile views, when picking up date/time separately.
+# If not defined, a conversion from DATE_INPUT_FORMATS and TIME_INPUT_FORMATS will be attempted.
+# See allowed date formats at https://amsul.ca/pickadate.js/date/#formatting-rules
+# See allowed time formats at https://amsul.ca/pickadate.js/time/#formatting-rules
+# PICKADATE_DATE_FORMAT = "mm/dd/yyyy"
+# PICKADATE_TIME_FORMAT = "HH:i A"
+
 
 # -------------------- Internationalization and localization --------------------
 # A boolean that specifies whether Django’s translation system should be enabled.
@@ -102,8 +111,6 @@ INSTALLED_APPS = [
     "NEMO.apps.nemo_ce",
     "NEMO.apps.kiosk",  # Comment out if you are not planning on using the Kiosk tablet pages
     "NEMO.apps.area_access",  # Comment out if you are not planning on using the Area Access tablets screen
-    "NEMO.apps.sensors",  # Comment out if you are not planning on using the Sensors feature
-    "NEMO.apps.contracts",  # Comment out if you are not planning on using the Contracts feature
     "NEMO",
     "rest_framework",
     "rest_framework.authtoken",

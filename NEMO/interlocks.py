@@ -219,7 +219,8 @@ class StanfordInterlock(Interlock):
         # Create a TCP socket to send the interlock command.
         sock = socket.socket()
         try:
-            sock.settimeout(3.0)  # Set the send/receive timeout to be 3 seconds.
+            timeout = interlock.card.extra_args_dict.get("timeout", 3.0)
+            sock.settimeout(timeout)  # Set the send/receive timeout to be 3 seconds.
             server_address = (interlock.card.server, interlock.card.port)
             sock.connect(server_address)
             sock.send(command_message)
@@ -402,7 +403,10 @@ class ProXrInterlock(Interlock):
         # Backward compatibility, no bank means bank 1
         bank = interlock.unit_id if interlock.unit_id is not None else 1
         try:
-            with socket.create_connection((interlock.card.server, interlock.card.port), 10) as relay_socket:
+            timeout = interlock.card.extra_args_dict.get("timeout", 10)
+            with socket.create_connection(
+                (interlock.card.server, interlock.card.port), timeout=timeout
+            ) as relay_socket:
                 if command_type == Interlock_model.State.LOCKED:
                     # turn the interlock channel off
                     off_command = (99 + interlock.channel) if interlock.channel != 0 else 129
@@ -472,7 +476,8 @@ class WebRelayHttpInterlock(Interlock):
             url = f"{interlock.card.server}:{interlock.card.port}/{state_xml_name}?{parameters_str}"
             if not url.startswith("http") and not url.startswith("https"):
                 url = "http://" + url
-            response = requests.get(url, timeout=timeout, auth=auth)
+            timeout = interlock.card.extra_args_dict.get("timeout", 3)
+            response = requests.get(url, auth=auth, timeout=timeout)
             response_error = cls.check_response_error(response)
             if not response_error:
                 break
@@ -555,7 +560,8 @@ class ModbusTcpInterlock(Interlock):
     @classmethod
     def set_relay_state(cls, interlock: Interlock_model, state: {0, 1}) -> Interlock_model.State:
         coil = interlock.channel
-        client = ModbusTcpClient(interlock.card.server, port=interlock.card.port)
+        timeout = interlock.card.extra_args_dict.get("timeout", 3)
+        client = ModbusTcpClient(interlock.card.server, port=interlock.card.port, timeout=timeout)
         try:
             valid_connection = client.connect()
             if not valid_connection:
@@ -567,7 +573,7 @@ class ModbusTcpInterlock(Interlock):
             if write_reply.isError():
                 raise Exception(str(write_reply))
             sleep(0.3)
-            read_reply = client.read_coils(coil, 1, **kwargs)
+            read_reply = client.read_coils(coil, count=1, **kwargs)
             if read_reply.isError():
                 raise Exception(str(read_reply))
             state = read_reply.bits[0]
@@ -586,7 +592,7 @@ class ModbusTcpInterlock(Interlock):
                     return INTERLOCK_STATUS_NO_CONNECTION
                 else:
                     kwargs = {"slave": interlock.unit_id} if interlock.unit_id is not None else {}
-                    read_reply = client.read_coils(interlock.channel, 1, **kwargs)
+                    read_reply = client.read_coils(interlock.channel, count=1, **kwargs)
                     if read_reply.isError():
                         return INTERLOCK_STATUS_ERROR + f": {str(read_reply)}"
         except ConnectionException:

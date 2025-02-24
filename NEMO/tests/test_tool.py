@@ -1,6 +1,7 @@
 from datetime import timedelta
 from typing import Optional
 
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.test import TestCase
 from django.urls import reverse
@@ -19,6 +20,7 @@ from NEMO.models import (
     Project,
     QualificationLevel,
     Tool,
+    UsageEvent,
     User,
 )
 from NEMO.tests.test_utilities import create_user_and_project, login_as
@@ -363,3 +365,10 @@ class PolicyPassEnablePassDisable:
 
     def check_to_disable_tool(self, *args, **kwargs):
         return HttpResponse()
+
+    def test_tool_already_in_use(self):
+        user, project = create_user_and_project()
+        usage = UsageEvent(user=user, operator=user, project=project, tool=tool, start=timezone.now())
+        usage.save()
+        usage_2 = UsageEvent(user=user, operator=user, project=project, tool=tool, start=timezone.now())
+        self.assertRaises(ValidationError, usage_2.full_clean)

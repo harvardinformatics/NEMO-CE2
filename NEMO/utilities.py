@@ -1,19 +1,20 @@
+from __future__ import annotations
+
 import csv
 import importlib
 import os
 from calendar import monthrange
 from copy import deepcopy
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from email import encoders
 from email.mime.base import MIMEBase
 from enum import Enum
 from io import BytesIO, StringIO
 from logging import getLogger
 from smtplib import SMTPAuthenticationError, SMTPConnectError, SMTPServerDisconnected
-from typing import Dict, Iterator, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Set, TYPE_CHECKING, Tuple, Union
 from urllib.parse import urljoin
 
-import pytz
 from PIL import Image
 from dateutil import rrule
 from dateutil.parser import parse
@@ -23,19 +24,28 @@ from django.contrib.admin import ModelAdmin
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.mail import EmailMessage
-from django.db.models import QuerySet
+from django.db.models import FileField, IntegerChoices, QuerySet
 from django.http import HttpRequest, HttpResponse, QueryDict
-from django.shortcuts import render
+from django.shortcuts import resolve_url
 from django.template import Template
 from django.template.context import make_context
 from django.urls import NoReverseMatch, reverse
-from django.utils import timezone
+from django.utils import timezone as django_timezone
 from django.utils.formats import date_format, get_format, time_format
 from django.utils.html import format_html
 from django.utils.text import slugify
-from django.utils.timezone import is_naive, localtime, make_aware
+from django.utils.translation import gettext_lazy as _
+
+# For backwards compatibility
+import NEMO.plugins.utils
+
+render_combine_responses = NEMO.plugins.utils.render_combine_responses
+
+if TYPE_CHECKING:
+    from NEMO.models import User
 
 from NEMO.apps.nemo_ce import NEMOCEConfig
 
@@ -69,6 +79,24 @@ py_to_js_date_formats = {
     "%%": "%",
 }
 
+py_to_pick_date_formats = {
+    "%A": "dddd",
+    "%a": "ddd",
+    "%B": "mmmm",
+    "%b": "mmm",
+    "%d": "dd",
+    "%H": "HH",
+    "%I": "hh",
+    "%M": "i",
+    "%m": "mm",
+    "%p": "A",
+    "%X": "HH:i",
+    "%x": "mm/dd/yyyy",
+    "%Y": "yyyy",
+    "%y": "yy",
+    "%%": "%",
+}
+
 
 # Convert a python format string to javascript format string
 def convert_py_format_to_js(string_format: str) -> str:
@@ -77,17 +105,76 @@ def convert_py_format_to_js(string_format: str) -> str:
     return string_format
 
 
+def convert_py_format_to_pickadate(string_format: str) -> str:
+    string_format = (
+        string_format.replace("%w", "")
+        .replace("%s", "")
+        .replace("%f", "")
+        .replace("%:z", "")
+        .replace("%z", "")
+        .replace("%Z", "")
+        .replace("%j", "")
+        .replace(":%S", "")
+        .replace("%S", "")
+        .replace("%U", "")
+        .replace("%W", "")
+        .replace("%c", "")
+        .replace("%G", "")
+        .replace("%u", "")
+        .replace("%V", "")
+    )
+    for py, pick in py_to_pick_date_formats.items():
+        string_format = pick.join(string_format.split(py))
+    return string_format
+
+
+class DelimiterSeparatedListConverter:
+    """
+    DelimiterSeparatedListConverter is a utility class for handling conversion
+    between delimited strings and Python list objects. It facilitates easy
+    serialization and deserialization of data types that use custom delimiters.
+
+    This class is useful in scenarios where data needs to be stored or transmitted
+    as delimited strings, such as in a database or a configuration file, and later
+    retrieved and manipulated as Python list objects.
+    """
+
+    def __init__(self, separator=",", *args, **kwargs):
+        self.separator = separator
+        super().__init__(*args, **kwargs)
+
+    def to_list(self, value) -> List:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(self.separator) if item.strip()]
+        # Handle unexpected input types gracefully
+        raise ValueError("Invalid value for {}".format(self.__class__.__name__))
+
+    def to_string(self, value) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            return self.separator.join(map(str, value))
+        # Handle other potential cases like single values
+        return str(value)
+
+
 time_input_format = get_format("TIME_INPUT_FORMATS")[0]
 date_input_format = get_format("DATE_INPUT_FORMATS")[0]
 datetime_input_format = get_format("DATETIME_INPUT_FORMATS")[0]
 time_input_js_format = convert_py_format_to_js(time_input_format)
 date_input_js_format = convert_py_format_to_js(date_input_format)
 datetime_input_js_format = convert_py_format_to_js(datetime_input_format)
-
+pickadate_date_format = getattr(settings, "PICKADATE_DATE_FORMAT", convert_py_format_to_pickadate(date_input_format))
+pickadate_time_format = getattr(settings, "PICKADATE_TIME_FORMAT", convert_py_format_to_pickadate(time_input_format))
 
 supported_embedded_video_extensions = [".mp4", ".ogv", ".webm", ".3gp"]
 supported_embedded_pdf_extensions = [".pdf"]
 supported_embedded_extensions = supported_embedded_pdf_extensions + supported_embedded_video_extensions
+CommaSeparatedListConverter = DelimiterSeparatedListConverter()
 
 
 class EmptyHttpRequest(HttpRequest):
@@ -177,37 +264,21 @@ def bootstrap_primary_color(color_type):
     return None
 
 
-class EmailCategory(object):
-    GENERAL = 0
-    SYSTEM = 1
-    DIRECT_CONTACT = 2
-    BROADCAST_EMAIL = 3
-    TIMED_SERVICES = 4
-    FEEDBACK = 5
-    ABUSE = 6
-    SAFETY = 7
-    TASKS = 8
-    ACCESS_REQUESTS = 9
-    SENSORS = 10
-    ADJUSTMENT_REQUESTS = 11
-    TRAINING = 12
-    SHADOWING_VERIFICATION_REQUESTS = NEMOCEConfig.plugin_id + 1
-    Choices = (
-        (GENERAL, "General"),
-        (SYSTEM, "System"),
-        (DIRECT_CONTACT, "Direct Contact"),
-        (BROADCAST_EMAIL, "Broadcast Email"),
-        (TIMED_SERVICES, "Timed Services"),
-        (FEEDBACK, "Feedback"),
-        (ABUSE, "Abuse"),
-        (SAFETY, "Safety"),
-        (TASKS, "Tasks"),
-        (ACCESS_REQUESTS, "Access Requests"),
-        (SENSORS, "Sensors"),
-        (ADJUSTMENT_REQUESTS, "Adjustment Requests"),
-        (TRAINING, "Training"),
-        (SHADOWING_VERIFICATION_REQUESTS, "Shadowing Verification Requests"),
-    )
+class EmailCategory(IntegerChoices):
+    GENERAL = 0, _("General")
+    SYSTEM = 1, _("System")
+    DIRECT_CONTACT = 2, _("Direct Contact")
+    BROADCAST_EMAIL = 3, _("Broadcast Email")
+    TIMED_SERVICES = 4, _("Timed Services")
+    FEEDBACK = 5, _("Feedback")
+    ABUSE = 6, _("Abuse")
+    SAFETY = 7, _("Safety")
+    TASKS = 8, _("Tasks")
+    ACCESS_REQUESTS = 9, _("Access Requests")
+    SENSORS = 10, _("Sensors")
+    ADJUSTMENT_REQUESTS = 11, _("Adjustment Requests")
+    TRAINING = 12, _("Training")
+    SHADOWING_VERIFICATION_REQUESTS = NEMOCEConfig.plugin_id + 1, _("Shadowing Verification Requests")
 
 
 class RecurrenceFrequency(Enum):
@@ -269,7 +340,7 @@ def parse_parameter_string(
 
 
 def month_list(since=datetime(year=2013, month=11, day=1)):
-    month_count = (timezone.now().year - since.year) * 12 + (timezone.now().month - since.month) + 1
+    month_count = (django_timezone.now().year - since.year) * 12 + (django_timezone.now().month - since.month) + 1
     result = list(rrule.rrule(rrule.MONTHLY, dtstart=since, count=month_count))
     result = localize(result)
     result.reverse()
@@ -280,7 +351,7 @@ def get_month_timeframe(date_str: str = None):
     if date_str:
         start = parse(date_str)
     else:
-        start = timezone.now()
+        start = django_timezone.now()
     first_of_the_month = localize(datetime(start.year, start.month, 1))
     last_of_the_month = localize(
         datetime(start.year, start.month, monthrange(start.year, start.month)[1], 23, 59, 59, 999999)
@@ -382,7 +453,7 @@ def format_daterange(
 
 
 def format_datetime(universal_time=None, df=None, as_current_timezone=True, use_l10n=None) -> str:
-    this_time = universal_time if universal_time else timezone.now() if as_current_timezone else datetime.now()
+    this_time = universal_time if universal_time else django_timezone.now() if as_current_timezone else datetime.now()
     local_time = as_timezone(this_time) if as_current_timezone else this_time
     if isinstance(local_time, time):
         return time_format(local_time, df or "TIME_FORMAT", use_l10n)
@@ -398,7 +469,7 @@ def export_format_datetime(
     This function returns a formatted date/time for export files.
     Default returns date + time format, with underscores
     """
-    this_time = date_time if date_time else timezone.now() if as_current_timezone else datetime.now()
+    this_time = date_time if date_time else django_timezone.now() if as_current_timezone else datetime.now()
     export_date_format = getattr(settings, "EXPORT_DATE_FORMAT", "m_d_Y").replace("-", "_")
     export_time_format = getattr(settings, "EXPORT_TIME_FORMAT", "h_i_s").replace("-", "_")
     if not underscore:
@@ -414,20 +485,20 @@ def export_format_datetime(
 
 
 def as_timezone(dt):
-    naive = type(dt) == date or is_naive(dt)
-    return timezone.localtime(dt) if not naive else dt
+    naive = type(dt) == date or django_timezone.is_naive(dt)
+    return django_timezone.localtime(dt) if not naive else dt
 
 
 def localize(dt, tz=None):
-    tz = tz or timezone.get_current_timezone()
+    tz = tz or django_timezone.get_current_timezone()
     if isinstance(dt, list):
-        return [make_aware(d, tz) for d in dt]
+        return [django_timezone.make_aware(d, tz) for d in dt]
     else:
-        return make_aware(dt, tz)
+        return django_timezone.make_aware(dt, tz)
 
 
 def naive_local_current_datetime():
-    return localtime(timezone.now()).replace(tzinfo=None)
+    return django_timezone.localtime(django_timezone.now()).replace(tzinfo=None)
 
 
 def beginning_of_the_day(t: datetime, in_local_timezone=True) -> datetime:
@@ -636,14 +707,6 @@ def distinct_qs_value_list(qs: QuerySet, field_name: str) -> Set:
     return set(list(qs.values_list(field_name, flat=True)))
 
 
-# Useful function to render and combine 2 separate django templates
-def render_combine_responses(request, original_response: HttpResponse, template_name, context):
-    """Combines contents of an original http response with a new one"""
-    additional_content = render(request, template_name, context)
-    original_response.content += additional_content.content
-    return original_response
-
-
 def render_email_template(template, dictionary: dict, request=None):
     """Use Django's templating engine to render the email template
     If we don't have a request, create a empty one so context_processors (messages, customizations etc.) can be used
@@ -810,8 +873,8 @@ def create_ics(
     sequence = "SEQUENCE:2\n" if cancelled else "SEQUENCE:0\n"
     priority = "PRIORITY:5\n" if cancelled else "PRIORITY:0\n"
     now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    start = start.astimezone(pytz.utc).strftime("%Y%m%dT%H%M%SZ")
-    end = end.astimezone(pytz.utc).strftime("%Y%m%dT%H%M%SZ")
+    start = start.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    end = end.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     lines = [
         "BEGIN:VCALENDAR\n",
         "VERSION:2.0\n",
@@ -847,7 +910,7 @@ def new_model_copy(instance):
     return new_instance
 
 
-def slugify_underscore(name: str):
+def slugify_underscore(name: Any):
     # Slugify and replaces dashes by underscores
     return slugify(name).replace("-", "_")
 
@@ -949,6 +1012,14 @@ def get_local_date_times_for_item_policy_times(
     return current_start_time_off, current_end_time_off
 
 
+def response_js_redirect(to, query_string=None, *args, **kwargs):
+    return HttpResponse(
+        f"<script>window.location.href = '{resolve_url(to, *args, **kwargs)}?{query_string or ''}';</script>",
+        content_type="text/javascript",
+        status=202,
+    )
+
+
 def split_into_chunks(iterable: Set, chunk_size: int) -> Iterator[List]:
     """
     Splits a set into chunks of the specified size.
@@ -956,3 +1027,63 @@ def split_into_chunks(iterable: Set, chunk_size: int) -> Iterator[List]:
     iterable = list(iterable)  # Convert set to list to support slicing
     for i in range(0, len(iterable), chunk_size):
         yield iterable[i : i + chunk_size]
+
+
+def copy_media_file(old_file_name, new_file_name, delete_old=False):
+    """
+    Copies a media file from an old file name to a new file name in the storage.
+
+    Args:
+        old_file_name (str): The name of the file to be copied.
+        new_file_name (str): The name of the new file to save. If it is the same as old_file_name, no new file is created.
+        delete_old (bool): Determines if the old file should be deleted after copying. Defaults to False.
+    """
+    if default_storage.exists(old_file_name):
+        if new_file_name and new_file_name != old_file_name:
+            # Save new file if it's different
+            with default_storage.open(old_file_name, "rb") as file:
+                default_storage.save(new_file_name, file)
+        if delete_old and (not new_file_name or new_file_name != old_file_name):
+            # Delete old file if no new file name is provided or if it was different
+            default_storage.delete(old_file_name)
+
+
+def update_media_file_on_model_update(instance, file_field_name):
+    """
+    Ensures that when updating a model instance with a file field, the old file associated with
+    the field is appropriately handled. If the new file is different from the old one, the old file
+    is deleted. If the file name changes but the file content remains the same, the file is renamed.
+
+    Parameters:
+        instance (Model): The model instance being updated. Must be a valid instance of a Django
+        model.
+
+        file_field_name (str): The name of the file field being updated. Must be the attribute name
+        of a FileField in the model.
+
+    Raises:
+        TypeError: If the field specified by `file_field_name` is not a FileField.
+    """
+    model_class = type(instance)
+    field_instance = model_class._meta.get_field(file_field_name)
+    if not isinstance(field_instance, FileField):
+        raise TypeError(f"Field {file_field_name} is not a FileField")
+
+    if not instance.pk:
+        return
+
+    try:
+        old_file = getattr(model_class.objects.get(pk=instance.pk), file_field_name)
+    except (model_class.DoesNotExist, AttributeError):
+        return
+
+    if old_file:
+        new_file = getattr(instance, file_field_name)
+        new_file_name = field_instance.generate_filename(instance, os.path.basename(new_file.name))
+        if old_file != new_file:
+            # if new file is different from old file, delete old file
+            old_file.delete(save=False)
+        elif new_file_name != old_file.name:
+            # if the new filename if different but it's the same file, rename it
+            copy_media_file(old_file.name, new_file_name, delete_old=True)
+            new_file.name = new_file_name

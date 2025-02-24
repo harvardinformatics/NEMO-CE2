@@ -41,12 +41,14 @@ from NEMO.models import (
     PhysicalAccessLevel,
     Project,
     ProjectDiscipline,
+    ProjectType,
     Qualification,
     QualificationLevel,
     RecurringConsumableCharge,
     Reservation,
     Resource,
     ScheduledOutage,
+    StaffAssistanceRequest,
     StaffCharge,
     Task,
     TemporaryPhysicalAccessRequest,
@@ -57,6 +59,7 @@ from NEMO.models import (
     TrainingTechnique,
     UsageEvent,
     User,
+    UserDocuments,
 )
 from NEMO.rest_pagination import NEMOPageNumberPagination
 from NEMO.serializers import (
@@ -86,12 +89,14 @@ from NEMO.serializers import (
     PhysicalAccessLevelSerializer,
     ProjectDisciplineSerializer,
     ProjectSerializer,
+    ProjectTypeSerializer,
     QualificationLevelSerializer,
     QualificationSerializer,
     RecurringConsumableChargeSerializer,
     ReservationSerializer,
     ResourceSerializer,
     ScheduledOutageSerializer,
+    StaffAssistanceRequestsSerializer,
     StaffChargeSerializer,
     TaskSerializer,
     TemporaryPhysicalAccessRequestSerializer,
@@ -102,6 +107,7 @@ from NEMO.serializers import (
     TrainingSessionSerializer,
     TrainingTechniqueSerializer,
     UsageEventSerializer,
+    UserDocumentSerializer,
     UserSerializer,
 )
 from NEMO.templatetags.custom_tags_and_filters import app_version
@@ -238,10 +244,31 @@ class UserViewSet(ModelViewSet):
     }
 
 
+class UserDocumentsViewSet(ModelViewSet):
+    filename = "user_documents"
+    queryset = UserDocuments.objects.all()
+    serializer_class = UserDocumentSerializer
+    filterset_fields = {
+        "id": key_filters,
+        "user": key_filters,
+        "name": string_filters,
+        "url": string_filters,
+        "display_order": number_filters,
+        "uploaded_at": datetime_filters,
+    }
+
+
 class ProjectDisciplineViewSet(ModelViewSet):
     filename = "project_disciplines"
     queryset = ProjectDiscipline.objects.all()
     serializer_class = ProjectDisciplineSerializer
+    filterset_fields = {"id": key_filters, "name": string_filters, "display_order": number_filters}
+
+
+class ProjectTypeViewSet(ModelViewSet):
+    filename = "project_types"
+    queryset = ProjectType.objects.all()
+    serializer_class = ProjectTypeSerializer
     filterset_fields = {"id": key_filters, "name": string_filters, "display_order": number_filters}
 
 
@@ -522,11 +549,14 @@ class ReservationViewSet(ModelViewSet):
         "tool": key_filters,
         "area_id": key_filters,
         "area": key_filters,
+        "question_data": string_filters,
         "cancelled": boolean_filters,
         "missed": boolean_filters,
         "validated": boolean_filters,
         "validated_by": key_filters,
-        "question_data": string_filters,
+        "waived": boolean_filters,
+        "waived_on": datetime_filters,
+        "waived_by": key_filters,
     }
 
 
@@ -546,8 +576,12 @@ class UsageEventViewSet(ModelViewSet):
         "operator": key_filters,
         "tool_id": key_filters,
         "tool": key_filters,
+        "training": boolean_filters,
         "validated": boolean_filters,
         "validated_by": key_filters,
+        "waived": boolean_filters,
+        "waived_on": datetime_filters,
+        "waived_by": key_filters,
     }
 
 
@@ -569,6 +603,9 @@ class AreaAccessRecordViewSet(ModelViewSet):
         "staff_charge": key_filters,
         "validated": boolean_filters,
         "validated_by": key_filters,
+        "waived": boolean_filters,
+        "waived_on": datetime_filters,
+        "waived_by": key_filters,
     }
 
 
@@ -631,9 +668,12 @@ class StaffChargeViewSet(ModelViewSet):
         "project": key_filters,
         "start": datetime_filters,
         "end": datetime_filters,
+        "note": string_filters,
         "validated": boolean_filters,
         "validated_by": key_filters,
-        "note": string_filters,
+        "waived": boolean_filters,
+        "waived_on": datetime_filters,
+        "waived_by": key_filters,
     }
 
 
@@ -681,12 +721,17 @@ class TrainingSessionViewSet(ModelViewSet):
         "tool": key_filters,
         "project_id": key_filters,
         "project": key_filters,
+        "usage_event_id": key_filters,
+        "usage_event": key_filters,
         "duration": number_filters,
         "type": number_filters,
         "date": datetime_filters,
         "qualified": boolean_filters,
         "validated": boolean_filters,
         "validated_by": key_filters,
+        "waived": boolean_filters,
+        "waived_on": datetime_filters,
+        "waived_by": key_filters,
     }
 
 
@@ -741,6 +786,9 @@ class ConsumableWithdrawViewSet(ModelViewSet):
         "date": datetime_filters,
         "validated": boolean_filters,
         "validated_by": key_filters,
+        "waived": boolean_filters,
+        "waived_on": datetime_filters,
+        "waived_by": key_filters,
     }
 
 
@@ -889,6 +937,20 @@ class ToolCredentialsViewSet(ModelViewSet):
         "password": string_filters,
         "comments": string_filters,
         "authorized_staff": manykey_filters,
+    }
+
+
+class StaffAssistanceRequestsViewSet(ModelViewSet):
+    filename = "staff_assistance_requests"
+    queryset = StaffAssistanceRequest.objects.all()
+    serializer_class = StaffAssistanceRequestsSerializer
+    filterset_fields = {
+        "id": key_filters,
+        "user": key_filters,
+        "creation_time": datetime_filters,
+        "description": string_filters,
+        "resolved": boolean_filters,
+        "deleted": boolean_filters,
     }
 
 
