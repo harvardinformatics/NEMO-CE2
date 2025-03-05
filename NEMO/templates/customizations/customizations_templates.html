@@ -727,6 +727,11 @@
         {% include 'customizations/customizations_upload.html' with element=shadowing_verification_notification_email name='shadowing verification notification email' key='templates' %}
         <div class="customization-separation"></div>
     </div>
+    {% for customization_instance in customization.instances %}
+        {% if customization_instance.template_templates %}
+            {% include customization_instance.template_templates %}
+        {% endif %}
+    {% endfor %}
 </div>
 <script>
     function sort_comp(element)

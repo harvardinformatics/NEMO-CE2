@@ -1,4 +1,3 @@
-import datetime
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, time
@@ -332,11 +331,7 @@ def export_training_history(user, training_histories) -> HttpResponse:
                 "tool": training_history.tool,
                 "dates": ", ".join(
                     [
-                        (
-                            format_datetime(training_date)
-                            if isinstance(training_date, datetime.datetime)
-                            else str(training_date)
-                        )
+                        (format_datetime(training_date) if isinstance(training_date, datetime) else str(training_date))
                         for training_date in training_history.dates
                     ]
                 ),
@@ -377,7 +372,7 @@ def get_upcoming_events_context(request) -> Dict:
         training_events = training_events.filter(trainer_id=trainer_filter)
     date_filter = request.GET.get("date", "all-dates")
     if date_filter and date_filter != "all-dates":
-        parsed_date = datetime.datetime.strptime(date_filter, date_input_format)
+        parsed_date = datetime.strptime(date_filter, date_input_format)
         requests_to_exclude = []
         for training_event in training_events:
             if (
@@ -446,7 +441,7 @@ def get_schedule_events_context(request) -> Dict:
         training_requests = training_requests.filter(user_id=user_filter)
     date_filter = request.GET.get("date", "all-dates")
     if date_filter and date_filter != "all-dates":
-        parsed_date = datetime.datetime.strptime(date_filter, date_input_format)
+        parsed_date = datetime.strptime(date_filter, date_input_format)
         requests_to_exclude = []
         for training_request in training_requests:
             if training_request.trainingrequesttime_set.exists():
