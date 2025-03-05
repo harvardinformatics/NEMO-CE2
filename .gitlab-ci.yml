@@ -67,7 +67,7 @@ NEMO-CE PyPI Release:
     - sed -i "s/^version =.*/version = '$(git describe --tags)'/" pyproject.toml
     - pip install --upgrade pip build twine
     - python -m build
-    - twine upload --user $PYPI_USER --password $PYPI_PASSWORD ./dist/NEMO_CE*
+    - twine upload --user $PYPI_USER --password $PYPI_PASSWORD ./dist/nemo_ce*
   only:
     - tags
 
