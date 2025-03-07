@@ -1,4 +1,3 @@
-# Overriding the autocomplete view with permission fixed
 from functools import update_wrapper
 
 from django.apps import apps
