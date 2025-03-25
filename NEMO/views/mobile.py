@@ -137,7 +137,6 @@ def make_reservation(request):
     needs_extra_config = reservation_questions or tool_config or tool_accessories
     if needs_extra_config and not request.POST.get("configured") == "true":
         dictionary = {
-            "request_date": request.POST["date"],
             "request_start": request.POST["start"],
             "request_end": request.POST["end"],
             "reservation": reservation,
