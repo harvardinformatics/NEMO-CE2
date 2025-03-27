@@ -338,6 +338,8 @@ def reserve_tool(request):
         dictionary.update(tool.get_configuration_information(user=customer, start=reservation.start))
         dictionary.update(
             {
+                "request_start_date": request.POST["start_date"],
+                "request_end_date": request.POST["end_date"],
                 "request_start": request.POST["start"],
                 "request_end": request.POST["end"],
                 "reservation": reservation,
