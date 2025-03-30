@@ -98,7 +98,6 @@ TIME_ZONE = "US/Eastern"
 DATABASES = {
     "default": {
         "ENGINE": os.getenv("DATABASE_ENGINE", "django.db.backends.sqlite3"),
-        "NAME": os.getenv("DATABASE_NAME", "./test_nemo.db"),
         "USER": os.getenv("DATABASE_USER", ""),
         "PASSWORD": os.getenv("DATABASE_PASSWORD", ""),
         "HOST": os.getenv("DATABASE_HOST", ""),
