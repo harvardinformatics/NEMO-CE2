@@ -14,7 +14,12 @@ from django.urls import reverse
 from django.urls.resolvers import RegexPattern
 
 from NEMO.models import User
-from NEMO.tests.test_utilities import login_as, login_as_staff, login_as_user, login_as_user_with_permissions
+from NEMO.tests.test_utilities import (
+    login_as,
+    login_as_staff,
+    login_as_user,
+    login_as_user_with_permissions,
+)
 from NEMO.utilities import get_full_url
 from NEMO.views.customization import (
     AdjustmentRequestsCustomization,
@@ -206,6 +211,8 @@ urls_to_skip += ["create_shadowing_verification", "edit_shadowing_verification",
 class URLsTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
+        # we need to flush so the ids match otherwise we have leftovers from tests
+        call_command("flush", interactive=False)
         call_command("loaddata", "resources/fixtures/splash_pad.json", app_label="NEMO")
         EmailsCustomization.set("feedback_email_address", "email@example.org")
         EmailsCustomization.set("user_office_email_address", "email@example.org")
