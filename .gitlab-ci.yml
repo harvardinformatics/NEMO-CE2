@@ -43,7 +43,7 @@ Test python 3.13:
     DATABASE_USER: "test_user"
     DATABASE_PASSWORD: "test_password"
     MYSQL_ROOT_PASSWORD: "root"
-    MYSQL_DATABASE: $DATABASE_NAME
+    MYSQL_DATABASE: "test_${DATABASE_NAME}"
     MYSQL_USER: $DATABASE_USER
     MYSQL_PASSWORD: $DATABASE_PASSWORD
   before_script:
@@ -77,7 +77,7 @@ Test python 3.11 mysql 9.2:
     DATABASE_NAME: "test_db"
     DATABASE_USER: "test_user"
     DATABASE_PASSWORD: "test_password"
-    POSTGRES_DB: $DATABASE_NAME
+    POSTGRES_DB: "test_${DATABASE_NAME}"
     POSTGRES_USER: $DATABASE_USER
     POSTGRES_PASSWORD: $DATABASE_PASSWORD
   before_script:
