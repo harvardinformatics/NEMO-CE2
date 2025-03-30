@@ -32,6 +32,87 @@ Test python 3.13:
   <<: *test
   image: python:3.13
 
+.test_mysql: &test_mysql
+  stage: test
+  image: python:3.11
+  variables:
+    DATABASE_ENGINE: "django.db.backends.mysql"
+    DATABASE_HOST: "mysql"
+    DATABASE_PORT: 3306
+    DATABASE_NAME: "test_db"
+    DATABASE_USER: "test_user"
+    DATABASE_PASSWORD: "test_password"
+    MYSQL_ROOT_PASSWORD: "root"
+    MYSQL_DATABASE: $DATABASE_NAME
+    MYSQL_USER: $DATABASE_USER
+    MYSQL_PASSWORD: $DATABASE_PASSWORD
+  before_script:
+    - apt-get update && apt-get install -y default-mysql-client
+    - python -m pip install mysqlclient
+    - until mysqladmin ping -h"${DATABASE_HOST}" --silent; do echo "Waiting for database..."; sleep 1; done
+  script:
+    - python -m pip install ./
+    - python ./run_tests.py
+
+Test python 3.11 mysql 8.4:
+  <<: *test_mysql
+  services:
+    - name: mysql:8.4
+      alias: mysql
+
+Test python 3.11 mysql 9.2:
+  <<: *test_mysql
+  services:
+    - name: mysql:9.2
+      alias: mysql
+
+
+.test_postgres: &test_postgres
+  stage: test
+  image: python:3.11
+  variables:
+    DATABASE_ENGINE: "django.db.backends.postgresql"
+    DATABASE_HOST: "postgres"
+    DATABASE_PORT: 5432
+    DATABASE_NAME: "test_db"
+    DATABASE_USER: "test_user"
+    DATABASE_PASSWORD: "test_password"
+    POSTGRES_DB: $DATABASE_NAME
+    POSTGRES_USER: $DATABASE_USER
+    POSTGRES_PASSWORD: $DATABASE_PASSWORD
+  before_script:
+    - apt-get update && apt-get install -y postgresql-client
+    - python -m pip install psycopg2-binary
+    - until pg_isready -h "${DATABASE_HOST}" -p "${DATABASE_PORT}" -U "${DATABASE_USER}" --quiet; do echo "Waiting for database..."; sleep 1; done
+  script:
+    - python -m pip install ./
+    - python ./run_tests.py
+
+Test python 3.11 postgres 14:
+  <<: *test_postgres
+  services:
+    - name: postgres:14
+      alias: postgres
+
+Test python 3.11 postgres 15:
+  <<: *test_postgres
+  services:
+    - name: postgres:15
+      alias: postgres
+
+Test python 3.11 postgres 16:
+  <<: *test_postgres
+  services:
+    - name: postgres:16
+      alias: postgres
+
+Test python 3.11 postgres 17:
+  <<: *test_postgres
+  services:
+    - name: postgres:17
+      alias: postgres
+
+
 NEMO-CE dev build:
   stage: build
   image: docker:latest
