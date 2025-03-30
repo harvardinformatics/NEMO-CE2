@@ -88,6 +88,12 @@ Test python 3.11 mysql 9.2:
     - python -m pip install ./
     - python ./run_tests.py
 
+Test python 3.11 postgres 13:
+  <<: *test_postgres
+  services:
+    - name: postgres:13
+      alias: postgres
+
 Test python 3.11 postgres 14:
   <<: *test_postgres
   services:
