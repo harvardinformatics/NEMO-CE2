@@ -186,6 +186,7 @@ urls_to_skip = [
     "enter_wait_list",
     "exit_wait_list",
     "check_and_update_wait_list",
+    "validate_charge",
 ]
 # Skip new training URLs
 urls_to_skip += [
