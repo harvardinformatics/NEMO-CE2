@@ -214,7 +214,6 @@ class URLsTestCase(TransactionTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        # we need to flush so the ids match otherwise we have leftovers from tests
         EmailsCustomization.set("feedback_email_address", "email@example.org")
         EmailsCustomization.set("user_office_email_address", "email@example.org")
         EmailsCustomization.set("safety_email_address", "email@example.org")
