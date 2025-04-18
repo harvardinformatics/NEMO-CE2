@@ -403,12 +403,11 @@ def adjustment_eligible_items(
             missed_filter["user_id"] = user.id
         items.extend(Reservation.objects.filter(missed=True).filter(**missed_filter).order_by("-end")[:item_number])
     if AdjustmentRequestsCustomization.get_bool("adjustment_requests_tool_usage_enabled"):
-        tool_usage_filter = deepcopy(charge_filter)
+        tool_usage_filter = Q(**deepcopy(charge_filter))
         if user:
-            tool_usage_filter["user_id"] = user.id
-            tool_usage_filter["operator_id"] = user.id
+            tool_usage_filter = tool_usage_filter & Q(remote_work=False) & (Q(user_id=user.id) | Q(operator_id=user.id))
         items.extend(
-            UsageEvent.objects.filter(end__isnull=False).filter(**tool_usage_filter).order_by("-end")[:item_number]
+            UsageEvent.objects.filter(end__isnull=False).filter(tool_usage_filter).order_by("-end")[:item_number]
         )
     if AdjustmentRequestsCustomization.get_bool("adjustment_requests_area_access_enabled"):
         area_access_filter = deepcopy(charge_filter)
