@@ -275,6 +275,7 @@
     </div>
 </div>
 <script>
+	auto_size_textarea(document.getElementById('message'));
 	$("#qualification_levels_search").autocomplete('qualification_levels', select_qualification_level, {{ form.fields.qualification_levels.queryset|json_search_base }}, true, true);
 	function select_qualification_level(jquery_event, search_selection, dataset_name)
 	{
