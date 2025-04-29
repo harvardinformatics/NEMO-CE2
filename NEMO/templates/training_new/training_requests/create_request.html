@@ -177,6 +177,7 @@
         </form>
     {% endif %}
     <script>
+		auto_size_textarea(document.getElementById('message'));
         $("#project_dropdown.dropdown-menu li label").click(function ()
 		{
             let selText = $(this).text();
@@ -258,6 +259,6 @@
             {% endif %}
 		}
 		$(function (){on_load()});
-	
+		$('#dialog .modal-dialog').addClass('modal-lg');
     </script>
 {% endblock %}
