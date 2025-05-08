@@ -6084,7 +6084,7 @@ def reset_training_request_to_pending(tool: Tool, actor: User, filter_by_users: 
 
 
 def fulfill_training_requests(tool: Tool, actor: User, users: Iterable[User]):
-    # We want to fulfill any request that were sent, reviewed, accepted or invited
+    # We want to fulfill any requests that were sent, reviewed, accepted or invited
     statuses = [
         TrainingRequestStatus.SENT,
         TrainingRequestStatus.REVIEWED,
