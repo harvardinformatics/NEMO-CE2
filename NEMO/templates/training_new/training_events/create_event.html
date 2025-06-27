@@ -61,7 +61,7 @@
                                 name="technique"
                                 id="technique"
                                 onchange="$('#message').val($(this).find('option:selected').data('description'));auto_size_textarea($('#message')[0], 2)">
-                            <option value="">{{ "training"|customization:"training_technique_empty_label" }}</option>
+                            <option value="">{{ customizations|get_item:"training_technique_empty_label" }}</option>
                             {% for technique in training_details.techniques.all %}
                                 <option label="{{ technique.name }}"
                                         data-description="{{ technique.description|default_if_none:''|escape }}"
@@ -117,7 +117,7 @@
                      data-toggle="collapse"
                      data-target="#scheduling_help"
                      class="pointer">
-                    <span class="glyphicon glyphicon-chevron-right pull-left chevron"></span>Show the <span class="bg-warning">&nbsp;{{ selected_tool.name }}&nbsp;</span> and <span class="bg-success">&nbsp;my schedule&nbsp;</span> for the next {{ "training"|customization:"training_upcoming_schedule_days" }} days
+                    <span class="glyphicon glyphicon-chevron-right pull-left chevron"></span>Show the <span class="bg-warning">&nbsp;{{ selected_tool.name }}&nbsp;</span> and <span class="bg-success">&nbsp;my schedule&nbsp;</span> for the next {{ customizations|get_item:"training_upcoming_schedule_days" }} days
                 </div>
             </div>
             <div id="scheduling_help" class="col-sm-12 collapse">

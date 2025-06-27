@@ -574,6 +574,9 @@
 			ql_select.val(''); // Reset the value of the dropdown box
             {% if qualification_levels %}$('#add_a_tool_qualification').attr('disabled', 'disabled'); // Disable the input field {% endif %}
 
+            {% if user.is_any_part_of_staff %}
+            qualification_text += " <a style='text-decoration: none;color: inherit' title='Go to the tool\'s page' href='"+"{% url "tool_control" 999 %}".replace("999", tool_id.split('_')[0])+"'><i style='font-size: small;' class='glyphicon glyphicon-link'></i></a>";
+            {% endif %}
 			add_to_list("#qualification-list", "remove_tool_qualification", qualification, qualification_text, "Disqualify this user from using the " + tool_name, "qualifications", {{ readonly|yesno:"true,false" }});
 		}
 		function remove_tool_qualification(tool_id)
@@ -614,6 +617,6 @@
             }
 		}
 		$(on_load);
-
+	
 </script>
 {% endblock %}

@@ -5,12 +5,13 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
 from django.db.models import Q
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import linebreaksbr
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from NEMO.decorators import staff_member_required
+from NEMO.decorators import staff_member_or_tool_staff_required
 from NEMO.forms import TaskForm, TaskImagesForm, nice_errors
 from NEMO.models import (
     Interlock,
@@ -142,16 +143,13 @@ def send_new_task_emails(request, task: Task, user, task_images: List[TaskImages
         message = render_email_template(message, dictionary, request)
         tos, bcc = get_task_email_recipients(task, new=True)
         if ToolCustomization.get_bool("tool_problem_send_to_all_qualified_users"):
-            for qualified_user in task.tool.user_set.all():
-                if qualified_user.is_active:
-                    bcc.extend(
-                        [
-                            email
-                            for email in qualified_user.get_emails(
-                                qualified_user.get_preferences().email_send_task_updates
-                            )
-                        ]
-                    )
+            for qualified_user in task.tool.user_set.filter(is_active=True):
+                bcc.extend(
+                    [
+                        email
+                        for email in qualified_user.get_emails(qualified_user.get_preferences().email_send_task_updates)
+                    ]
+                )
         send_mail(
             subject=subject,
             content=message,
@@ -282,10 +280,13 @@ Visit {url} to view the tool control page for the task.<br/>
         tasks_logger.exception(error_message)
 
 
-@staff_member_required
+@staff_member_or_tool_staff_required
 @require_POST
 def update(request, task_id):
     task = get_object_or_404(Task, id=task_id)
+    user: User = request.user
+    if not user.is_staff and task.tool_id not in user.staff_for_tools.values_list("id", flat=True):
+        return HttpResponseBadRequest("You are not authorized to update this task.")
     images_form = TaskImagesForm(request.POST, request.FILES)
     form = TaskForm(request.user, data=request.POST, instance=task)
     next_page = request.POST.get("next_page", "tool_control")
@@ -309,10 +310,13 @@ def update(request, task_id):
         return redirect("tool_control")
 
 
-@staff_member_required
+@staff_member_or_tool_staff_required
 @require_GET
 def task_update_form(request, task_id):
+    user: User = request.user
     task = get_object_or_404(Task, id=task_id)
+    if not user.is_staff and task.tool_id not in user.staff_for_tools.values_list("id", flat=True):
+        return HttpResponseBadRequest("You are not authorized to update this task.")
     categories = TaskCategory.objects.filter(stage=TaskCategory.Stage.INITIAL_ASSESSMENT)
     dictionary = {
         "categories": categories,
@@ -326,10 +330,13 @@ def task_update_form(request, task_id):
     return render(request, "tasks/update.html", dictionary)
 
 
-@staff_member_required
+@staff_member_or_tool_staff_required
 @require_GET
 def task_resolution_form(request, task_id):
+    user: User = request.user
     task = get_object_or_404(Task, id=task_id)
+    if not user.is_staff and task.tool_id not in user.staff_for_tools.values_list("id", flat=True):
+        return HttpResponseBadRequest("You are not authorized to resolve this task.")
     categories = TaskCategory.objects.filter(stage=TaskCategory.Stage.COMPLETION)
     dictionary = {
         "categories": categories,
@@ -345,7 +352,7 @@ def set_task_status(request, task, status_name, user):
     if not status_name:
         return
 
-    if not user.is_staff:
+    if not user.is_staff and not user.is_staff_on_tool(task.tool):
         raise ValueError("Only staff can set task status")
 
     status = TaskStatus.objects.get(name=status_name)
@@ -375,6 +382,9 @@ def set_task_status(request, task, status_name, user):
         if status.notify_backup_tool_owners:
             # Add backup owners
             recipient_users.extend(task.tool.backup_owners.all())
+        if status.notify_tool_staff:
+            # add staff on tool
+            recipient_users.extend(task.tool.staff.all())
         recipients = [
             email
             for user in recipient_users
@@ -407,11 +417,13 @@ def save_task_images(request, task: Task) -> List[TaskImages]:
 
 
 def get_task_email_recipients(task: Task, new=False) -> Tuple[List[str], List[str]]:
-    # Add all recipients, starting with primary owner
+    # Add all recipients, starting with the primary owner
     recipient_users: Set[User] = {task.tool.primary_owner}
     bcc_users: Set[User] = set()
     # Add backup owners
     recipient_users.update(task.tool.backup_owners.all())
+    # Add tool staff
+    recipient_users.update(task.tool.staff.all())
     if ToolCustomization.get_bool("tool_task_updates_superusers"):
         recipient_users.update(task.tool.superusers.all())
     # Add facility managers and take into account their preferences
@@ -439,6 +451,15 @@ def get_task_email_recipients(task: Task, new=False) -> Tuple[List[str], List[st
         bcc_users.update(
             User.objects.filter(is_active=True).filter(Q(preferences__tool_task_notifications__in=[task.tool]))
         )
+    if task.resolved:
+        # If the task is resolved and the option is set to send new problems to all qualified users,
+        # then we need to send them when those tasks are resolved (otherwise they'll think there are only issues)
+        if ToolCustomization.get_bool("tool_problem_send_to_all_qualified_users"):
+            bcc_users.update(task.tool.user_set.filter(is_active=True))
+        if ToolCustomization.get_bool("tool_problem_allow_regular_user_preferences"):
+            bcc_users.update(
+                User.objects.filter(is_active=True).filter(Q(preferences__tool_task_notifications__in=[task.tool]))
+            )
     tos = [
         email for user in recipient_users for email in user.get_emails(user.get_preferences().email_send_task_updates)
     ]

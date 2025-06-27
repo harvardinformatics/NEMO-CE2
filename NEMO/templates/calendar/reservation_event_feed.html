@@ -5,20 +5,20 @@
 	{% for x in events %}
 	{
 		{% if personal_schedule and x.tool %}
-			"title": "{{x.reservation_item.name|escapejs}} ({{x.user.username|escapejs}})\n{{ x.title|escapejs }}",
+			"title": "{{ x.reservation_item.name|escapejs }} ({{ x.user.username|escapejs }})\n{{ x.title|escapejs }}",
 			"color": "#33ad33",
 		{% elif personal_schedule and x.area %}
-			"title": "{{x.reservation_item.name|escapejs}} ({{x.user.username|escapejs}})\n{{ x.title|escapejs }}",
+			"title": "{{ x.reservation_item.name|escapejs }} ({{ x.user.username|escapejs }})\n{{ x.title|escapejs }}",
 			"color": "#84CD84",
 		{% elif all_tools or all_areastools and x.tool %}
-			"title": "{{x.reservation_item.name|escapejs}} ({{x.user.username|escapejs}})\n{{ x.title|escapejs }}",
+			"title": "{{ x.reservation_item.name|escapejs }} ({{ x.user.username|escapejs }})\n{{ x.title|escapejs }}",
 			"color": "{{ x.reservation_item.tool_calendar_color|default:'#33ad33'|escapejs }}",
 		{% elif all_areas or all_areastools and x.area %}
-			"title": "{{x.reservation_item.name|escapejs}} ({{x.user.username|escapejs}})\n{{ x.title|escapejs }}",
+			"title": "{{ x.reservation_item.name|escapejs }} ({{ x.user.username|escapejs }})\n{{ x.title|escapejs }}",
 			"color": "{{ x.reservation_item.area_calendar_color|default:'#84CD84'|escapejs }}",
 		{% else %}
             {% if display_name %}
-			    "title": "{{x.reservation_item.name|escapejs}} ({{x.user.username|escapejs}})\n{{ x.title|escapejs }}",
+			    "title": "{{ x.reservation_item.name|escapejs }} ({{ x.user.username|escapejs }})\n{{ x.title|escapejs }}",
             {% else %}
                 "title": "{{ x.title|default:x.user|escapejs }}{% if display_configuration %}\n{{ x.get_configuration_options_display|escapejs }}{% endif %}",
                 {% if display_configuration and x.get_configuration_options_colors %}"colors": ["{{ x.get_configuration_options_colors|join:'","' }}"],{% endif %}
@@ -33,7 +33,7 @@
 		{% endif %}
 		"id": "Reservation {{ x.id }}",
 		{# The reservation creator or staff may edit the event: #}
-		{% if user.id == x.user.id or user.is_staff %}"editable": true,{% endif %}
+		{% if user.id == x.user.id or user.is_staff or user|is_staff_on_tool:x.tool %}"editable": true,{% endif %}
 		"start": "{{ x.start|date:"c" }}",
 		"end": "{{ x.get_visual_end|date:"c" }}",
 		"details_url": "{% url 'reservation_details' x.id %}"
@@ -43,7 +43,7 @@
 	{
 		"title": "{{ x.title|escapejs }}",
 		"id": "Outage {{ x.id }}",
-		{% if user.is_staff %}"editable": true,{% endif %}
+		{% if user.is_staff or user|is_staff_on_tool:x.tool %}"editable": true,{% endif %}
 		"color": "#ff0000",
 		"start": "{{ x.start|date:"c" }}",
 		"end": "{{ x.end|date:"c" }}",
@@ -52,7 +52,7 @@
 	{% endfor %}
 	{% for training in trainings %}
 	{
-		{% with default_technique="training"|customization:"training_technique_empty_label" %}
+		{% with default_technique=customizations|get_item:"training_technique_empty_label" %}
 			{% if personal_schedule or all_tools or all_areastools %}
 				"title": "{{ training.tool.name }} training by {{ training.trainer.get_name }}\n({{ training.technique|default_if_none:default_technique }})",
 			{% else %}

@@ -224,10 +224,11 @@ class ApplicationCustomization(CustomizationBase):
         "status_dashboard_page_title": "Status dashboard",
         "requests_page_title": "Requests",
         "safety_page_title": "Safety",
-        "area_access_kiosk_option_login_success": "",
-        "area_access_kiosk_option_logout_warning": "",
         "out_of_time_tool_send_to_abuse_email": "enabled",
         "out_of_time_area_send_to_abuse_email": "enabled",
+        "kiosk_message": "<h1>Scan your badge to control tools</h1>",
+        "area_access_kiosk_option_login_success": "",
+        "area_access_kiosk_option_logout_warning": "",
     }
 
     def context(self) -> Dict:
@@ -275,6 +276,8 @@ class UserCustomization(CustomizationBase):
         "user_access_expiration_buffer_days": "",
         "user_access_expiration_no_type": "",
         "user_access_expiration_types": "-1",
+        "user_access_expiration_banner_warning": "",
+        "user_access_expiration_banner_danger": "",
         "user_allow_document_upload": "",
         "user_allow_profile_view": "",
     }
@@ -345,6 +348,9 @@ class CalendarCustomization(CustomizationBase):
         "calendar_training_recurrence_limit": "90",
         "calendar_qualified_tools": "",
         "calendar_configuration_in_reservations": "",
+        "calendar_status_bar_show_tool_pinned_comments": "enabled",
+        "calendar_status_bar_show_tool_latest_problem": "enabled",
+        "calendar_status_bar_tool_max_width": "400",
         "create_reservation_confirmation": "",
         "change_reservation_confirmation": "",
         "reservation_confirmation_date_format": "MMMM D, yyyy",
@@ -842,6 +848,8 @@ def set_customization(name, value):
 @require_GET
 def customization(request, key: str = "application"):
     customization_instance: CustomizationBase = CustomizationBase.get_instance(key)
+    if not customization_instance:
+        return HttpResponseNotFound(f"Customizations with key: '{key}' not found")
     return render(request, "customizations/customizations.html", customization_instance.context())
 
 

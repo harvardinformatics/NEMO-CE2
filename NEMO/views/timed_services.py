@@ -113,7 +113,7 @@ def do_cancel_unused_reservations(request=None):
         )
         for r in reservation:
             # Staff may abandon reservations.
-            if r.user.is_staff:
+            if r.user.is_staff_on_tool(tool):
                 continue
             # If there was no tool enable or disable event since the threshold timestamp then we assume the reservation has been missed.
             if not (
@@ -428,13 +428,19 @@ def send_email_out_of_time_reservation_notification(request=None):
         threshold = (
             trigger_time if not area.logout_grace_period else trigger_time - timedelta(minutes=area.logout_grace_period)
         )
-        physical_access = PhysicalAccessLevel.objects.filter(user=customer, area=area).first()
-        # Check first if allowed schedule has just expired
-        if (
-            physical_access
-            and physical_access.accessible_at(threshold - timedelta(minutes=1))
-            and not physical_access.accessible_at(threshold)
-        ):
+        # This will include temporary access as well
+        physical_accesses = customer.accessible_access_levels_for_area(area)
+        schedule_expired = False
+        # We only check for access that just expired if the user is allowed to be in there
+        if not any([physical_access.accessible_at(threshold) for physical_access in physical_accesses]):
+            # Check if the allowed schedule has just expired
+            for physical_access in physical_accesses:
+                if physical_access.accessible_at(
+                    threshold - timedelta(minutes=1)
+                ) and not physical_access.accessible_at(threshold):
+                    schedule_expired = True
+                    break
+        if physical_accesses and schedule_expired:
             out_of_time_user_reservations.append(Reservation(user=customer, area=area, end=threshold))
         else:
             if area.requires_reservation:
@@ -464,7 +470,7 @@ def send_email_out_of_time_reservation_notification(request=None):
         # staff and service personnel are exempt from out of time notification
         operator = usage_record.operator
         tool = usage_record.tool
-        if operator.is_staff or operator.is_service_personnel:
+        if operator.is_staff_on_tool(tool) or operator.is_service_personnel:
             continue
         # Calculate the timestamp of how late a user can be logged in after a reservation ended.
         threshold = (
@@ -878,6 +884,7 @@ def send_email_user_access_expiration_reminders(request=None):
                     from_email=user_office_email,
                     cc=ccs,
                     email_notification=email_notification,
+                    email_category=EmailCategory.ACCESS_EXPIRATION_REMINDERS,
                 )
     return HttpResponse()
 
@@ -928,7 +935,8 @@ def do_manage_tool_qualifications(request=None):
                         if qualification_expiration_never_used
                         else None
                     )
-                if expiration_date:
+                # Check for staff on tools
+                if expiration_date and not user.is_staff_on_tool(tool):
                     if expiration_date <= date.today():
                         disqualify(
                             request.user if request else None,

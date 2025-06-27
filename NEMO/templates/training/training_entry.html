@@ -4,7 +4,7 @@
      style="display: flex;
             flex-flow: row wrap;
             padding: 15px 0">
-    {% with date_allowed="training"|customization:"training_allow_date" %}
+    {% with date_allowed=customizations|get_item:"training_allow_date" %}
         {% with label_class=date_allowed|yesno:"col-sm-2 col-md-1,col-sm-2 col-md-1" input_class=date_allowed|yesno:"col-sm-4 col-md-3,col-sm-4 col-md-2" %}
             <div class="text-center" style="width: 3%; margin-left: 5px">
                 <div class="glyphicon glyphicon-remove-circle grey pointer"
@@ -98,7 +98,7 @@
                     <select class="form-control input-sm"
                             id="technique__{{ entry_number }}"
                             name="technique__{{ entry_number }}">
-                        <option selected value="">{{ "training"|customization:"training_technique_empty_label" }}</option>
+                        <option selected value="">{{ customizations|get_item:"training_technique_empty_label" }}</option>
                         {% for technique in techniques %}
                             <option class="technique-option"
                                     {% if technique_id|to_int == technique.id %}selected{% else %}style="display: none"{% endif %}

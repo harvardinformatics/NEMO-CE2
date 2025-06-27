@@ -459,6 +459,7 @@ def adjustment_eligible_items(
             remote_staff_time_filter["staff_member_id"] = user.id
         items.extend(
             UsageEvent.objects.filter(remote_work=True, end__isnull=False)
+            .exclude(user=F("operator"))
             .filter(**remote_tool_usage_filter)
             .order_by("-end")[:item_number]
         )

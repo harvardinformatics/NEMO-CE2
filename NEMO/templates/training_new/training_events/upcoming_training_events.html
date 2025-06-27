@@ -62,7 +62,7 @@
                         <tr {% if training_event.cancelled %}class="cancelled-training"{% endif %}>
                             <td>{{ training_event.tool }}</td>
                             <td>
-                                {% with default_technique_label="training"|customization:"training_technique_empty_label" %}
+                                {% with default_technique_label=customizations|get_item:"training_technique_empty_label" %}
                                     {{ training_event.technique|default_if_none:default_technique_label }}
                                 {% endwith %}
                             </td>
