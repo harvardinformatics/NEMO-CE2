@@ -46,12 +46,12 @@
             {% endwith %}
         </div>
         {% if tool.in_use %}
-            {% if customer.is_staff or customer.is_user_office %}
+            {% if customer|is_staff_on_tool:tool or customer.is_user_office %}
                 <p>
                     You may <a href="javascript:void(0)" onclick="disable_tool(undefined, true);">force {{ tool.get_current_usage_event.operator }} off this tool</a>.
                 </p>
             {% elif not tool.post_usage_questions %}
-                {% if remaining_reservation_duration and "tool"|customization:"tool_control_ongoing_reservation_force_off" == "enabled" %}
+                {% if remaining_reservation_duration and customizations|get_item:"tool_control_ongoing_reservation_force_off" == "enabled" %}
                     <p>
                         You may <a href="javascript:void(0)" onclick="disable_tool(undefined, true)">force {{ tool.get_current_usage_event.operator }} off this tool</a> since you have an ongoing reservation and the tool has no post usage questions.
                     </p>
@@ -99,6 +99,23 @@
                 </div>
                 <div class="tool-counter-description">{{ counter.description|linebreaksbr }}</div>
             </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% if tool.pinned_comments %}
+    <div class="tool-comments">
+        {% for pinned_comment in tool.pinned_comments %}
+            {% if not pinned_comment.staff_only or customer|is_staff_on_tool:tool %}
+                <div class="media">
+                    <span class="glyphicon glyphicon-comment pull-left notification-icon danger-highlight"></span>
+                    <div class="media-body" style="display: ruby">
+                        <div class="alert alert-danger" style="margin-bottom: 0">
+                            <span class="media-middle">{{ pinned_comment.content|linebreaksbr }}</span>
+                            <span class="media-bottom">{{ pinned_comment.author }} wrote this comment on {{ pinned_comment.creation_date }}</span>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         {% endfor %}
     </div>
 {% endif %}
@@ -156,7 +173,7 @@
         {% endfor %}
     </div>
 {% endif %}
-{% if user.is_staff and tool_credentials %}
+{% if customer|is_staff_on_tool:tool and tool_credentials %}
     <div class="media" style="margin-bottom: 20px">
         <a onclick="toggle_details(this)"
            data-toggle="collapse"
@@ -222,7 +239,7 @@
         {% endfor %}
     </div>
 {% endif %}
-{% if tool.comments or customer.is_staff and tool.staff_only_comments %}
+{% if tool.comments or customer|is_staff_on_tool:tool and tool.staff_only_comments %}
     <div class="tool-comments">
         {# Display all comments... #}
         {% for c in tool.comments %}
@@ -235,7 +252,7 @@
             </div>
         {% endfor %}
         {# Display all staff comments #}
-        {% if customer.is_staff and tool.staff_only_comments %}
+        {% if customer|is_staff_on_tool:tool and tool.staff_only_comments %}
             <div class="media">
                 <a onclick="toggle_details(this)"
                    data-toggle="collapse"
@@ -316,11 +333,11 @@
                                     font-size:x-large"
                              onclick="disable_tool()">
                             <span class="glyphicon glyphicon-stop"></span> Stop using the {{ tool.name_or_child_in_use_name }}
-                            {% if not user.is_staff and remaining_reservation_duration %}
+                            {% if not customer|is_staff_on_tool:tool and remaining_reservation_duration %}
                                 and relinquish the remaining {{ remaining_reservation_duration }} minutes of your reservation
                             {% endif %}
                         </div>
-                        {% if remaining_reservation_duration and user.is_staff %}
+                        {% if remaining_reservation_duration and customer|is_staff_on_tool:tool %}
                             <div class="alert alert-danger"
                                  style="text-align:center;
                                         margin-bottom:0;
@@ -365,7 +382,7 @@
         {% endif %}
         <div id="use-tool"
              class="{% if show_wait_list and not wait_list_position == 1 or show_wait_list and enable_is_take_over %}collapse{% endif %}">
-            {% if customer.is_staff or customer.is_service_personnel and tool in customer.qualifications.all or tool.ready_to_use and tool in customer.qualifications.all %}
+            {% if customer|is_staff_on_tool:tool or customer.is_service_personnel and tool in customer.qualifications.all or tool.ready_to_use and tool in customer.qualifications.all %}
                 {% if enable_is_take_over %}<h1>Take over using this tool</h1>{% endif %}
                 {% include 'kiosk/tool_project_selection_snippet.html' with active_projects=customer.active_projects tool=tool %}
                 {% if pre_usage_questions %}

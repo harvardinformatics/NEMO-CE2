@@ -50,9 +50,9 @@ def get_training_dictionary(request):
         | Q(visible=False) & Q(id__in=TrainingCustomization.get_list_int("training_included_hidden_tools"))
     )
     tool_groups = ToolQualificationGroup.objects.all()
-    if not user.is_staff and user.is_tool_superuser:
-        tools = tools.filter(_superusers__in=[user])
-        # Superusers can only use groups if they are superusers for all those
+    if not user.is_staff and (user.is_tool_superuser or user.is_tool_staff):
+        tools = set(list(tools.filter(_superusers__in=[user])) + list(tools.filter(_staff__in=[user])))
+        # Superusers can only use groups if they are superusers for all those, same for staff
         tool_groups = (
             tool_groups.annotate(num_tools=Count("tools")).filter(tools__in=tools).filter(num_tools=len(tools))
         )
@@ -134,8 +134,9 @@ def charge_training(request):
                     )
                     # Even with a group of tools, we only charge training on the first one
                     charges[index].tool = next(iter(charges[index].qualify_tools))
-                    if not trainer.is_staff and trainer.is_tool_superuser:
-                        if not set(charges[index].qualify_tools).issubset(trainer.superuser_for_tools.all()):
+                    if not trainer.is_staff and (trainer.is_tool_superuser or trainer.is_tool_staff):
+                        tools = set(list(trainer.superuser_for_tools.all()) + list(trainer.staff_for_tools.all()))
+                        if not set(charges[index].qualify_tools).issubset(tools):
                             return HttpResponseBadRequest("The trainer is not authorized to train on this tool")
                 if attribute == "chosen_project":
                     charges[index].project = Project.objects.get(id=to_int_or_negative(value))

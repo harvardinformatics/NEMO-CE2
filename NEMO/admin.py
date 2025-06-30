@@ -277,6 +277,7 @@ class ToolAdmin(admin.ModelAdmin):
     )
     filter_horizontal = (
         "_backup_owners",
+        "_staff",
         "_superusers",
         "_adjustment_request_reviewers",
         "_shadowing_verification_reviewers",
@@ -319,7 +320,10 @@ class ToolAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Additional Information", {"fields": ("_description", "_serial", "_image", "_tool_calendar_color")}),
+        (
+            "Additional Information",
+            {"fields": ("_description", "_serial", "_image", "_tool_calendar_color", "_properties")},
+        ),
         ("Current state", {"fields": ("visible", "_operational")}),
         (
             "Contact information",
@@ -327,6 +331,7 @@ class ToolAdmin(admin.ModelAdmin):
                 "fields": (
                     "_primary_owner",
                     "_backup_owners",
+                    "_staff",
                     "_superusers",
                     "_notification_email_address",
                     "_location",
@@ -570,9 +575,11 @@ class TrainingSessionAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, adm
     actions = [waive_selected_charges]
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        """We only want staff user and tool superusers to be possible trainers"""
+        """We only want staff user, staff on tools and tool superusers to be possible trainers"""
         if db_field.name == "trainer":
-            kwargs["queryset"] = User.objects.filter(Q(is_staff=True) | Q(superuser_for_tools__isnull=False)).distinct()
+            kwargs["queryset"] = User.objects.filter(
+                Q(is_staff=True) | Q(staff_for_tools__isnull=False) | Q(superuser_for_tools__isnull=False)
+            ).distinct()
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
@@ -596,6 +603,7 @@ class AreaAccessRecordAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, ad
     list_filter = (("area", TreeRelatedFieldListFilter), "start", "waived")
     date_hierarchy = "start"
     autocomplete_fields = ["customer", "project", "validated_by", "waived_by"]
+    readonly_fields = ["has_ended"]
     actions = [waive_selected_charges]
 
 
@@ -850,6 +858,7 @@ class ReservationAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.M
     list_filter = (
         "cancelled",
         "missed",
+        "shortened",
         "waived",
         ("tool", admin.RelatedOnlyFieldListFilter),
         ("area", TreeRelatedFieldListFilter),
@@ -941,6 +950,7 @@ class UsageEventAdmin(ObjPermissionAdminMixin, ModelAdminRedirectMixin, admin.Mo
     list_filter = ("remote_work", "training", "start", "end", "waived", ("tool", admin.RelatedOnlyFieldListFilter))
     date_hierarchy = "start"
     autocomplete_fields = ["tool", "user", "operator", "project", "validated_by", "waived_by"]
+    readonly_fields = ["has_ended"]
     actions = [waive_selected_charges]
 
 
@@ -1130,6 +1140,7 @@ class TaskStatusAdmin(admin.ModelAdmin):
         "name",
         "notify_primary_tool_owner",
         "notify_backup_tool_owners",
+        "notify_tool_staff",
         "notify_tool_notification_email",
         "custom_notification_email_address",
     )
@@ -1162,10 +1173,11 @@ class CommentAdmin(admin.ModelAdmin):
         "expiration_date",
         "visible",
         "staff_only",
+        "pinned",
         "hidden_by",
         "hide_date",
     )
-    list_filter = ("visible", "creation_date", ("tool", admin.RelatedOnlyFieldListFilter), "staff_only")
+    list_filter = ("visible", "creation_date", ("tool", admin.RelatedOnlyFieldListFilter), "staff_only", "pinned")
     date_hierarchy = "creation_date"
     search_fields = ("content",)
     autocomplete_fields = ["author", "tool", "hidden_by"]
@@ -1248,11 +1260,19 @@ class UserAdminForm(forms.ModelForm):
         widget=FilteredSelectMultiple(verbose_name="tools", is_stacked=False),
     )
 
+    staff_on_tools = forms.ModelMultipleChoiceField(
+        queryset=Tool.objects.filter(parent_tool__isnull=True),
+        required=False,
+        widget=FilteredSelectMultiple(verbose_name="tools", is_stacked=False),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.instance: User = self.instance
         if self.instance.pk:
             self.fields["backup_owner_on_tools"].initial = self.instance.backup_for_tools.all()
             self.fields["superuser_on_tools"].initial = self.instance.superuser_for_tools.all()
+            self.fields["staff_on_tools"].initial = self.instance.staff_for_tools.all()
 
 
 class UserDocumentsInline(DocumentModelAdmin):
@@ -1302,6 +1322,7 @@ class UserAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "backup_owner_on_tools",
+                    "staff_on_tools",
                     "superuser_on_tools",
                     "projects",
                     "managed_projects",
@@ -1362,6 +1383,8 @@ class UserAdmin(admin.ModelAdmin):
             obj.backup_for_tools.set(form.cleaned_data["backup_owner_on_tools"])
         if "superuser_on_tools" in form.changed_data:
             obj.superuser_for_tools.set(form.cleaned_data["superuser_on_tools"])
+        if "staff_on_tools" in form.changed_data:
+            obj.staff_for_tools.set(form.cleaned_data["staff_on_tools"])
 
 
 @register(PhysicalAccessLog)
@@ -1919,6 +1942,7 @@ class AdjustmentRequestAdmin(admin.ModelAdmin):
     inlines = [RequestMessageInlines]
     list_display = (
         "creator",
+        "creation_time",
         "last_updated",
         "get_item",
         "get_time_difference",
@@ -2216,7 +2240,9 @@ class TrainingHistoryAdmin(admin.ModelAdmin):
 class ToolCredentialsAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["authorized_staff"].queryset = User.objects.filter(is_staff=True, is_active=True)
+        self.fields["authorized_staff"].queryset = User.objects.filter(is_active=True).filter(
+            Q(is_staff=True) | Q(staff_for_tools__isnull=False)
+        )
 
 
 @register(ToolCredentials)

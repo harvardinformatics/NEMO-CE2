@@ -20,7 +20,7 @@
 					await wait_for_element("#project__{{ forloop.counter }} select");
 					$("#project__{{ forloop.counter }} select").val("{{ project.id }}");
                     {% endif %}
-                    {% if "training"|customization:"training_allow_date" == "enabled" %}
+                    {% if customizations|get_item:"training_allow_date" == "enabled" %}
                         {% localtime off %}
 						$("#date__" + {{ forloop.counter }}).val("{{ training_event.start|localtime|input_date_format }}");
                         {% endlocaltime %}

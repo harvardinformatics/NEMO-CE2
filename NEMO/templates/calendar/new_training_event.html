@@ -41,7 +41,7 @@
                             name="technique"
                             id="technique"
                             onchange="$('#message').val($(this).find('option:selected').data('description'));auto_size_textarea($('#message')[0], 2)">
-                        <option value="">{{ "training"|customization:"training_technique_empty_label" }}</option>
+                        <option value="">{{ customizations|get_item:"training_technique_empty_label" }}</option>
                         {% for technique in training_details.techniques.all %}
                             <option label="{{ technique.name }}"
                                     data-description="{{ technique.description|default_if_none:''|escape }}"

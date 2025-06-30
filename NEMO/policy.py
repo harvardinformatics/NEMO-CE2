@@ -79,7 +79,7 @@ class NEMOPolicy:
 
         # The tool must be operational.
         # If the tool is non-operational then it may only be accessed by staff members or service personnel.
-        if not tool.operational and not operator.is_staff and not operator.is_service_personnel:
+        if not tool.operational and not operator.is_staff_on_tool(tool) and not operator.is_service_personnel:
             return HttpResponseBadRequest("This tool is currently non-operational.")
 
         # The tool must not be in use.
@@ -87,9 +87,9 @@ class NEMOPolicy:
         if current_usage_event and not allow_take_over:
             return HttpResponseBadRequest("The tool is currently being used by " + str(current_usage_event.user) + ".")
 
-        # The user must be qualified to use the tool itself, or the parent tool in case of alternate tool.
+        # The user must be qualified to use the tool itself, or the parent tool in case of an alternate tool.
         tool_to_check_qualifications = tool.parent_tool if tool.is_child_tool() else tool
-        if not operator.is_staff:
+        if not operator.is_staff_on_tool(tool):
             qualification = Qualification.objects.filter(user=operator, tool=tool_to_check_qualifications).first()
             if not qualification:
                 return HttpResponseBadRequest("You are not qualified to use this tool.")
@@ -101,12 +101,12 @@ class NEMOPolicy:
                 )
 
         # Only staff members can operate a tool on behalf of another user.
-        if (user and operator.pk != user.pk) and not operator.is_staff:
+        if (user and operator.pk != user.pk) and not operator.is_staff_on_tool(tool):
             return HttpResponseBadRequest("You must be a staff member to use a tool on another user's behalf.")
 
         # All required resources must be available to operate a tool except for staff or service personnel.
         unavailable_rss = tool.required_resource_set.filter(available=False).exists()
-        if unavailable_rss and not operator.is_staff and not operator.is_service_personnel:
+        if unavailable_rss and not operator.is_staff_on_tool(tool) and not operator.is_service_personnel:
             return HttpResponseBadRequest("A resource that is required to operate this tool is unavailable.")
 
         # The tool operator may not activate tools in a particular area unless they are logged in to the area.
@@ -115,7 +115,7 @@ class NEMOPolicy:
         operator_logged_in = AreaAccessRecord.objects.filter(
             area=area_for_tool, customer=operator, staff_charge=None, end=None
         ).exists()
-        if area_for_tool and not operator_logged_in and not operator.is_staff:
+        if area_for_tool and not operator_logged_in and not operator.is_staff_on_tool(tool):
             abuse_email_address = EmailsCustomization.get("abuse_email_address")
             message = get_media_file_contents("unauthorized_tool_access_email.html")
             if abuse_email_address and message:
@@ -135,7 +135,11 @@ class NEMOPolicy:
         # The tool operator may not activate tools in a particular area,
         # unless they are still within that area reservation window.
         # Staff and service personnel are exempt from this rule.
-        if not operator.is_staff and not operator.is_service_personnel and tool.requires_area_reservation():
+        if (
+            not operator.is_staff_on_tool(tool)
+            and not operator.is_service_personnel
+            and tool.requires_area_reservation()
+        ):
             if not tool.requires_area_access.get_current_reservation_for_user(operator):
                 abuse_email_address = EmailsCustomization.get("abuse_email_address")
                 message = get_media_file_contents("unauthorized_tool_access_email.html")
@@ -163,7 +167,7 @@ class NEMOPolicy:
         # reservation_required is True and
         # the user doesn't have a reservation
         # or doesn't have a training event
-        if tool.reservation_required and not operator.is_staff and not operator.is_service_personnel:
+        if tool.reservation_required and not operator.is_staff_on_tool(tool) and not operator.is_service_personnel:
             tolerance = timedelta(minutes=15)
             reservation_for_user: QuerySetType[Reservation] = Reservation.objects.filter(
                 start__lt=timezone.now() + tolerance,
@@ -230,20 +234,28 @@ class NEMOPolicy:
 
         # Users may only use a tool when delayed logoff is not in effect.
         # Staff and service personnel are exempt from this rule.
-        if tool.delayed_logoff_in_progress() and not operator.is_staff and not operator.is_service_personnel:
+        if (
+            tool.delayed_logoff_in_progress()
+            and not operator.is_staff_on_tool(tool)
+            and not operator.is_service_personnel
+        ):
             return HttpResponseBadRequest(
                 "Delayed tool logoff is in effect. You must wait for the delayed logoff to expire before you can use the tool."
             )
 
         # Users may not enable a tool during a scheduled outage. Staff and service personnel are exempt from this rule.
-        if tool.scheduled_outage_in_progress() and not operator.is_staff and not operator.is_service_personnel:
+        if (
+            tool.scheduled_outage_in_progress()
+            and not operator.is_staff_on_tool(tool)
+            and not operator.is_service_personnel
+        ):
             return HttpResponseBadRequest(
                 "A scheduled outage is in effect. You must wait for the outage to end before you can use the tool."
             )
 
         return HttpResponse()
 
-    def check_to_disable_tool(self, tool, operator, downtime) -> HttpResponse:
+    def check_to_disable_tool(self, tool: Tool, operator: User, downtime) -> HttpResponse:
         """Check that the user is allowed to disable the tool."""
         current_usage_event = tool.get_current_usage_event()
         has_post_usage_questions = bool(tool.post_usage_questions)
@@ -263,7 +275,7 @@ class NEMOPolicy:
         if (
             current_usage_event.operator != operator
             and current_usage_event.user != operator
-            and not (operator.is_staff or operator.is_user_office)
+            and not (operator.is_staff_on_tool(tool) or operator.is_user_office)
             and not (ongoing_reservation and not has_post_usage_questions)
             and not allow_take_over
         ):
@@ -366,8 +378,8 @@ class NEMOPolicy:
         except ProjectChargeException as e:
             policy_problems.append(e.msg)
 
-        # If the user is a staff member or there's an explicit policy override then the policy check is finished.
-        if user.is_staff or explicit_policy_override:
+        # If the reservation user is a staff member or there's an explicit policy override, then the policy check is finished.
+        if user.is_staff_on_tool(new_reservation.tool) or explicit_policy_override:
             return policy_problems, overridable
 
         # If there are no blocking policy conflicts at this point, the rest of the policies can be overridden.
@@ -1010,12 +1022,16 @@ class NEMOPolicy:
 
         # Users may only cancel reservations that they own.
         # Staff may break this rule.
-        if (reservation_to_cancel.user != user_cancelling_reservation) and not user_cancelling_reservation.is_staff:
+        if (
+            reservation_to_cancel.user != user_cancelling_reservation
+        ) and not user_cancelling_reservation.is_staff_on_tool(reservation_to_cancel.tool):
             return HttpResponseBadRequest(f"You may not {action} reservations that you do not own.")
 
         # Users may not cancel reservations that have already ended.
         # Staff may break this rule.
-        if reservation_to_cancel.end < timezone.now() and not user_cancelling_reservation.is_staff:
+        if reservation_to_cancel.end < timezone.now() and not user_cancelling_reservation.is_staff_on_tool(
+            reservation_to_cancel.tool
+        ):
             return HttpResponseBadRequest(f"You may not {action} reservations that have already ended.")
 
         # Users may not cancel ongoing area reservations when they are currently logged
