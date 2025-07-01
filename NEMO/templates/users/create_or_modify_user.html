@@ -541,7 +541,7 @@
 			if(dataset_name === 'projects')
 				add_project(search_selection.name, search_selection.id);
 			else if(dataset_name === 'tools')
-				add_tool_qualification(search_selection.name, search_selection.id, true);
+				add_tool_qualification(search_selection.name, ''+search_selection.id, true);
 		}
 		function add_project(project_name, project_id)
 		{
