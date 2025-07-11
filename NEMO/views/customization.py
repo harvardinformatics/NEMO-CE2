@@ -227,8 +227,10 @@ class ApplicationCustomization(CustomizationBase):
         "out_of_time_tool_send_to_abuse_email": "enabled",
         "out_of_time_area_send_to_abuse_email": "enabled",
         "kiosk_message": "<h1>Scan your badge to control tools</h1>",
+        "kiosk_numpad_size": "large",
         "area_access_kiosk_option_login_success": "",
         "area_access_kiosk_option_logout_warning": "",
+        "area_access_kiosk_option_already_logged_out": "",
     }
 
     def context(self) -> Dict:

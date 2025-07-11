@@ -126,6 +126,7 @@ router.register(r"training_techniques", api.TrainingTechniqueViewSet)
 router.register(r"usage_events", api.UsageEventViewSet)
 router.register(r"users", api.UserViewSet)
 router.register(r"user_documents", api.UserDocumentsViewSet)
+router.register(r"user_preferences", api.UserPreferencesViewSet)
 router.register(r"metadata", api.MetadataViewSet, basename="metadata")
 router.registry.sort(key=sort_urls)
 

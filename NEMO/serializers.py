@@ -65,6 +65,7 @@ from NEMO.models import (
     UsageEvent,
     User,
     UserDocuments,
+    UserPreferences,
 )
 
 
@@ -196,6 +197,17 @@ class UserDocumentSerializer(FlexFieldsSerializerMixin, ModelSerializer):
 
     class Meta:
         model = UserDocuments
+        fields = "__all__"
+        expandable_fields = {
+            "user": "NEMO.serializers.UserSerializer",
+        }
+
+
+class UserPreferenceSerializer(FlexFieldsSerializerMixin, ModelSerializer):
+    user = PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
+
+    class Meta:
+        model = UserPreferences
         fields = "__all__"
         expandable_fields = {
             "user": "NEMO.serializers.UserSerializer",

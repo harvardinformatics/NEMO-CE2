@@ -903,7 +903,9 @@ def format_usage_data(
                                     if not csv_export and question_for_input and "suffix" in question_for_input
                                     else ""
                                 )
-                                usage_data[name] = user_input + suffix if user_input else ""
+                                usage_data[name] = (
+                                    table_result.formatted_value(user_input) + suffix if user_input else ""
+                                )
                         else:
                             # For the other groups of user inputs, we have to add a whole new row
                             group_usage_data = {}
@@ -914,7 +916,9 @@ def format_usage_data(
                                     if not csv_export and question_for_input and "suffix" in question_for_input
                                     else ""
                                 )
-                                group_usage_data[name] = user_input + suffix if user_input else ""
+                                group_usage_data[name] = (
+                                    table_result.formatted_value(user_input) + suffix if user_input else ""
+                                )
                             if group_usage_data:
                                 group_usage_data["user"] = user_data
                                 group_usage_data["operator"] = operator_data
@@ -925,7 +929,9 @@ def format_usage_data(
                 else:
                     table_result.add_header((question_key, question["title"]))
                     suffix = f" {question.get('suffix')}" if not csv_export and "suffix" in question else ""
-                    usage_data[question_key] = question["user_input"] + suffix if question["user_input"] else ""
+                    usage_data[question_key] = (
+                        table_result.formatted_value(question["user_input"]) + suffix if question["user_input"] else ""
+                    )
         if usage_data:
             usage_data["user"] = user_data
             usage_data["operator"] = operator_data
