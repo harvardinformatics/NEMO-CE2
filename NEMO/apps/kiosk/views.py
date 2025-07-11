@@ -30,7 +30,7 @@ from NEMO.models import (
     User,
 )
 from NEMO.policy import accessory_conflicts_for_reservation, policy_class as policy
-from NEMO.utilities import localize, quiet_int, remove_duplicates
+from NEMO.utilities import EmptyHttpRequest, localize, quiet_int, remove_duplicates
 from NEMO.views.area_access import log_out_user
 from NEMO.views.calendar import (
     cancel_the_reservation,
@@ -181,8 +181,7 @@ def do_disable_tool(tool, customer, downtime, staff_shortening, bypass_interlock
 
     if take_over:
         try:
-            empty_post_request = Namespace(**{"POST": {}})
-            current_usage_event.run_data = dynamic_form.extract(empty_post_request)
+            current_usage_event.run_data = dynamic_form.extract(EmptyHttpRequest())
         except RequiredUnansweredQuestionsException as e:
             current_usage_event.run_data = e.run_data
             email_managers_required_questions_disable_tool(current_usage_event.operator, tool, e.questions)

@@ -47,6 +47,7 @@ from NEMO.policy import policy_class as policy
 from NEMO.utilities import (
     BasicDisplayTable,
     EmailCategory,
+    EmptyHttpRequest,
     export_format_datetime,
     extract_optional_beginning_and_end_times,
     format_datetime,
@@ -590,8 +591,7 @@ def do_disable(tool, downtime, staff_shortening, bypass_interlock, take_over, re
 
     if take_over:
         try:
-            empty_post_request = Namespace(**{"POST": {}})
-            current_usage_event.run_data = dynamic_form.extract(empty_post_request)
+            current_usage_event.run_data = dynamic_form.extract(EmptyHttpRequest())
         except RequiredUnansweredQuestionsException as e:
             current_usage_event.run_data = e.run_data
             email_managers_required_questions_disable_tool(current_usage_event.operator, tool, e.questions)
