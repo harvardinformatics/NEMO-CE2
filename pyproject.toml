@@ -1,6 +1,6 @@
 [project]
 name = "NEMO-CE"
-version = "7.2.6"
+version = "7.2.7"
 description = "NEMO Community Edition is a laboratory logistics web application based of NEMO. Use it to schedule reservations, control tool access, track maintenance issues, and more."
 keywords = ["NEMO", "NEMO-CE"]
 readme = "README.md"

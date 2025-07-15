@@ -739,6 +739,12 @@ function request_training()
 	if (item && item !== "personal_schedule" && item !== "all_tools" && item !== "all_areas" && item !== "all_areastools")
 	{
 		item = JSON.parse(item);
+        let excludedTools = "{{ customizations|get_item:'training_excluded_tools' }}".split(",");
+        if (excludedTools.includes(item.id.toString()))
+        {
+            alert("Training is not available for this tool");
+            return;
+		}
 		let event_changes =
 		{
             "tool": item.id,
