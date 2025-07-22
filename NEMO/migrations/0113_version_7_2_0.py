@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(
-            # migrations_utils.news_for_version_forward("7.2.0"), migrations_utils.news_for_version_reverse("7.2.0")
-        ),
+#        migrations.RunPython(
+#             migrations_utils.news_for_version_forward("7.2.0"), migrations_utils.news_for_version_reverse("7.2.0")
+#        ),
     ]
